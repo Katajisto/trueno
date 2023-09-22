@@ -1,9 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use serde::{Deserialize, Serialize};
+mod fs;
+mod req;
 mod structs;
 mod tree;
+use fs::save_workspace_to_config;
+use req::*;
 use structs::*;
 use tree::*;
 
@@ -21,6 +24,11 @@ fn get_state() -> &'static mut AppState {
     unsafe {
         return &mut STATE;
     }
+}
+
+fn save_workspace() {
+    let ws = &get_state().workspaces[get_state().cur_workspace];
+    save_workspace_to_config(&ws.name, ws).unwrap();
 }
 
 fn main() {
@@ -41,6 +49,8 @@ fn main() {
 
     get_state().workspaces.push(initial_work);
 
+    save_workspace();
+
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             create_request,
@@ -48,6 +58,7 @@ fn main() {
             create_folder,
             get_current_focus_item,
             save_request,
+            send_request,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

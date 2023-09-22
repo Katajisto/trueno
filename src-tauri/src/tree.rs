@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::structs::{Folder, Request};
 
-use crate::get_state;
+use crate::{get_state, save_workspace};
 
 #[derive(Serialize, Deserialize)]
 pub struct ReqTreeNode {
@@ -154,9 +154,12 @@ pub fn save_request(req: Request) -> ReqTreeNode {
             r.headers = req.headers;
             r.payload = req.payload;
             r.route = req.route;
+            r.method = req.method;
         }
         _ => (),
     }
+
+    save_workspace();
 
     return get_ui_req_tree().into();
 }

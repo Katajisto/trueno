@@ -1,4 +1,3 @@
-
 <script context="module">
 	const _expansionState = {
 		/* treeNodeId: expanded <boolean> */
@@ -6,7 +5,6 @@
 </script>
 <script>
 	import {selectedNode} from './stores/mainStore'
-//	import { slide } from 'svelte/transition'
 	export let tree
 
 	// @ts-ignore

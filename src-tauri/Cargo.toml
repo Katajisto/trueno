@@ -1,8 +1,8 @@
 [package]
-name = "tabellarius"
-version = "0.0.0"
-description = "A Tauri App"
-authors = ["you"]
+name = "Trueno"
+version = "0.0.1"
+description = "An API poking tool that is good to use"
+authors = ["Tuomas Katajisto <t@ktj.st>"]
 license = ""
 repository = ""
 edition = "2021"
@@ -16,6 +16,8 @@ tauri-build = { version = "1.4", features = [] }
 tauri = { version = "1.4", features = ["shell-open"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+reqwest = "0.11.20"
+dirs = "5.0.1"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

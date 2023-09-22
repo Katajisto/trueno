@@ -7,16 +7,38 @@
 
   let missingSave = false;
   let tab: "request" | "headers" | "scripts" = "request"
+  let jsonTree = null;
+  let hasMounted = false;
+  let sending = false;
+  let response: any = {};
+
+  const renderTree = () => {
+    if(!hasMounted) return;
+    if(jsonTree != null) jsonview.destroy(jsonTree)
+    jsonTree = jsonview.create(response)
+    jsonview.render(jsonTree, document.querySelector("#jsonview"))
+  }
+  
   onMount(() => {
-    const tree = jsonview.create(request)
-    // jsonview.expand(tree);
-    jsonview.render(tree, document.querySelector("#jsonview"))
+    hasMounted = true;
+    renderTree()
   })
 
+  $: response && renderTree()
+
+  
   const save = () => {
     missingSave = false;
     invoke("save_request", {req: request}).then(newTree => tree.set(newTree))
   }
+
+  const sendReq = async () => {
+    sending = true;
+    let res = await invoke("send_request", {req: request});
+    response = res;
+    sending = false;
+  }
+  
 </script>
 {#if missingSave}
 <div class="w-full bg-yellow-400 px-5 text-center text-2xl text-white p-2 flex justify-between">
@@ -25,13 +47,17 @@
 </div>
 {/if}
 <div class="p-3 flex flex-col">  
-  <label class="text-2xl" for="name">Name: </label>
+  <label class="text-2xl" for="url">Name: </label>
+  <input name="url" class="text-3xl bg-gray-200 rounded-lg shadow p-2 my-2" on:input={() => missingSave = true} bind:value={request.name} /> 
+  <label class="text-2xl" for="name">URL: </label>
   <div class="flex w-full">
-    <input name="name" class="w-11/12 text-3xl bg-gray-200 rounded shadow p-2 my-2" on:change={() => missingSave = true} bind:value={request.name} />
-    <button class="bg-yellow-500 px-2 my-2 text-white font-bold text-xl rounded ml-4 w-1/12">Send it⚡</button>
+    <select on:change={() => missingSave = true} class="w-1/12 my-2 mx-2 text-3xl bg-gray-200 rounded shadow" bind:value={request.method}>
+      <option class="bg-gray-200" value="GET">GET</option>
+      <option class="bg-gray-200" value="POST">POST</option>
+    </select>
+    <input name="name" class="w-10/12 text-3xl bg-gray-200 rounded shadow p-2 my-2" on:input={() => missingSave = true} bind:value={request.route} />
+    <button on:click={sendReq} class="bg-yellow-500 px-2 my-2 text-white font-bold text-xl rounded ml-4 w-1/12">{sending ? "Sending it.." : `Send it⚡`}</button>
   </div>
-  <label class="text-2xl" for="url">URL: </label>
-  <input name="url" class="text-3xl bg-gray-200 rounded-lg shadow p-2 my-2" on:change={() => missingSave = true} bind:value={request.route} /> 
   <div class="rounded mt-3 bg-gray-200 w-full">
     <div class="rounded bg-gray-300 flex">
       <button class:selected={tab == "request"} on:click={() => tab = "request"} class="text-center p-2 text-2xl text-black font-bold bg-gray-300 rounded-t-lg flex-grow">Request view</button>

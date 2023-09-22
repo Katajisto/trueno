@@ -2,12 +2,14 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub enum EnvironmentType {
     Global,
     Named(String),
     RequestScoped,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Environment {
     env_type: EnvironmentType,
     key_value: HashMap<String, String>,
@@ -88,6 +90,7 @@ impl Folder {
 
 /// Workspace root. All data must be saved under one of these, since saving data
 /// is going to work by serializing these to JSON.
+#[derive(Serialize, Deserialize)]
 pub struct Workspace {
     /// We get new ids for children from this. Do not modify. Use get_new_id().
     pub id_counter: i64,
