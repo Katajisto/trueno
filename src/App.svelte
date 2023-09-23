@@ -7,8 +7,8 @@
 
 <div class="navbar bg-gray-200 shadow text-gray-700 font-bold flex py-2 px-2 items-center justify-between">
   <button class="hidden text-black bg-white rounded mr-5 p-2">Menu</button>
-  <h1 class="text-3xl">⚡ TRUENO</h1>
-  <h1 class="text-3xl mx-5 text-gray-400">V{version}</h1>
+  <h1 class="text-5xl">⚡ TRUENO</h1>
+  <h1 class="text-5xl mx-5 text-gray-400">V{version}</h1>
 </div>
 <main class="flex items-stretch">
   <Sidebar />

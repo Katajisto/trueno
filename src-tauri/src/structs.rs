@@ -16,6 +16,16 @@ pub struct Environment {
 }
 
 impl Environment {
+    pub fn get(&self, key: &String) -> String {
+        let val = self.key_value.get(key);
+        match val {
+            Some(value) => value.clone(),
+            None => String::new(),
+        }
+    }
+}
+
+impl Environment {
     pub fn new() -> Environment {
         Environment {
             env_type: EnvironmentType::Global,

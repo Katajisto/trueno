@@ -2,7 +2,11 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::structs::Request;
+use crate::{
+    environments::get_resolved_environment,
+    get_state,
+    structs::{Environment, Request},
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct ReqResponse {
@@ -11,9 +15,43 @@ pub struct ReqResponse {
     pub body: String,
 }
 
+fn parse_and_fill_template(template: &String, resolved_env: &Environment) -> String {
+    let mut output = String::new();
+    let mut temp = String::new();
+    let mut inside_brackets = false;
+    let mut escape_used = false;
+
+    for c in template.chars() {
+        if !inside_brackets {
+            if !escape_used && c == '{' {
+                inside_brackets = true;
+                continue;
+            }
+            if c == '!' {
+                escape_used = true;
+            } else {
+                escape_used = false;
+            }
+            output.push(c);
+        } else {
+            if c == '}' {
+                inside_brackets = false;
+                // Okay we haz our env key now. Rezolv it!
+                output.push_str(&resolved_env.get(&temp));
+                temp = String::new();
+            } else {
+                temp.push(c);
+            }
+        }
+    }
+    return output;
+}
+
 #[tauri::command]
 pub async fn send_request(req: Request) -> ReqResponse {
-    let resp = reqwest::get(req.route).await.unwrap();
+    let env = get_resolved_environment();
+    let route = parse_and_fill_template(&req.route, &env);
+    let resp = reqwest::get(route).await.unwrap();
 
     let mut header_map: HashMap<String, String> = HashMap::new();
 

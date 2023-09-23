@@ -45,3 +45,24 @@ pub async fn save_environment(env: Environment) {
     let ws = &mut get_state().workspaces[get_state().cur_workspace];
     ws.environments[get_state().cur_environment] = env;
 }
+
+/// Combines the global env with the currently selected
+/// named environment and returns a pre-resolved environment
+/// for you.
+pub fn get_resolved_environment() -> Environment {
+    let mut env = get_state().workspaces[get_state().cur_workspace]
+        .global_environ
+        .clone();
+    let named_env = &get_state().workspaces[get_state().cur_workspace]
+        .environments
+        .get(get_state().cur_environment);
+    match named_env {
+        Some(named_env) => {
+            for (k, v) in named_env.key_value.iter() {
+                env.key_value.insert(k.to_string(), v.to_string());
+            }
+        }
+        None => (),
+    };
+    return env;
+}

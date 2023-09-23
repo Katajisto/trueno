@@ -19,7 +19,7 @@
   </div>
   {/if}
   <div class="p-3 flex h-full flex-col justify-stretch">  
-    <label class="text-2xl" for="url">Workspace name: </label>
+    <label class="text-2xl" for="url">Environment name: </label>
     <input name="url" class="text-3xl bg-gray-200 rounded-lg shadow p-2 my-2" on:input={() => missingSave = true} bind:value={environment.env_type["Named"]} /> 
     <EnvironmentView bind:missingSave={missingSave} bind:environment={environment.key_value} /> 
   </div>
