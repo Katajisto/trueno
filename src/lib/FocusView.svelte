@@ -4,6 +4,7 @@
   import { selectedNode } from "./stores/mainStore"
     import Workspace from "./Workspace.svelte";
     import Environment from "./Environment.svelte";
+    import Folder from "./Folder.svelte";
 
   type focusType = "none" | "folder" | "request" | "workspace" | "environment";
 
@@ -37,5 +38,8 @@
   {/if}
   {#if focusItemType === "environment"}
     <Environment environment={focusItem["Environment"]} />
+  {/if}
+  {#if focusItemType === "folder"}
+    <Folder folder={focusItem["Folder"]} />
   {/if}
 </div>

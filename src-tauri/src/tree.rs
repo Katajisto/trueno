@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::structs::{Environment, Folder, Request, Workspace};
+use crate::js::insert_in_js_harness;
+use crate::structs::{Environment, Folder, Request};
 
 use crate::get_state;
 use crate::workspaces::{save_workspaces, WorkspaceDTO};
@@ -134,7 +135,13 @@ pub fn get_current_focus_item(cur_id: i64) -> FocusItem {
     }
 
     match node.unwrap() {
-        NodeMut::Folder(f) => FocusItem::Folder(f.clone()).into(),
+        NodeMut::Folder(f) => {
+            let mut folder = f.clone();
+            // we don't want to send this stuff to the frontend
+            folder.requests = vec![];
+            folder.sub_folders = vec![];
+            FocusItem::Folder(folder).into()
+        }
         NodeMut::Request(r) => FocusItem::Request(r.clone()).into(),
     }
 }
@@ -190,6 +197,31 @@ pub fn save_request(req: Request) -> ReqTreeNode {
 }
 
 #[tauri::command]
+pub fn save_folder(folder: Folder) -> ReqTreeNode {
+    let node = find_node_by_id_mut(
+        &mut get_state().workspaces[get_state().cur_workspace].root_folder,
+        folder.id,
+    );
+
+    if node.is_none() {
+        return get_ui_req_tree().into();
+    }
+
+    match node.unwrap() {
+        NodeMut::Folder(f) => {
+            f.name = folder.name;
+            f.pre_request_script = folder.pre_request_script;
+            f.post_request_script = folder.post_request_script;
+        }
+        _ => (),
+    }
+
+    save_workspaces();
+
+    return get_ui_req_tree().into();
+}
+
+#[tauri::command]
 pub fn create_folder(name: &str, cur_id: i64) -> ReqTreeNode {
     let node = find_containing_folder_by_id_mut(
         &mut get_state().workspaces[get_state().cur_workspace].root_folder,
@@ -210,4 +242,39 @@ pub fn create_folder(name: &str, cur_id: i64) -> ReqTreeNode {
     }
 
     get_ui_req_tree().into()
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ScriptExecOrder {
+    pub pre: Vec<String>,
+    pub post: Vec<String>,
+}
+
+fn recursively_get_scripts(folder: &Folder, req_id: i64) -> Option<ScriptExecOrder> {
+    // Check if folder has the req we are looking for.
+    for req in folder.requests.iter() {
+        if req.id == req_id {
+            // This is the correct folder! Return this folders scripts
+            return Some(ScriptExecOrder {
+                pre: vec![insert_in_js_harness(folder.pre_request_script.clone())],
+                post: vec![insert_in_js_harness(folder.post_request_script.clone())],
+            });
+        }
+    }
+
+    // Okay, so this was not the folder with the request...
+    // try the subfolders:
+    for folder in folder.sub_folders.iter() {
+        let res = recursively_get_scripts(folder, req_id);
+        if res.is_some() {
+            return res;
+        }
+    }
+
+    return None;
+}
+
+pub fn build_script_exec_list(req_id: i64) -> Option<ScriptExecOrder> {
+    let tree = &get_state().workspaces[get_state().cur_workspace].root_folder;
+    return recursively_get_scripts(tree, req_id);
 }

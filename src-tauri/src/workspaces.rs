@@ -19,12 +19,13 @@ pub fn init_workspaces() {
         let initial_work: Workspace = Workspace {
             id_counter: 1,
             name: "Initial".to_owned(),
+            helpers: String::new(),
             global_environ: Environment::new(),
             root_folder: structs::Folder {
                 id: 1,
                 name: "Root".to_owned(),
-                pre_request_script: None,
-                post_request_script: None,
+                pre_request_script: String::new(),
+                post_request_script: String::new(),
                 requests: vec![],
                 sub_folders: vec![],
                 disable_parent_scripts: false,
@@ -72,6 +73,7 @@ pub fn save_workspace(workspace_dto: WorkspaceDTO) {
     let ws_ref = &mut get_state().workspaces[get_state().cur_workspace];
     ws_ref.name = workspace_dto.name;
     ws_ref.global_environ = workspace_dto.global_environ;
+    ws_ref.helpers = workspace_dto.helpers;
     save_workspaces();
 }
 
@@ -80,6 +82,7 @@ pub fn new_workspace() {
     let new_ws = Workspace {
         id_counter: 1,
         name: String::from("New workspace"),
+        helpers: String::new(),
         environments: vec![],
         global_environ: Environment::new(),
         root_folder: Folder::new(1, "Root".to_string()),
@@ -93,6 +96,7 @@ pub fn new_workspace() {
 #[derive(Serialize, Deserialize)]
 pub struct WorkspaceDTO {
     name: String,
+    helpers: String,
     global_environ: Environment,
 }
 
@@ -101,6 +105,7 @@ impl WorkspaceDTO {
         WorkspaceDTO {
             name: ws.name.clone(),
             global_environ: ws.global_environ.clone(),
+            helpers: ws.helpers.clone(),
         }
     }
 }

@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use tauri::{window, Wry};
 
 use crate::{
     environments::get_resolved_environment,
-    get_state,
     structs::{Environment, Request},
+    tree::{build_script_exec_list, ScriptExecOrder},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -14,6 +15,18 @@ pub struct ReqResponse {
     pub status: i32,
     pub body: String,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct Datadump {
+    pub resolvedEnv: Environment,
+    pub globalEnv: Environment,
+    pub currentEnv: Environment,
+    pub requestEnv: Environment,
+    pub request: Request,
+    pub response: Option<ReqResponse>,
+}
+
+pub fn get_js_datadump(req: i64) -> Datadump {}
 
 fn parse_and_fill_template(template: &String, resolved_env: &Environment) -> String {
     let mut output = String::new();
@@ -45,6 +58,14 @@ fn parse_and_fill_template(template: &String, resolved_env: &Environment) -> Str
         }
     }
     return output;
+}
+
+#[tauri::command]
+pub fn get_pre_and_post_scripts(req: i64) -> ScriptExecOrder {
+    build_script_exec_list(req).unwrap_or(ScriptExecOrder {
+        pre: vec![],
+        post: vec![],
+    })
 }
 
 #[tauri::command]

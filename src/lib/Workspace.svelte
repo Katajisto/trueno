@@ -25,6 +25,13 @@
   <div class="p-3 flex h-full flex-col justify-stretch">  
     <label class="text-2xl" for="url">Workspace name: </label>
     <input name="url" class="text-3xl bg-gray-200 rounded-lg shadow p-2 my-2" on:input={() => missingSave = true} bind:value={workspace.name} /> 
-    <EnvironmentView bind:missingSave={missingSave} bind:environment={workspace.global_environ.key_value} />
+    <div class="h-1/2 bg-gray-200 rounded m-2 p-5 overflow-scroll">
+      <label class="text-2xl" for="url">Environment: </label>
+      <EnvironmentView bind:missingSave={missingSave} bind:environment={workspace.global_environ.key_value} />
+    </div>
+    <div class="h-1/2 bg-gray-200 rounded m-2 flex-col flex p-5 overflow-scroll">
+      <label class="text-2xl" for="url">Helper functions (this will be appended to every script in this workspace): </label>
+      <textarea on:input={() => missingSave = true} bind:value={workspace.helpers} class="h-full mt-2 p-4 font-mono" /> 
+    </div>
   </div>
 </div>

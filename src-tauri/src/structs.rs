@@ -86,8 +86,8 @@ pub struct Script {
 pub struct Folder {
     pub id: i64,
     pub name: String,
-    pub pre_request_script: Option<Script>,
-    pub post_request_script: Option<Script>,
+    pub pre_request_script: String,
+    pub post_request_script: String,
     pub requests: Vec<Request>,
     pub sub_folders: Vec<Folder>,
     pub disable_parent_scripts: bool,
@@ -98,8 +98,8 @@ impl Folder {
         Folder {
             id,
             name,
-            pre_request_script: None,
-            post_request_script: None,
+            pre_request_script: String::new(),
+            post_request_script: String::new(),
             requests: vec![],
             sub_folders: vec![],
             disable_parent_scripts: false,
@@ -115,6 +115,7 @@ pub struct Workspace {
     pub id_counter: i64,
     /// Name of workspace, lol
     pub name: String,
+    pub helpers: String,
     /// All environments that this workspace has.
     pub environments: Vec<Environment>,
     pub global_environ: Environment,

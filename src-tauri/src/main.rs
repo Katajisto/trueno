@@ -3,6 +3,8 @@
 
 mod environments;
 mod fs;
+#[rustfmt::skip]
+mod js;
 mod req;
 mod structs;
 mod tree;
@@ -61,7 +63,9 @@ fn main() {
             add_environment,
             get_environment_list,
             set_cur_environment,
-            save_environment
+            save_environment,
+            save_folder,
+            get_pre_and_post_scripts
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

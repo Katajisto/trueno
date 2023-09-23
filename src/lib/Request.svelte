@@ -34,6 +34,17 @@
 
   const sendReq = async () => {
     sending = true;
+    // get the pre and post scripts.
+    let scripts: {pre: string[], post: string[]} = await invoke("get_pre_and_post_scripts", {req: request.id});
+    let data = {hello: "asd"}
+    console.log("Pre-pre-scripts: ", data)
+    for (let script of scripts.pre) {
+      console.log(script)
+      let fn = eval(script);
+      fn(data)
+    }
+    console.log("Post pre-scripts: ", data)
+    
     let res = await invoke("send_request", {req: request});
     response = res;
     sending = false;
