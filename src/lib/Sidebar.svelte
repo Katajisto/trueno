@@ -2,26 +2,48 @@
   import { invoke } from "@tauri-apps/api/tauri";
   import SidebarButton from "./SidebarButton.svelte";
   import TreeView from "./TreeView.svelte";
-  import { selectedNode, tree } from "./stores/mainStore";
-  import App from "../App.svelte";
+  import { curWorkspace, selectedNode, tree, workspaces, curEnvironment, refreshWorkspaces, refreshEnvironments, environments } from "./stores/mainStore";
+  import { onMount } from "svelte";
 
-  invoke("get_ui_req_tree").then(data => tree.set(data));
+  onMount(async () => {
+    refreshWorkspaces()
+    refreshEnvironments()
+  })
 
+  const createWorkspace = async () => {
+    await invoke("new_workspace");
+    refreshWorkspaces();
+    refreshEnvironments();
+  }
+
+  const createEnvironment = async () => {
+    await invoke("add_environment");
+    refreshEnvironments();
+  }
+  
 </script>
 
-<div class="w-auto sidebar text-lg bg-gray-300 shadow flex flex-col justify-between">
+<div class="w-auto sidebar text-sm bg-gray-300 shadow flex flex-col justify-between">
   <div>
-    <div class="flex p-2 justify-left">
+    <div class="flex p-2 justify-left items-center">
       <h3 class="mr-2">Workspace:</h3>
-      <select>
-        <option>Initial workspace</option>
+      <select class="w-28" bind:value={$curWorkspace}>
+        {#each $workspaces as ws}
+          <option value={ws[0]}>{ws[1]}</option>
+        {/each}
       </select>
+      <button on:click={createWorkspace} class=" bg-gray-100 rounded shadow m-1 w-7 h-7 text-center">+</button>
+      <button on:click={() => selectedNode.set(-1)} class=" bg-gray-100 rounded shadow m-1 w-7 h-7 text-center">⚙️</button>
     </div>
-    <div class="flex p-2 justify-left">
+    <div class="flex p-2 justify-left items-center">
       <h3 class="mr-2">Environment:</h3>
-      <select>
-        <option>Initial environment</option>
+      <select class="w-28" bind:value={$curEnvironment}>
+        {#each $environments as environ}
+          <option value={environ[0]}>{environ[1]}</option>
+        {/each}
       </select>
+      <button on:click={createEnvironment} class=" bg-gray-100 rounded shadow m-1 w-7 h-7 text-center">+</button>
+      <button on:click={() => selectedNode.set(-2)} class=" bg-gray-100 rounded m-1 shadow w-7 h-7 text-center">⚙️</button>
     </div>
     <div class="tree bg-gray-200 text-black">
       <TreeView tree={$tree}></TreeView>

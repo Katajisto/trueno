@@ -1,55 +1,50 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod environments;
 mod fs;
 mod req;
 mod structs;
 mod tree;
-use fs::save_workspace_to_config;
+mod workspaces;
+
 use req::*;
 use structs::*;
 use tree::*;
+use workspaces::init_workspaces;
 
+use crate::{
+    environments::{add_environment, get_environment_list, save_environment, set_cur_environment},
+    workspaces::{get_workspace_list, new_workspace, save_workspace, set_cur_workspace},
+};
+
+/// Global app state struct.
 struct AppState {
     workspaces: Vec<Workspace>,
     cur_workspace: usize,
+    cur_environment: usize,
 }
 
+// Yes, this is a global variable.
+// Yes, this is a risk in async and multithreaded code.
+// Yes, you can modify this and cause unintended side effects.
+// No, I don't care.
 static mut STATE: AppState = AppState {
     workspaces: vec![],
     cur_workspace: 0,
+    cur_environment: 0,
 };
 
+/// Gets a static mutable pointer to the App state.
+/// Be careful when modifying stuff in async functions.
 fn get_state() -> &'static mut AppState {
     unsafe {
         return &mut STATE;
     }
 }
 
-fn save_workspace() {
-    let ws = &get_state().workspaces[get_state().cur_workspace];
-    save_workspace_to_config(&ws.name, ws).unwrap();
-}
-
 fn main() {
-    let initial_work: Workspace = Workspace {
-        id_counter: 1,
-        name: "Initial".to_owned(),
-        root_folder: structs::Folder {
-            id: 1,
-            name: "Root".to_owned(),
-            pre_request_script: None,
-            post_request_script: None,
-            requests: vec![],
-            sub_folders: vec![],
-            disable_parent_scripts: false,
-        },
-        environments: vec![],
-    };
-
-    get_state().workspaces.push(initial_work);
-
-    save_workspace();
+    init_workspaces();
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -59,6 +54,14 @@ fn main() {
             get_current_focus_item,
             save_request,
             send_request,
+            get_workspace_list,
+            set_cur_workspace,
+            save_workspace,
+            new_workspace,
+            add_environment,
+            get_environment_list,
+            set_cur_environment,
+            save_environment
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

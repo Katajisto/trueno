@@ -1,7 +1,7 @@
 [package]
-name = "Trueno"
-version = "0.0.1"
-description = "An API poking tool that is good to use"
+name = "trueno"
+version = "0.2.5"
+description = "An API testing tool that is good to use"
 authors = ["Tuomas Katajisto <t@ktj.st>"]
 license = ""
 repository = ""

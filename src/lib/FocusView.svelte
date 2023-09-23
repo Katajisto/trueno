@@ -2,8 +2,10 @@
   import { invoke } from "@tauri-apps/api/tauri";
   import Request from "./Request.svelte";
   import { selectedNode } from "./stores/mainStore"
+    import Workspace from "./Workspace.svelte";
+    import Environment from "./Environment.svelte";
 
-  type focusType = "none" | "folder" | "request";
+  type focusType = "none" | "folder" | "request" | "workspace" | "environment";
 
   let focusItemType: focusType = "none"
   let focusItem = null
@@ -12,6 +14,8 @@
     if(item["None"]) return "none"
     if(item["Folder"]) return "folder"
     if(item["Request"]) return "request"
+    if(item["Workspace"]) return "workspace"
+    if(item["Environment"]) return "environment"
     return "none"
   }
 
@@ -24,8 +28,14 @@
   })
 </script>
 
-<div>
+<div class="h-full">
   {#if focusItemType === "request"}
     <Request request={focusItem["Request"]} />
+  {/if}
+  {#if focusItemType === "workspace"}
+    <Workspace workspace={focusItem["Workspace"]} />
+  {/if}
+  {#if focusItemType === "environment"}
+    <Environment environment={focusItem["Environment"]} />
   {/if}
 </div>

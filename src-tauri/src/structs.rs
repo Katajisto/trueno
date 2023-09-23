@@ -2,17 +2,26 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum EnvironmentType {
     Global,
     Named(String),
     RequestScoped,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Environment {
-    env_type: EnvironmentType,
-    key_value: HashMap<String, String>,
+    pub env_type: EnvironmentType,
+    pub key_value: HashMap<String, String>,
+}
+
+impl Environment {
+    pub fn new() -> Environment {
+        Environment {
+            env_type: EnvironmentType::Global,
+            key_value: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -98,6 +107,7 @@ pub struct Workspace {
     pub name: String,
     /// All environments that this workspace has.
     pub environments: Vec<Environment>,
+    pub global_environ: Environment,
     /// The root folder for requests in this workspace.
     pub root_folder: Folder,
 }

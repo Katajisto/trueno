@@ -2795,18 +2795,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tabellarius"
-version = "0.0.0"
-dependencies = [
- "dirs",
- "reqwest",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
-]
-
-[[package]]
 name = "tao"
 version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3326,6 +3314,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52984d277bdf2a751072b5df30ec0377febdb02f7696d64c2d7d54630bac4303"
 dependencies = [
  "serde_json",
+]
+
+[[package]]
+name = "trueno"
+version = "0.2.5"
+dependencies = [
+ "dirs",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
 ]
 
 [[package]]
