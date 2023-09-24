@@ -66,3 +66,25 @@ pub fn get_resolved_environment() -> Environment {
     };
     return env;
 }
+
+impl Environment {
+    pub fn add(&mut self, env: &Environment) {
+        for (k, v) in env.key_value.iter() {
+            self.key_value.insert(k.clone(), v.clone());
+        }
+    }
+
+    pub fn get_name(&self) -> String {
+        match self.env_type.clone() {
+            EnvironmentType::Global => String::from("Global"),
+            EnvironmentType::Named(n) => n.clone(),
+            EnvironmentType::RequestScoped => String::from("Request scoped"),
+        }
+    }
+}
+
+#[tauri::command]
+pub fn delete_current_env() {
+    let ws = &mut get_state().workspaces[get_state().cur_workspace];
+    ws.environments.remove(get_state().cur_environment);
+}

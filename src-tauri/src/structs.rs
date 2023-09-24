@@ -52,14 +52,29 @@ impl Template {
 pub enum Method {
     GET,
     POST,
+    DELETE,
+    PATCH,
+}
+
+impl Method {
+    pub fn to_reqwest(&self) -> reqwest::Method {
+        match self {
+            Method::GET => reqwest::Method::GET,
+            Method::POST => reqwest::Method::POST,
+            Method::DELETE => reqwest::Method::DELETE,
+            Method::PATCH => reqwest::Method::PATCH,
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Request {
     pub id: i64,
     pub name: String,
-    pub headers: HashMap<String, Template>,
-    pub payload: Template,
+    pub headers: HashMap<String, String>,
+    pub body: String,
+    pub post_script: String,
+    pub pre_script: String,
     pub route: String,
     pub method: Method,
 }
@@ -70,7 +85,9 @@ impl Request {
             id,
             name: name.to_string(),
             headers: HashMap::new(),
-            payload: Template::new(),
+            pre_script: String::from(""),
+            post_script: String::from(""),
+            body: String::from(""),
             route: String::from(""),
             method: Method::GET,
         }

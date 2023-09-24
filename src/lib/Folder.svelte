@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/tauri";
-  import { reloadTree } from "./stores/mainStore";
+  import { reloadTree, selectedNode, tree } from "./stores/mainStore";
     import App from "../App.svelte";
 
   export let folder
@@ -10,6 +10,12 @@
     missingSave = false;
     await invoke("save_folder", {folder: folder})
     await reloadTree();
+  }
+
+  const delFolder = async () => {
+    let res_tree = await invoke("delete_folder", {id: folder.id});
+    tree.set(res_tree);
+    selectedNode.set(0);
   }
 </script>
 
@@ -21,7 +27,14 @@
 {/if}
 <div class="flex flex-col px-5 py-5">
   <label class="text-2xl" for="url">Name: </label>
-  <input name="url" on:input={() => missingSave = true} class="text-3xl bg-gray-200 rounded-lg shadow p-2 my-2" on:input={() => missingSave = true} bind:value={folder.name} /> 
+  <div class="flex w-full">
+    <input name="url" class="text-3xl bg-gray-200 rounded-lg shadow p-2 my-2 w-11/12" on:input={() => missingSave = true} bind:value={folder.name} /> 
+    <button on:click={delFolder} class="bg-red-500 px-2 my-2 text-white font-bold text-xl rounded ml-4 w-1/12">Delete</button>
+  </div>
+  <div class="flex items-center text-2xl">
+    <input on:input={() => missingSave = true} name="stop_scripts" type="checkbox" bind:checked={folder.disable_parent_scripts} class="w-10 h-10" />
+    <label for="stop_scripts" class="ml-4">Don't run parent scripts.</label>
+  </div>
   <div class="flex px-4 text-2xl text-center w-full">
     <div class="w-1/2 p-4">
       <h2>Pre-script</h2>
