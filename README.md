@@ -9,7 +9,7 @@ Trueno is a rapid, keyboard-friendly API testing tool. Poke around APIs without 
 ## 🌟 Features
 - **Keyboard-centric:** Navigate and execute requests without switching to your mouse.
 - **Multi-Project Support:** Juggle multiple APIs without losing your sanity.
-- **No Slow:** Quick startup and low latency during use.
+- **Not Slow:** Quick startup and low latency during use.
 - **Scriptable:** Customize request behaviors with scripts.
 
 ## ⚙️ Basic Usage
@@ -60,4 +60,4 @@ Want to roll up your sleeves and contribute? Here's how to set things up:
     ```
 
 ### Contributing
-Before putting in the effort, shoot me a message about your planned contribution to ensure it aligns with the project's direction.
+If you want to be sure your work will be merged before you do work, send me a message.
