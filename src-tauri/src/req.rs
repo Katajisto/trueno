@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-
-use serde::{Deserialize, Serialize};
-
 use crate::{
     environments::get_resolved_environment,
     get_state,
     structs::{Environment, Method, Request},
     tree::{build_script_exec_list, find_node_by_id_mut, NodeMut, ScriptExecOrder},
 };
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Serialize, Deserialize)]
 pub struct ReqResponse {
@@ -15,6 +15,8 @@ pub struct ReqResponse {
     pub status: i32,
     pub body: String,
     pub parsed_url: String,
+    pub request_unix_timestamp: u128,
+    pub request_rutime_ms: u128,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -121,15 +123,25 @@ pub fn get_pre_and_post_scripts(req: i64) -> ScriptExecOrder {
 
 #[tauri::command]
 pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> ReqResponse {
+    let start = SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+
     let ready_env = &datadump_after_scripts.resolve();
     let route = parse_and_fill_template(&req.route, ready_env);
     let url = reqwest::Url::parse(&route.to_string());
+
+    let start_time = Instant::now();
+
     if url.is_err() {
         return ReqResponse {
             headers: HashMap::new(),
             status: -1,
             body: String::from("Failed to parse url"),
             parsed_url: route,
+            request_rutime_ms: start_time.elapsed().as_millis(),
+            request_unix_timestamp: since_the_epoch.as_millis(),
         };
     }
     let client = reqwest::Client::new();
@@ -149,6 +161,8 @@ pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> Req
                 status: -1,
                 body: format!("Header pair {}::{} is invalid", k, v),
                 parsed_url: route,
+                request_rutime_ms: start_time.elapsed().as_millis(),
+                request_unix_timestamp: since_the_epoch.as_millis(),
             };
         }
 
@@ -189,6 +203,8 @@ pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> Req
             status: -1,
             body: format!("{:?}", resp),
             parsed_url: route,
+            request_rutime_ms: start_time.elapsed().as_millis(),
+            request_unix_timestamp: since_the_epoch.as_millis(),
         };
     }
 
@@ -203,6 +219,8 @@ pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> Req
         body: resp.unwrap().text().await.unwrap(),
         headers: header_map,
         parsed_url: route,
+        request_rutime_ms: start_time.elapsed().as_millis(),
+        request_unix_timestamp: since_the_epoch.as_millis(),
     };
 
     r.into()
