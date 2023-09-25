@@ -124,7 +124,7 @@ pub fn get_pre_and_post_scripts(req: i64) -> ScriptExecOrder {
 pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> ReqResponse {
     let ready_env = &datadump_after_scripts.resolve();
     let route = parse_and_fill_template(&req.route, ready_env);
-    let url = reqwest::Url::parse(&req.route);
+    let url = reqwest::Url::parse(route);
     if url.is_err() {
         return ReqResponse {
             headers: HashMap::new(),
