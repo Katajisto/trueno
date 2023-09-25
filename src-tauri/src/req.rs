@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use reqwest::header::{self, HeaderMap};
 use serde::{Deserialize, Serialize};
-use tauri::{window, Wry};
 
 use crate::{
     environments::get_resolved_environment,
@@ -16,6 +14,7 @@ pub struct ReqResponse {
     pub headers: HashMap<String, String>,
     pub status: i32,
     pub body: String,
+    pub parsed_url: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -130,6 +129,7 @@ pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> Req
             headers: HashMap::new(),
             status: -1,
             body: String::from("Failed to parse url"),
+            parsed_url: route,
         };
     }
     let client = reqwest::Client::new();
@@ -148,6 +148,7 @@ pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> Req
                 headers: HashMap::new(),
                 status: -1,
                 body: format!("Header pair {}::{} is invalid", k, v),
+                parsed_url: route,
             };
         }
 
@@ -160,17 +161,24 @@ pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> Req
     let body = parse_and_fill_template(&req.body, ready_env);
 
     let resp = match req.method {
-        Method::GET => client.get(route).body(body).headers(headers).send().await,
-        Method::POST => client.post(route).body(body).headers(headers).send().await,
+        Method::GET => client.get(&route).body(body).headers(headers).send().await,
+        Method::POST => client.post(&route).body(body).headers(headers).send().await,
         Method::DELETE => {
             client
-                .delete(route)
+                .delete(&route)
                 .body(body)
                 .headers(headers)
                 .send()
                 .await
         }
-        Method::PATCH => client.patch(route).body(body).headers(headers).send().await,
+        Method::PATCH => {
+            client
+                .patch(&route)
+                .body(body)
+                .headers(headers)
+                .send()
+                .await
+        }
     };
 
     let mut header_map: HashMap<String, String> = HashMap::new();
@@ -180,6 +188,7 @@ pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> Req
             headers: HashMap::new(),
             status: -1,
             body: format!("{:?}", resp),
+            parsed_url: route,
         };
     }
 
@@ -193,6 +202,7 @@ pub async fn send_request(req: Request, datadump_after_scripts: Datadump) -> Req
         status: resp.as_ref().unwrap().status().as_u16() as i32,
         body: resp.unwrap().text().await.unwrap(),
         headers: header_map,
+        parsed_url: route,
     };
 
     r.into()
