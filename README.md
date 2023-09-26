@@ -6,7 +6,10 @@ Trueno is currently under active development. Features may change, and documenta
 
 Trueno is a rapid, keyboard-friendly API testing tool. Poke around APIs without ever lifting your hands off the keyboard. Designed to handle multi-project setups seamlessly, Trueno also comes equipped with scripting capabilities for custom request behaviors.
 
+Born out of the necessity to protect user data and maintain privacy, Trueno is a simplified but capable alternative to tools like Postman or Insomnia. While other tools force you to create an account and store data in the cloud, Trueno ensures that all your data remains locally stored on your own device. This approach not only safeguards against potential data breaches but also gives users full control and ownership over their information.
+
 ## 🌟 Features
+- **Secure:** All data stored locally.
 - **Keyboard-centric:** Navigate and execute requests without switching to your mouse.
 - **Multi-Project Support:** Juggle multiple APIs without losing your sanity.
 - **Not Slow:** Quick startup and low latency during use.
