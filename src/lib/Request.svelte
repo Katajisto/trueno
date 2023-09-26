@@ -4,7 +4,8 @@
   import { onMount } from 'svelte';
   import { selectedNode, tree } from './stores/mainStore';
   import { invoke } from '@tauri-apps/api/tauri';
-    import EnvironmentView from './EnvironmentView.svelte';
+  import EnvironmentView from './EnvironmentView.svelte';
+  import Spinner from './Spinner.svelte'
 
   let missingSave = false;
   let tab: "request" | "headers" | "scripts" = "request"
@@ -35,6 +36,7 @@
 
   const sendReq = async () => {
     await save();
+    response = {};
     sending = true;
     // get the pre and post scripts.
     let scripts: {pre: string[], post: string[]} = await invoke("get_pre_and_post_scripts", {req: request.id});
@@ -58,7 +60,7 @@
     data.request = abstractData.request;
     
     let res = await invoke("send_request", {req: data.request, datadumpAfterScripts: data});
-    abstractData.response = res;
+    abstractData.response = {...res};
     for (let script of scripts.post) {
       let fn = eval(script);
       fn(abstractData)
@@ -120,7 +122,10 @@
         </div>
         <div class="w-1/2 p-2 m-2">
           <h2 class="text-center text-2xl my-2">Response</h2>
-          <div id="jsonview"></div>
+          <div class:hidden={sending} id="jsonview"></div>
+          {#if sending}
+            <Spinner /> 
+          {/if}
         </div>
       </div>
       {#if tab == "headers"}
