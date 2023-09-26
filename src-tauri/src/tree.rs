@@ -473,6 +473,10 @@ pub fn get_req_tree_summary(id: i64) -> Vec<String> {
 #[tauri::command]
 pub fn get_fuzzy_results(query: String) -> Vec<FuzzyResult> {
     let cur_ws = &get_state().workspaces[get_state().cur_workspace];
+
+    use std::time::Instant;
+    let start_time = Instant::now();
+
     // Get node results from the tree.
     let mut results = recursively_do_fuzzy_find(&cur_ws.root_folder, &query);
 
@@ -514,6 +518,11 @@ pub fn get_fuzzy_results(query: String) -> Vec<FuzzyResult> {
         result_type: FuzzyResultType::Settings,
         distance: score_match("environment edit", &query),
     });
+
+    // println!(
+    //     "Fuzzy finding from tree took (not including sort): {:.2?}s",
+    //     start_time.elapsed()
+    // );
 
     results.sort_by_key(|res| res.distance);
     results
