@@ -1,9 +1,11 @@
-import {writable} from 'svelte/store'
+import {get, writable} from 'svelte/store'
 import { invoke } from "@tauri-apps/api/tauri";
 
 export const selectedNode = writable(1);
 export const tree = writable<any>({});
 export const treeSummary = writable<string[]>([]);
+export const focusItemData = writable<any>({});
+export const focusItemType = writable<"none" | "folder" | "request" | "workspace" | "environment">("none");
 
 selectedNode.subscribe(async v => {
   if(v === 0) {
@@ -45,12 +47,33 @@ export const refreshWorkspaces = async () => {
 export const environments = writable<any>([]);
 export const curEnvironment = writable<number>(0);
 
-curEnvironment.subscribe((v) => {
-  invoke("set_cur_environment", {index: v});
-  selectedNode.set(0);
-})
-
 export const refreshEnvironments = async () => {
     let res = await invoke("get_environment_list");
     environments.set(res);
 }
+
+const refreshFocusItem = (id: number) => {
+  invoke("get_current_focus_item", {curId: id}).then(data => {
+    focusItemData.set(data);
+    focusItemType.set(classifyFocusItem(data));
+  });
+}
+
+curEnvironment.subscribe((v) => {
+  invoke("set_cur_environment", {index: v});
+  refreshFocusItem(get(selectedNode));
+})
+
+
+const classifyFocusItem = (item): focusType  => {
+  if(item["None"]) return "none"
+  if(item["Folder"]) return "folder"
+  if(item["Request"]) return "request"
+  if(item["Workspace"]) return "workspace"
+  if(item["Environment"]) return "environment"
+  return "none"
+}
+
+selectedNode.subscribe(v => {
+  refreshFocusItem(v);
+})
