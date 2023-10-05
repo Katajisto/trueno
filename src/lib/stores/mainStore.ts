@@ -1,11 +1,12 @@
 import {get, writable} from 'svelte/store'
 import { invoke } from "@tauri-apps/api/tauri";
 
+type FocusType = "none" | "folder" | "request" | "workspace" | "environment" | "import";
 export const selectedNode = writable(1);
 export const tree = writable<any>({});
 export const treeSummary = writable<string[]>([]);
 export const focusItemData = writable<any>({});
-export const focusItemType = writable<"none" | "folder" | "request" | "workspace" | "environment">("none");
+export const focusItemType = writable<FocusType>("none");
 
 selectedNode.subscribe(async v => {
   if(v === 0) {
@@ -47,33 +48,15 @@ export const refreshWorkspaces = async () => {
 export const environments = writable<any>([]);
 export const curEnvironment = writable<number>(0);
 
-export const refreshEnvironments = async () => {
-    let res = await invoke("get_environment_list");
-    environments.set(res);
-}
 
-const refreshFocusItem = (id: number) => {
-  invoke("get_current_focus_item", {curId: id}).then(data => {
-    focusItemData.set(data);
-    focusItemType.set(classifyFocusItem(data));
-  });
-}
-
-curEnvironment.subscribe((v) => {
-  invoke("set_cur_environment", {index: v});
-  refreshFocusItem(get(selectedNode));
-})
 
 export const refreshEnvironments = async () => {
     let res = await invoke("get_environment_list");
     environments.set(res);
-
-type FocusType = "none" | "folder" | "request" | "workspace" | "environment" | "import";
+}
 
 const classifyFocusItem = (item): FocusType  => {
   console.log(item)
-
-const classifyFocusItem = (item): focusType  => {
   if(item["None"]) return "none"
   if(item["Folder"]) return "folder"
   if(item["Request"]) return "request"
@@ -83,6 +66,14 @@ const classifyFocusItem = (item): focusType  => {
   return "none"
 }
 
+const refreshFocusItem = (id: number) => {
+  invoke("get_current_focus_item", {curId: id}).then(data => {
+    focusItemData.set(data);
+    focusItemType.set(classifyFocusItem(data));
+  });
+}
+
 selectedNode.subscribe(v => {
   refreshFocusItem(v);
 })
+
