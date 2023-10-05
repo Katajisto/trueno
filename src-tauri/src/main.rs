@@ -6,6 +6,7 @@ mod fs;
 #[rustfmt::skip]
 mod js;
 mod fuzzy;
+mod import;
 mod req;
 mod structs;
 mod tree;
@@ -21,6 +22,7 @@ use crate::{
         add_environment, delete_current_env, get_environment_list, save_environment,
         set_cur_environment,
     },
+    import::add_imported_tree,
     workspaces::{get_workspace_list, new_workspace, save_workspace, set_cur_workspace},
 };
 
@@ -77,6 +79,7 @@ fn main() {
             delete_request,
             delete_folder,
             get_req_tree_summary,
+            add_imported_tree,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

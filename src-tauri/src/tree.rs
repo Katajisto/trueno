@@ -128,6 +128,7 @@ pub enum FocusItem {
     Request(Request),
     Workspace(WorkspaceDTO),
     Environment(Environment),
+    ImportJSON,
     None,
 }
 
@@ -154,6 +155,10 @@ pub fn get_current_focus_item(cur_id: i64) -> FocusItem {
         return FocusItem::Environment(cur_ws.environments[get_state().cur_environment].clone());
     }
 
+    if cur_id == -3 {
+        return FocusItem::ImportJSON;
+    }
+    
     let node = find_node_by_id_mut(
         &mut get_state().workspaces[get_state().cur_workspace].root_folder,
         cur_id,
@@ -507,6 +512,12 @@ pub fn get_fuzzy_results(query: String) -> Vec<FuzzyResult> {
         name: String::from("Workspace edit"),
         result_type: FuzzyResultType::Settings,
         distance: score_match("workspace edit", &query),
+    });
+    results.push(FuzzyResult {
+        id: -3,
+        name: String::from("Import JSON"),
+        result_type: FuzzyResultType::Settings,
+        distance: score_match("import json", &query),
     });
     results.push(FuzzyResult {
         id: -2,

@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/tauri";
 export const selectedNode = writable(1);
 export const tree = writable<any>({});
 export const treeSummary = writable<string[]>([]);
+export const focusItemData = writable<any>({});
+export const focusItemType = writable<FocusType>("none");
 
 selectedNode.subscribe(async v => {
   if(v === 0) {
@@ -53,4 +55,16 @@ curEnvironment.subscribe((v) => {
 export const refreshEnvironments = async () => {
     let res = await invoke("get_environment_list");
     environments.set(res);
+
+type FocusType = "none" | "folder" | "request" | "workspace" | "environment" | "import";
+
+const classifyFocusItem = (item): FocusType  => {
+  console.log(item)
+  if(item["None"]) return "none"
+  if(item["Folder"]) return "folder"
+  if(item["Request"]) return "request"
+  if(item["Workspace"]) return "workspace"
+  if(item["Environment"]) return "environment"
+  if(item == "ImportJSON") return "import"
+  return "none"
 }
