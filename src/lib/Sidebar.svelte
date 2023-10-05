@@ -23,7 +23,7 @@
   
 </script>
 
-<div class="w-auto sidebar text-sm bg-gray-300 shadow flex flex-col justify-between">
+<div class="w-1/6 sidebar text-sm bg-gray-300 shadow flex flex-col justify-between">
   <div>
     <div class="flex p-2 justify-left items-center">
       <h3 class="mr-2">Workspace:</h3>

@@ -8,17 +8,17 @@
 </script>
 
 <div class="h-full">
-  {#if focusItemType === "request"}
-    <Request request={focusItem["Request"]} />
+  {#if $focusItemType === "request"}
+    <Request request={$focusItemData["Request"]} />
   {/if}
-  {#if focusItemType === "workspace"}
-    <Workspace workspace={focusItem["Workspace"]} />
+  {#if $focusItemType === "workspace"}
+    <Workspace workspace={$focusItemData["Workspace"]} />
   {/if}
-  {#if focusItemType === "environment"}
-    <Environment environment={focusItem["Environment"]} />
+  {#if $focusItemType === "environment"}
+    <Environment environment={$focusItemData["Environment"]} />
   {/if}
-  {#if focusItemType === "folder"}
-    <Folder folder={focusItem["Folder"]} />
+  {#if $focusItemType === "folder"}
+    <Folder folder={$focusItemData["Folder"]} />
   {/if}
   {#if $focusItemType === "import"}
     <Import />

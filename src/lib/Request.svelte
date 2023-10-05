@@ -1,10 +1,11 @@
 <script lang="ts">
   export let request;
-  import jsonview from '@pgrabovets/json-view';
   import { onMount } from 'svelte';
   import { selectedNode, tree } from './stores/mainStore';
   import { invoke } from '@tauri-apps/api/tauri';
-    import EnvironmentView from './EnvironmentView.svelte';
+  import EnvironmentView from './EnvironmentView.svelte';
+  import Spinner from './Spinner.svelte'
+  import { JsonView } from '@zerodevx/svelte-json-view'  
 
   let missingSave = false;
   let tab: "request" | "headers" | "scripts" = "request"
@@ -13,21 +14,6 @@
   let sending = false;
   let response: any = {};
 
-  const renderTree = () => {
-    if(!hasMounted) return;
-    if(jsonTree != null) jsonview.destroy(jsonTree)
-    jsonTree = jsonview.create(response)
-    jsonview.render(jsonTree, document.querySelector("#jsonview"))
-  }
-  
-  onMount(() => {
-    hasMounted = true;
-    renderTree()
-  })
-
-  $: response && renderTree()
-
-  
   const save = async () => {
     await invoke("save_request", {req: request}).then(newTree => tree.set(newTree))
     missingSave = false;
@@ -35,6 +21,7 @@
 
   const sendReq = async () => {
     await save();
+    response = {};
     sending = true;
     // get the pre and post scripts.
     let scripts: {pre: string[], post: string[]} = await invoke("get_pre_and_post_scripts", {req: request.id});
@@ -58,7 +45,7 @@
     data.request = abstractData.request;
     
     let res = await invoke("send_request", {req: data.request, datadumpAfterScripts: data});
-    abstractData.response = res;
+    abstractData.response = {...res};
     for (let script of scripts.post) {
       let fn = eval(script);
       fn(abstractData)
@@ -73,6 +60,13 @@
     
     await invoke("post_js_datadump", {data: data})
     response = res;
+    try {
+      response.body = JSON.parse(res.body);
+    } catch(e) {
+      console.log(e);
+      response.body = res.body;
+    }
+  
     sending = false;
   }
 
@@ -83,14 +77,14 @@
   }
   
 </script>
-<div class="h-full flex flex-col">
+<div class="main h-full w-full flex flex-col">
   {#if missingSave}
   <div class="w-full bg-yellow-400 px-5 text-center text-2xl text-white p-2 flex justify-between">
     Unsaved changes!
     <button class="p-1 bg-yellow-600 rounded px-5" on:click={save}>Save</button>
   </div>
   {/if}
-  <div class="p-3 flex h-full flex-col justify-stretch">  
+  <div class="p-3 flex h-full flex-col">  
     <label class="text-2xl" for="url">Name: </label>
     <div class="flex w-full">
       <input name="url" class="text-3xl bg-gray-200 rounded-lg shadow p-2 my-2 w-11/12" on:input={() => missingSave = true} bind:value={request.name} /> 
@@ -107,22 +101,36 @@
       <input name="name" class="w-10/12 text-3xl bg-gray-200 rounded shadow p-2 my-2" on:input={() => missingSave = true} bind:value={request.route} />
       <button on:click={sendReq} class="bg-yellow-500 px-2 my-2 text-white font-bold text-xl rounded ml-4 w-1/12">{sending ? "Sending it.." : `Send it⚡`}</button>
     </div>
-    <div class="rounded mt-3 bg-gray-200 h-full w-full flex-col justify-stretch">
-      <div class="rounded bg-gray-300 flex">
-        <button class:selected={tab == "request"} on:click={() => tab = "request"} class="text-center p-2 text-2xl text-black font-bold bg-gray-300 rounded-t-lg flex-grow">Request view</button>
-        <button class:selected={tab == "headers"} on:click={() => tab = "headers"} class="text-center p-2 text-2xl text-black font-bold bg-gray-300 rounded-t-lg flex-grow">Headers view</button>
-        <button class:selected={tab == "scripts"} on:click={() => tab = "scripts"} class="text-center p-2 text-2xl text-black font-bold bg-gray-300 rounded-t-lg flex-grow">Scripts view</button>
-      </div>
-      <div class:hidden={tab != "request"} class="flex items-stretch h-5/6 flex-grow">
+    <div class="rounded bg-gray-300 mt-2 flex">
+      <button class:selected={tab == "request"} on:click={() => tab = "request"} class="text-center p-2 text-2xl text-black font-bold bg-gray-300 rounded-t-lg flex-grow">Request view</button>
+      <button class:selected={tab == "headers"} on:click={() => tab = "headers"} class="text-center p-2 text-2xl text-black font-bold bg-gray-300 rounded-t-lg flex-grow">Headers view</button>
+      <button class:selected={tab == "scripts"} on:click={() => tab = "scripts"} class="text-center p-2 text-2xl text-black font-bold bg-gray-300 rounded-t-lg flex-grow">Scripts view</button>
+    </div>
+    <div class="rounded request-data-container mt-0 bg-gray-200 w-full flex-col justify-stretch">
+      {#if tab == "request"}
+      <div class="flex top-req-c">
         <div class="w-1/2 p-2 m-2">
           <h2 class="text-center text-2xl my-2">Request</h2>
-          <textarea bind:value={request.body} on:input={() => missingSave = true} class="w-full rounded shadow"></textarea>
+            <div class="res-container">
+            <div class="res-scroll-container">
+              <textarea bind:value={request.body} on:input={() => missingSave = true} class="w-full rounded shadow"></textarea>
+            </div>
+            </div>
         </div>
         <div class="w-1/2 p-2 m-2">
           <h2 class="text-center text-2xl my-2">Response</h2>
-          <div id="jsonview"></div>
+            <div class="res-container">
+            <div class="res-scroll-container">
+            {#if sending}
+              <Spinner /> 
+            {:else}
+              <JsonView json={response } />
+            {/if}
+            </div>
+            </div>
         </div>
       </div>
+      {/if}
       {#if tab == "headers"}
       <EnvironmentView bind:environment={request.headers} bind:missingSave={missingSave}/>
       {/if}
@@ -146,11 +154,18 @@
     background-color: rgb(229, 231, 235);
   }
 
-  #jsonview {
+  .res-container {
     overflow: auto;
-    height: 100%;
+    height: 90%;
     padding: 3px;
     font-family: 'monospace';
+    flex: 1 1 0;
+    
+  }
+
+  .res-scroll-container {
+    max-height: 100%;
+    overflow: auto;
   }
 
   textarea {
@@ -160,8 +175,23 @@
     padding-top: 10px;
   }
 
+  .top-req-c {
+    max-height: 100%;
+  }
+
   .hidden {
     display: none;
+  }
+  
+  .request-data-container {
+    flex: 1 1 auto;
+    height: 100%;
+    width: 100%;
+    overflow: auto;
+  }
+
+  .main {
+    max-width: 100%;
   }
   
 </style>

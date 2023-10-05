@@ -2,7 +2,7 @@
   import FocusView from "./lib/FocusView.svelte"
   import Sidebar from "./lib/Sidebar.svelte";
   let curPage: 'home' | 'req' = 'home';
-  import { version } from "../package.json"
+  import conf from "../src-tauri/tauri.conf.json"
   import Fuzzy from "./lib/Fuzzy.svelte";
   import { fuzzyQuery, getSuggestions, treeSummary } from "./lib/stores/mainStore";
 
@@ -35,11 +35,11 @@
   <button class="hidden text-black bg-white rounded mr-5 p-2">Menu</button>
   <h1 class="text-5xl">⚡ TRUENO</h1>
   <h1 class="text-2xl">{$treeSummary.join(" > ")}</h1>
-  <h1 class="text-5xl mx-5 text-gray-400">V{version}</h1>
+  <h1 class="text-5xl mx-5 text-gray-400">V{conf.package.version}</h1>
 </div>
 <main class="flex items-stretch">
   <Sidebar />
-  <div class="h-auto w-full">
+  <div class="h-full w-5/6">
     <FocusView />
   </div>
 </main>
