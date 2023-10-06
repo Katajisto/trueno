@@ -7,8 +7,8 @@
     "withGlobalTauri": false
   },
   "package": {
-    "productName": "trueno",
-    "version": "0.3.2"
+    "productName": "Trueno",
+    "version": "0.3.3"
   },
   "tauri": {
     "allowlist": {
