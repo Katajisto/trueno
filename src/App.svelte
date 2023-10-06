@@ -10,7 +10,7 @@
 
   const onKeyDown = (e) => {
     // Check if key input is going to to an input or textarea.
-    if(!showFuzzy && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+    if(!showFuzzy && (e.target.tagName === "INPUT" || e.target.classList.contains("cm-content") || e.target.tagName === "TEXTAREA")) return;
     
     if(e.key === " " && !showFuzzy ) {
       showFuzzy = true;

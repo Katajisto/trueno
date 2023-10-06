@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/tauri";
   import { reloadTree, selectedNode, tree } from "./stores/mainStore";
-    import App from "../App.svelte";
+  import Editor from "./Editor.svelte";
 
   export let folder
   let missingSave = false
@@ -38,11 +38,11 @@
   <div class="flex px-4 text-2xl text-center w-full">
     <div class="w-1/2 p-4">
       <h2>Pre-script</h2>
-      <textarea on:input={() => missingSave = true} bind:value={folder.pre_request_script} class="bg-gray-200 w-full p-2" />
+      <Editor onchange={() => missingSave = true} bind:value={folder.pre_request_script} />
     </div>
     <div class="w-1/2 p-4">
       <h2>Post-script</h2>
-      <textarea on:input={() => missingSave = true} bind:value={folder.post_request_script} class="bg-gray-200 w-full p-2" />
+      <Editor onchange={() => missingSave = true} bind:value={folder.post_request_script} />
     </div>
   </div>
 </div>
