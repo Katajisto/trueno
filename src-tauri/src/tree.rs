@@ -116,10 +116,7 @@ pub fn get_request_tree(folder: &Folder) -> ReqTreeNode {
 
 #[tauri::command]
 pub fn get_ui_req_tree() -> ReqTreeNode {
-    let state = get_state();
-    let workspace_i = state.cur_workspace;
-    println!("Creating tree for workspace with index: {}", workspace_i);
-    return get_request_tree(&state.workspaces[workspace_i].root_folder).into();
+    return get_request_tree(&get_state().get_workspace().root_folder).into();
 }
 
 #[derive(Serialize, Deserialize)]
@@ -140,12 +137,11 @@ pub enum FocusItem {
 pub fn get_current_focus_item(cur_id: i64) -> FocusItem {
     // We have a few special cases for the ID for the sake of this being easy to implement.
     if cur_id == -1 {
-        let cur_ws = &get_state().workspaces[get_state().cur_workspace];
-        return FocusItem::Workspace(WorkspaceDTO::from_workspace(cur_ws));
+        return FocusItem::Workspace(WorkspaceDTO::from_workspace(&get_state().get_workspace()));
     }
 
     if cur_id == -2 {
-        let cur_ws = &get_state().workspaces[get_state().cur_workspace];
+        let cur_ws = &get_state().get_workspace();
 
         if cur_ws.environments.len() == 0
             || get_state().cur_environment > cur_ws.environments.len() - 1
@@ -158,11 +154,8 @@ pub fn get_current_focus_item(cur_id: i64) -> FocusItem {
     if cur_id == -3 {
         return FocusItem::ImportJSON;
     }
-    
-    let node = find_node_by_id_mut(
-        &mut get_state().workspaces[get_state().cur_workspace].root_folder,
-        cur_id,
-    );
+
+    let node = find_node_by_id_mut(&mut get_state().get_workspace().root_folder, cur_id);
 
     if node.is_none() {
         return FocusItem::None;
@@ -182,20 +175,16 @@ pub fn get_current_focus_item(cur_id: i64) -> FocusItem {
 
 #[tauri::command]
 pub fn create_request(name: &str, cur_id: i64) -> ReqTreeNode {
-    let node = find_containing_folder_by_id_mut(
-        &mut get_state().workspaces[get_state().cur_workspace].root_folder,
-        cur_id,
-    );
+    let node =
+        find_containing_folder_by_id_mut(&mut get_state().get_workspace().root_folder, cur_id);
 
     match node {
         Some(val) => match val {
             NodeMut::Folder(f) => {
-                f.requests.push(Request::new(
-                    name,
-                    get_state().workspaces[get_state().cur_workspace].get_new_id(),
-                ));
+                f.requests
+                    .push(Request::new(name, get_state().get_workspace().get_new_id()));
             }
-            NodeMut::Request(r) => {} // we are looking for the containing folder so we wont ever hit this.
+            NodeMut::Request(_) => {} // we are looking for the containing folder so we wont ever hit this.
         },
         None => (),
     }
@@ -206,10 +195,7 @@ pub fn create_request(name: &str, cur_id: i64) -> ReqTreeNode {
 
 #[tauri::command]
 pub fn delete_request(id: i64) -> ReqTreeNode {
-    let folder = find_containing_folder_by_id_mut(
-        &mut get_state().workspaces[get_state().cur_workspace].root_folder,
-        id,
-    );
+    let folder = find_containing_folder_by_id_mut(&mut get_state().get_workspace().root_folder, id);
     match folder {
         Some(n) => match n {
             NodeMut::Folder(f) => {
@@ -227,10 +213,7 @@ pub fn delete_request(id: i64) -> ReqTreeNode {
 
 #[tauri::command]
 pub fn delete_folder(id: i64) -> ReqTreeNode {
-    let folder = find_parent_mut(
-        &mut get_state().workspaces[get_state().cur_workspace].root_folder,
-        id,
-    );
+    let folder = find_parent_mut(&mut get_state().get_workspace().root_folder, id);
     match folder {
         Some(n) => match n {
             NodeMut::Folder(f) => {
@@ -248,10 +231,7 @@ pub fn delete_folder(id: i64) -> ReqTreeNode {
 
 #[tauri::command]
 pub fn save_request(req: Request) -> ReqTreeNode {
-    let node = find_node_by_id_mut(
-        &mut get_state().workspaces[get_state().cur_workspace].root_folder,
-        req.id,
-    );
+    let node = find_node_by_id_mut(&mut get_state().get_workspace().root_folder, req.id);
 
     if node.is_none() {
         return get_ui_req_tree().into();
@@ -277,10 +257,7 @@ pub fn save_request(req: Request) -> ReqTreeNode {
 
 #[tauri::command]
 pub fn save_folder(folder: Folder) -> ReqTreeNode {
-    let node = find_node_by_id_mut(
-        &mut get_state().workspaces[get_state().cur_workspace].root_folder,
-        folder.id,
-    );
+    let node = find_node_by_id_mut(&mut get_state().get_workspace().root_folder, folder.id);
 
     if node.is_none() {
         return get_ui_req_tree().into();
@@ -303,20 +280,18 @@ pub fn save_folder(folder: Folder) -> ReqTreeNode {
 
 #[tauri::command]
 pub fn create_folder(name: &str, cur_id: i64) -> ReqTreeNode {
-    let node = find_containing_folder_by_id_mut(
-        &mut get_state().workspaces[get_state().cur_workspace].root_folder,
-        cur_id,
-    );
+    let node =
+        find_containing_folder_by_id_mut(&mut get_state().get_workspace().root_folder, cur_id);
 
     match node {
         Some(val) => match val {
             NodeMut::Folder(f) => {
                 f.sub_folders.push(Folder::new(
-                    get_state().workspaces[get_state().cur_workspace].get_new_id(),
+                    get_state().get_workspace().get_new_id(),
                     name.to_string(),
                 ));
             }
-            NodeMut::Request(r) => {}
+            NodeMut::Request(_) => {}
         },
         None => (),
     }
@@ -422,7 +397,7 @@ fn recursively_do_fuzzy_find(folder: &Folder, search_str: &String) -> Vec<FuzzyR
 }
 
 pub fn build_script_exec_list(req_id: i64) -> Option<ScriptExecOrder> {
-    let tree = &get_state().workspaces[get_state().cur_workspace].root_folder;
+    let tree = &get_state().get_workspace().root_folder;
     let mut list = recursively_get_scripts(tree, req_id);
     if list.is_some() {
         list.as_mut().unwrap().pre.reverse();
@@ -460,7 +435,7 @@ fn recursively_get_tree_summary(folder: &Folder, req_id: i64) -> Option<Vec<Stri
 }
 #[tauri::command]
 pub fn get_req_tree_summary(id: i64) -> Vec<String> {
-    let cur_ws = &get_state().workspaces[get_state().cur_workspace];
+    let cur_ws = &get_state().get_workspace();
     if id == -1 {
         return vec![String::from("Workspace settings")];
     }
@@ -477,10 +452,7 @@ pub fn get_req_tree_summary(id: i64) -> Vec<String> {
 
 #[tauri::command]
 pub fn get_fuzzy_results(query: String) -> Vec<FuzzyResult> {
-    let cur_ws = &get_state().workspaces[get_state().cur_workspace];
-
-    use std::time::Instant;
-    let start_time = Instant::now();
+    let cur_ws = &get_state().get_workspace();
 
     // Get node results from the tree.
     let mut results = recursively_do_fuzzy_find(&cur_ws.root_folder, &query);

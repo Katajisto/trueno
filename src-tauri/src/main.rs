@@ -33,6 +33,17 @@ struct AppState {
     cur_environment: usize,
 }
 
+impl AppState {
+    pub fn get_workspace(&mut self) -> &mut Workspace {
+        let cur_workspace_id = self.cur_workspace;
+        let res = self.workspaces.get_mut(cur_workspace_id);
+        return match res {
+            Some(ws_ref) => ws_ref,
+            None => panic!("Getting the current workspace failed! Please file a bug report with info about this."),
+        };
+    }
+}
+
 // Yes, this is a global variable.
 // Yes, this is a risk in async and multithreaded code.
 // Yes, you can modify this and cause unintended side effects.

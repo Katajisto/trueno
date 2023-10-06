@@ -6,7 +6,7 @@ use crate::{
 
 #[tauri::command]
 pub async fn get_environment_list() -> Vec<(usize, String)> {
-    let ws = &get_state().workspaces[get_state().cur_workspace];
+    let ws = get_state().get_workspace();
     return ws
         .environments
         .iter()
@@ -25,7 +25,7 @@ pub async fn get_environment_list() -> Vec<(usize, String)> {
 
 #[tauri::command]
 pub async fn add_environment() {
-    let ws = &mut get_state().workspaces[get_state().cur_workspace];
+    let ws = get_state().get_workspace();
     let mut new_environ = Environment::new();
     new_environ.env_type = EnvironmentType::Named(String::from("New environment"));
     ws.environments.push(new_environ);
@@ -42,7 +42,7 @@ pub async fn set_cur_environment(index: i32) {
 
 #[tauri::command]
 pub async fn save_environment(env: Environment) {
-    let ws = &mut get_state().workspaces[get_state().cur_workspace];
+    let ws = get_state().get_workspace();
     ws.environments[get_state().cur_environment] = env;
 }
 
@@ -50,12 +50,9 @@ pub async fn save_environment(env: Environment) {
 /// named environment and returns a pre-resolved environment
 /// for you.
 pub fn get_resolved_environment() -> Environment {
-    let mut env = get_state().workspaces[get_state().cur_workspace]
-        .global_environ
-        .clone();
-    let named_env = &get_state().workspaces[get_state().cur_workspace]
-        .environments
-        .get(get_state().cur_environment);
+    let ws = get_state().get_workspace();
+    let mut env = ws.global_environ.clone();
+    let named_env = ws.environments.get(get_state().cur_environment);
     match named_env {
         Some(named_env) => {
             for (k, v) in named_env.key_value.iter() {
@@ -85,6 +82,6 @@ impl Environment {
 
 #[tauri::command]
 pub fn delete_current_env() {
-    let ws = &mut get_state().workspaces[get_state().cur_workspace];
+    let ws = get_state().get_workspace();
     ws.environments.remove(get_state().cur_environment);
 }
