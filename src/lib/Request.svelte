@@ -6,6 +6,7 @@
   import EnvironmentView from './EnvironmentView.svelte';
   import Spinner from './Spinner.svelte'
   import { JsonView } from '@zerodevx/svelte-json-view'  
+    import Editor from './Editor.svelte';
 
   let missingSave = false;
   let tab: "request" | "headers" | "scripts" = "request"
@@ -113,7 +114,7 @@
           <h2 class="text-center text-2xl my-2">Request</h2>
             <div class="res-container">
             <div class="res-scroll-container">
-              <textarea bind:value={request.body} on:input={() => missingSave = true} class="w-full rounded shadow"></textarea>
+              <Editor bind:value={request.body} onchange={() => missingSave = true} lang="json" />
             </div>
             </div>
         </div>
@@ -138,11 +139,11 @@
       <div class="flex px-4 text-2xl text-center w-full">
         <div class="w-1/2 p-4">
           <h2>Pre-script</h2>
-          <textarea on:input={() => missingSave = true} bind:value={request.pre_script} class="bg-white w-full p-2" />
+          <Editor bind:value={request.pre_script} onchange={() => missingSave = true} lang="js" />
         </div>
         <div class="w-1/2 p-4">
           <h2>Post-script</h2>
-          <textarea on:input={() => missingSave = true} bind:value={request.post_script} class="bg-white w-full p-2" />
+          <Editor bind:value={request.post_script} onchange={() => missingSave = true} lang="js" />
         </div>
       </div>
       {/if}
