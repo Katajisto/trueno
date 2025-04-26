@@ -1,0 +1,3 @@
+// This is a window type replacement to fix using get_rect without simp...
+Window_Type :: s32;
+INVALID_WINDOW : Window_Type : -1;
