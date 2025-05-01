@@ -1,10 +1,19 @@
 GR :: #import "GetRect_LeftHanded"()(Type_Indicator = Ui_Type_Indicator);
 Input :: #import "Input";
 
+
+Ui_Font_Glyph :: struct {
+    advance : u32 = 1;
+};
+
 Ui_Font :: struct {
     em_width: u32 = 1;
     character_height: u32 = 30;
-}
+    typical_descender: u32 = 1;
+    typical_ascender: u32 = 1;
+    temporary_glyphs: [..]Ui_Font_Glyph;
+    temporary_glyphs_byte_offsets : [..]u32;
+};
 
 Ui_Texture :: struct {
     tex: sg_image;
@@ -28,7 +37,6 @@ defaultFont: Font;
 ui_texture_counter : u32 = 0;
 
 texture_load_from_memory :: (texture: *Ui_Texture, memory: []u8, srgb: bool, build_mipmaps: bool) -> bool {
-    print("LOAD FROM MEMORY CALLED!!!\n");
     x : s32;
     y : s32;
     channels : s32;
@@ -40,7 +48,7 @@ texture_load_from_memory :: (texture: *Ui_Texture, memory: []u8, srgb: bool, bui
         ptr = data,
         size = xx (x * y * 4)
     };
-    
+
     sg_init_image(*img, *(sg_image_desc.{
         width = x,
         height = y,
@@ -74,13 +82,13 @@ clear_scissor :: () {
 gCurrentTexture : *Ui_Texture = null;
 
 set_shader_for_color :: (enable_blend := false) {
-    // gCurrentTexture = null;
+    gCurrentTexture = null;
 }
 
 
 set_shader_for_images :: (texture: *Ui_Texture) {
-    // gPipelines.arbtri.bind.images[0] = texture.tex;
-    // gCurrentTexture = texture;
+    gPipelines.arbtri.bind.images[0] = texture.tex;
+    gCurrentTexture = texture;
 }
 
 gPreppedText: string;
@@ -132,8 +140,8 @@ immediate_triangle :: (p0: Vector3, p1: Vector3, p2: Vector3, c0 := Vector4.{1,1
         tri.uv[2] = nullUV;
     } else {
         tri.uv[0] = uv0;
-        tri.uv[1] = uv2;
-        tri.uv[2] = uv1;
+        tri.uv[1] = uv1;
+        tri.uv[2] = uv2;
     }
 
     arb_tri_add(tri);
@@ -204,8 +212,13 @@ render_ui :: () {
     if pressed {
     }
 
+    r.y += 50;
+
+    GR.text_input(r, "TTT", *my_theme.text_input_theme);
+    
     r.y += 150;
     if GR.base_checkbox(r, "CHECK!!!", idk, null) {
+        idk = !idk;
     }
 }
 
