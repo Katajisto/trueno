@@ -1,4 +1,5 @@
 GR :: #import "GetRect_LeftHanded"()(Type_Indicator = Ui_Type_Indicator);
+Input :: #import "Input";
 
 Ui_Font :: struct {
     em_width: u32 = 1;
@@ -6,7 +7,7 @@ Ui_Font :: struct {
 }
 
 Ui_Texture :: struct {
-    name: string;
+    tex: sg_image;
 }
 
 Ui_Rect :: struct {
@@ -27,10 +28,30 @@ defaultFont: Font;
 ui_texture_counter : u32 = 0;
 
 texture_load_from_memory :: (texture: *Ui_Texture, memory: []u8, srgb: bool, build_mipmaps: bool) -> bool {
-    // texname := tprint("ui_tex_%", ui_texture_counter);
-    // load_png_texture_from_memory(*GpuContext, copy_string(texname), memory);
-    // ui_texture_counter += 1;
-    // texture.name = copy_string(texname);
+    print("LOAD FROM MEMORY CALLED!!!\n");
+    x : s32;
+    y : s32;
+    channels : s32;
+    data := stbi.stbi_load_from_memory(memory.data, xx memory.count, *x, *y, *channels, 4);
+    img := sg_alloc_image();
+
+    subimg : [6][16]sg_range;
+    subimg[0][0] = .{
+        ptr = data,
+        size = xx (x * y * 4)
+    };
+    
+    sg_init_image(*img, *(sg_image_desc.{
+        width = x,
+        height = y,
+        pixel_format = sg_pixel_format.RGBA8,
+        data = .{
+            subimage = subimg
+        }
+    }));
+
+    stbi.stbi_image_free(data);
+    texture.tex = img;
     return true;
 }
 
@@ -53,14 +74,12 @@ clear_scissor :: () {
 gCurrentTexture : *Ui_Texture = null;
 
 set_shader_for_color :: (enable_blend := false) {
-    // immediate_flush(); // We want to do the flush so we can set the sampler for the entire set.
     // gCurrentTexture = null;
 }
 
 
 set_shader_for_images :: (texture: *Ui_Texture) {
-    // if ENABLE_UI_DEBUG_LOGGING { print("Setting shader for textures.."); }
-    // immediate_flush(); // We want to do the flush so we can set the sampler for the entire set.
+    // gPipelines.arbtri.bind.images[0] = texture.tex;
     // gCurrentTexture = texture;
 }
 
@@ -84,7 +103,7 @@ draw_prepared_text :: (font: *Ui_Type_Indicator.Font, x: s64, y: s64, text_color
     fonsDrawText(state.fons, xx x, xx y, result, null);
 }
 get_mouse_pointer_position :: (window: Ui_Type_Indicator.Window_Type, right_handed: bool) -> (x: int, y: int, success: bool) {
-    return xx mpos.x, xx mpos.y, true;
+    return xx input_mouse_x, xx input_mouse_y, true;
 }
 get_font_at_size :: (memory: [] u8, pixel_height: int) -> *Font {
     f : *Font = New(Font);
@@ -134,15 +153,15 @@ immediate_flush :: () {
 
 init_ui :: () {
     dp : GR.Draw_Procs = .{
-        texture_load_from_memory = texture_load_from_memory,
+        texture_load_from_memory = texture_load_from_memory, // implemented 
         set_scissor = set_scissor,
         clear_scissor = clear_scissor,
-        set_shader_for_color = set_shader_for_color,
+        set_shader_for_color = set_shader_for_color, // implemented
         set_shader_for_images = set_shader_for_images,
-        prepare_text = prepare_text,
-        draw_prepared_text = draw_prepared_text,
-        get_mouse_pointer_position = get_mouse_pointer_position,
-        get_font_at_size = get_font_at_size,
+        prepare_text = prepare_text, // implemented
+        draw_prepared_text = draw_prepared_text, // implemented
+        get_mouse_pointer_position = get_mouse_pointer_position, // implemented
+        get_font_at_size = get_font_at_size, // implemented
         immediate_triangle = immediate_triangle, // implemented
         immediate_quad = immediate_quad, // implemented
         immediate_flush = immediate_flush // implemented
@@ -151,8 +170,18 @@ init_ui :: () {
     GR.ui_init("", *dp);
 }
 
+ui_events : [..]Input.Event;
+
+add_ui_event :: (event: Input.Event) {
+    array_add(*ui_events, event);
+}
+
 tick_ui :: () {
     w,h :=  get_window_size();
+    for ui_events {
+        GR.getrect_handle_event(it);
+    }
+    array_reset_keeping_memory(*ui_events);
     GR.ui_per_frame_update(1, xx w, xx h, get_time());
 }
 
@@ -168,13 +197,16 @@ idk : bool;
 render_ui :: () {
     proc := GR.default_theme_procs[3];
     my_theme := proc();
-    GR.set_default_theme(my_theme);  // Just in case we don't explicitly pass themes sometimes...!
+    GR.set_default_theme(my_theme);
 
     r := GR.get_rect(10, 10, 400, 30);
     pressed := GR.button(r, "GetRect render lfg!!", *my_theme.button_theme);
+    if pressed {
+    }
 
     r.y += 150;
-    GR.base_checkbox(r, "CHECK!!!", idk, null);
+    if GR.base_checkbox(r, "CHECK!!!", idk, null) {
+    }
 }
 
 
