@@ -87,6 +87,7 @@
         args := string.[
             "emcc",
             "src/platform_specific/main.c", "dist/main.o", "modules/sokol-jai/sokol/gfx/sokol_gfx_wasm_gl_debug.a", "modules/sokol-jai/sokol/log/sokol_log_wasm_gl_debug.a", "modules/sokol-jai/sokol/time/sokol_time_wasm_gl_debug.a", "modules/sokol-jai/sokol/app/sokol_app_wasm_gl_debug.a", "modules/sokol-jai/sokol/glue/sokol_glue_wasm_gl_debug.a", "modules/sokol-jai/sokol/fetch/sokol_fetch_wasm_gl_debug.a", "modules/sokol-jai/sokol/gl/sokol_gl_wasm_gl_debug.a", "modules/sokol-jai/sokol/fontstash/sokol_fontstash_wasm_gl_debug.a",
+            "modules/sokol-jai/sokol/stbi/stb_image.a",
             "-o", "dist/index.html",
             "-sERROR_ON_UNDEFINED_SYMBOLS=1", "-sMEMORY64", "-sMAX_WEBGL_VERSION=2",
             "--js-library=src/platform_specific/runtime.js",
