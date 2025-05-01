@@ -11,7 +11,16 @@
 
 default_context: #Context;
 
+temporary_storage: Temporary_Storage;
+temporary_storage_data: [TEMPORARY_STORAGE_SIZE] u8 #align 64;
+
 sapp_init :: () {
+    default_context.temporary_storage = *temporary_storage;
+    temporary_storage.data = temporary_storage_data.data;
+    temporary_storage.size = temporary_storage_data.count;
+    temporary_storage.original_data = temporary_storage_data.data;
+    temporary_storage.original_size = temporary_storage_data.count;    
+
     push_context,defer_pop default_context;
     context.logger = logger;
 
