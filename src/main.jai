@@ -8,6 +8,10 @@
 #load "load.jai";
 #load "./shaders/jai/shader_triangle.jai";
 
+#import "Input";
+
+stbi :: #import "stb_image";
+
 state: struct {
     pass_action: sg_pass_action;
     dpi_scale: float;
@@ -57,12 +61,8 @@ init :: () {
     }));
     state.fons = fons_context;
     state.font_default = FONS_INVALID;
-        // file_data := read_entire_file("./");
-        // state.font_default = fonsAddFontMem(state.fons, "sans", *file_data[0], xx file_data.count, 0);
-
     create_pipelines();
 
-    // a pass action to clear framebuffer to black
     state.pass_action.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0.5, g = 0.5, b = 0.9, a = 1 } };
     init_ui();
     init_font_loads();
@@ -74,10 +74,13 @@ frame :: () {
     sfetch_dowork();
 
     fonsClearState(state.fons);
+    for event: Input.events_this_frame {
+        GR.getrect_handle_event(event);
+    }
+
     sgl_defaults();
     sgl_matrix_mode_projection();
     sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
-    black := sfons_rgba(0, 0, 0, 255);
 
     tick_ui();
     sg_begin_pass(*(sg_pass.{ action = state.pass_action, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
@@ -88,6 +91,7 @@ frame :: () {
     sg_end_pass();
     sg_commit();
 
+    input_per_frame_event_and_flag_update();
     reset_temporary_storage();
 }
 
