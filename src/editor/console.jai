@@ -55,7 +55,7 @@ tick_console :: () {
     }
 }
 
-console_input : string = "HELLO??";
+console_input : string = "HELLO??dasdasdasd";
 
 draw_console :: (theme: *GR.Overall_Theme) {
     if console_h < 1 then return;
@@ -65,8 +65,7 @@ draw_console :: (theme: *GR.Overall_Theme) {
     r.x -= 1*vw;
     r.y = r.h - ui_h(5, 4);
     r.h = ui_h(5, 4);
-    GR.label(r, "HELLO?!! wTF=", *theme.label_theme);
-    // a, new, state := GR.text_input(r, console_input, *theme.text_input_theme);
-
-    // if !state.active then GR.activate(state);
+    // GR.label(r, "HELLO?!! wTF=", *theme.label_theme);
+    a, new, state := GR.text_input(r, console_input, *theme.text_input_theme);
+    if !state.active then GR.activate(state);
 }

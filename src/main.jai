@@ -107,7 +107,7 @@ frame :: () {
     is_in_pass = true;
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
         arb_tri_flush();
-    // sg_end_pass();
+    sg_end_pass();
     sg_commit();
 
     input_per_frame_event_and_flag_update();

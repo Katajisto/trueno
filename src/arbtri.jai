@@ -119,18 +119,18 @@ flush_arb_commands :: () {
             case .REMOVE_TEXTURE;
                 gCurrentTexture = null;
             case .FLUSH_TRI;
-                if !is_in_pass {
-                    sg_begin_pass(*(sg_pass.{ action = state.pass_action, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
-                    is_in_pass = true;
-                }
+                // if !is_in_pass {
+                //     sg_begin_pass(*(sg_pass.{ action = state.pass_action, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
+                //     is_in_pass = true;
+                // }
                 sg_apply_pipeline(gPipelines.arbtri.pipeline);
                 sg_apply_bindings(*gPipelines.arbtri.bind);
                 sg_draw(xx (it.tri_offset * 3), xx (it.tri_count * 3), 1);
             case .PREPARE_TEXT;
-                if is_in_pass {
-                    sg_end_pass();
-                    is_in_pass = false;
-                }
+                // if is_in_pass {
+                //     sg_end_pass();
+                //     is_in_pass = false;
+                // }
                 font := it.font;
                 text := it.text;
                 if text.count < 1 then continue;
@@ -166,14 +166,15 @@ flush_arb_commands :: () {
                 result[gPreppedText.count] = 0;
                 sgl_layer(layer);
                 fonsDrawText(state.fons, xx x, xx y, result, null);
-                sg_begin_pass(*(sg_pass.{ action = state.pass_action, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
-                    sfons_flush(state.fons);
-                    sgl_draw_layer(layer);
-                sg_end_pass();
+                // sg_begin_pass(*(sg_pass.{ action = state.pass_action, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
+                sfons_flush(state.fons);
+                sgl_draw_layer(layer);
+                // sg_end_pass();
                 layer += 1;
+                fonsPushState(state.fons);
         }
     }
-    if is_in_pass {
-        sg_end_pass();
-    }
+    // if is_in_pass {
+    //     sg_end_pass();
+    // }
 }
