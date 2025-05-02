@@ -7,13 +7,29 @@ Ui_Font_Glyph :: struct {
 };
 
 Ui_Font :: struct {
-    em_width: u32 = 1;
-    character_height: u32 = 30;
-    typical_descender: u32 = 1;
-    typical_ascender: u32 = 1;
-    temporary_glyphs: [..]Ui_Font_Glyph;
-    temporary_glyphs_byte_offsets : [..]u32;
+    em_width                       : int = 1;
+    character_height               : int = 30;
+    typical_descender              : int = 1;
+    typical_ascender               : int = 1;
+    fons_font                      : s32 = 0;
+    temporary_glyphs               : [..]Ui_Font_Glyph;
+    temporary_glyphs_byte_offsets  : [..]u32;
 };
+
+ui_init_font_fields :: (font: *Ui_Font) {
+    m_str := "M";
+    fonsSetFont(state.fons, xx font.fons_font);
+    fonsSetSize(state.fons, xx font.character_height);
+
+    ascender, descender, line_h : float;
+    fonsVertMetrics(state.fons, *ascender, *descender, *line_h);
+    
+    font.typical_descender = cast(int) descender;
+    font.typical_ascender  = cast(int) (ascender * 0.85); // @stupid fix to make the ascender not be so big.
+    
+    w := fonsTextBounds(state.fons, 0.0, 0.0, m_str.data, m_str.data + m_str.count, null);
+    font.em_width = xx w;
+}
 
 Ui_Texture :: struct {
     tex: sg_image;
@@ -24,10 +40,10 @@ Ui_Rect :: struct {
 };
 
 Ui_Type_Indicator :: struct {
-    Texture : Type : Ui_Texture;
-    Window_Type: Type : s32;
-    Font: Type: Ui_Font;
-    Font_Effects: Type: u32;
+    Texture      : Type : Ui_Texture;
+    Window_Type  : Type : s32;
+    Font         : Type : Ui_Font;
+    Font_Effects : Type : u32;
 };
 
 Font :: Ui_Font;
@@ -95,11 +111,24 @@ gPreppedText: string;
 gPreppedTextWidth : s32;
 
 prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_Indicator.Font_Effects = 0) -> s64 {
-    fonsSetFont(state.fons, state.font_default);
+    fonsSetFont(state.fons, state.font_default.fons_font);
     fonsSetSize(state.fons, xx font.character_height);
     w := fonsTextBounds(state.fons, 0.0, 0.0, text.data, text.data + text.count, null);
     gPreppedText = text;
     gPreppedTextWidth = cast(s32) w;
+
+    array_reset(*font.temporary_glyphs);
+    array_reset(*font.temporary_glyphs_byte_offsets);
+
+    for 0..(text.count-1) {
+        glyph : Ui_Font_Glyph;
+
+        glyph.advance = cast(u32) fonsTextBounds(state.fons, 0.0, 0.0, text.data + it, text.data + it + 1, null);
+        
+        array_add(*font.temporary_glyphs, glyph);
+        array_add(*font.temporary_glyphs_byte_offsets, cast(u32) it);
+    }
+    
     return cast(s64) w;
 }
 draw_prepared_text :: (font: *Ui_Type_Indicator.Font, x: s64, y: s64, text_color: Vector4, effects: Ui_Type_Indicator.Font_Effects = 0) {
@@ -115,8 +144,8 @@ get_mouse_pointer_position :: (window: Ui_Type_Indicator.Window_Type, right_hand
 }
 get_font_at_size :: (memory: [] u8, pixel_height: int) -> *Font {
     f : *Font = New(Font);
-    // f.character_height = cast(u32) pixel_height;
-    // f.em_width = cast(u32) get_font_letter_width(109, cast (s32) pixel_height);
+    f.character_height = cast(u32) pixel_height;
+    ui_init_font_fields(f);
     return f;
 }
 
@@ -202,8 +231,10 @@ get_font_at_size :: (pixel_height: int) -> *Font {
 
 idk : bool;
 
+test_color : Vector3 = .{1.0, 0.0, 1.0};
+
 render_ui :: () {
-    proc := GR.default_theme_procs[3];
+    proc := GR.default_theme_procs[0];
     my_theme := proc();
     GR.set_default_theme(my_theme);
 
@@ -220,6 +251,11 @@ render_ui :: () {
     if GR.base_checkbox(r, "CHECK!!!", idk, null) {
         idk = !idk;
     }
+    
+    r.y += 150;
+    r.h = 500;
+
+    GR.color_picker(r, *test_color);
 }
 
 

@@ -11,7 +11,7 @@ create_pipelines :: () {
     create_arbtri_pipeline();
 }
 
-gArbtriMem : [1000*3*9]float;
+gArbtriMem : [100000*3*9]float;
 
 create_arbtri_pipeline :: () {
     pipeline: sg_pipeline_desc;
@@ -31,7 +31,7 @@ create_arbtri_pipeline :: () {
         }
     };
 
-    pipeline.color_count = 4;
+    pipeline.color_count = 1;
     pipeline.colors[0] = color_state;
 
     gPipelines.arbtri.pipeline = sg_make_pipeline(*pipeline);

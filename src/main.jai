@@ -16,7 +16,7 @@ state: struct {
     pass_action: sg_pass_action;
     dpi_scale: float;
     fons: *FONScontext;
-    font_default: s32;
+    font_default: Ui_Font;
 };
 
 Window_Info :: struct {
@@ -60,18 +60,29 @@ init :: () {
         height = atlas_dim,
     }));
     state.fons = fons_context;
-    state.font_default = FONS_INVALID;
+    state.font_default.fons_font = FONS_INVALID;
     create_pipelines();
 
     state.pass_action.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0.5, g = 0.5, b = 0.9, a = 1 } };
-    init_ui();
     init_font_loads();
 }
 
+init_after_mandatory_loads :: () {
+    init_ui();
+}
+
 frame :: () {
-    dpis := state.dpi_scale;
 
     sfetch_dowork();
+
+    if mandatory_loads_done() && !init_after_mandatory_done {
+        init_after_mandatory_loads();
+        init_after_mandatory_done = true;
+    }
+
+    if !mandatory_loads_done() then return;
+    
+    dpis := state.dpi_scale;
 
     fonsClearState(state.fons);
     for event: Input.events_this_frame {
