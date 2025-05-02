@@ -1,20 +1,51 @@
 Arb_Tri :: struct {
-    pos: [3]Vector3;
-    col: [3]Vector4;
-    uv: [3]Vector2;
+    pos : [3]Vector3;
+    col : [3]Vector4;
+    uv  : [3]Vector2;
+}
+
+Arb_Draw_Command_Type :: enum {
+    INVALID;
+    FLUSH_TRI;
+    SET_TEXTURE;
+    REMOVE_TEXTURE;
+}
+
+Arb_Draw_Command :: struct {
+    type       : Arb_Draw_Command_Type = .INVALID;
+    tri_offset : int = 0;
+    tri_count  : int = 0;
+    texture    : *Ui_Texture;
 }
 
 Arb_Tri_State :: struct {
-    active : bool = false;
-    trilist : [..]Arb_Tri;
+    active       : bool = false;
+    trilist      : [..]Arb_Tri;
+    command_list : [..]Arb_Draw_Command;
+    latest_flush : int = 0;
 }
 
 arbTriState : Arb_Tri_State;
 
+init_arb_state :: () {
+    gPipelines.arbtri.bind.images[0] = default_texture.tex;
+    array_reset_keeping_memory(*arbTriState.trilist);
+    array_reset_keeping_memory(*arbTriState.command_list);
+    arbTriState.active = true;
+    arbTriState.latest_flush = 0;
+} 
+
+arb_tri_command_add :: (command: Arb_Draw_Command) {
+    if !arbTriState.active {
+        init_arb_state();
+    }
+
+    array_add(*arbTriState.command_list, command);
+}
+
 arb_tri_add :: (tri: Arb_Tri) {
     if !arbTriState.active {
-        array_reset_keeping_memory(*arbTriState.trilist);
-        arbTriState.active = true;
+        init_arb_state();
     }
 
     array_add(*arbTriState.trilist, tri);
@@ -55,7 +86,21 @@ arb_tri_flush :: () {
 
     sg_update_buffer(gPipelines.arbtri.bind.vertex_buffers[0], *(sg_range.{ ptr = gArbtriMem.data, size = size_of(type_of(gArbtriMem)) }));
 
-    sg_apply_pipeline(gPipelines.arbtri.pipeline);
-    sg_apply_bindings(*gPipelines.arbtri.bind);
-    sg_draw(0, xx (arbTriState.trilist.count * 3), 1);
+    flush_arb_commands();
+}
+
+flush_arb_commands :: () {
+    for arbTriState.command_list {
+        if it.type == {
+            case .SET_TEXTURE;
+                gPipelines.arbtri.bind.images[0] = it.texture.tex;
+                gCurrentTexture = it.texture;
+            case .REMOVE_TEXTURE;
+                gCurrentTexture = null;
+            case .FLUSH_TRI;
+                sg_apply_pipeline(gPipelines.arbtri.pipeline);
+                sg_apply_bindings(*gPipelines.arbtri.bind);
+                sg_draw(xx (it.tri_offset * 3), xx (it.tri_count * 3), 1);
+        }
+    }
 }

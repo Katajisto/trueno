@@ -1,6 +1,7 @@
 GR :: #import "GetRect_LeftHanded"()(Type_Indicator = Ui_Type_Indicator);
 Input :: #import "Input";
 
+default_texture : *Ui_Texture = null;
 
 Ui_Font_Glyph :: struct {
     advance : u32 = 1;
@@ -76,6 +77,7 @@ texture_load_from_memory :: (texture: *Ui_Texture, memory: []u8, srgb: bool, bui
 
     stbi.stbi_image_free(data);
     texture.tex = img;
+    if !default_texture then default_texture = texture;
     return true;
 }
 
@@ -96,15 +98,22 @@ clear_scissor :: () {
 }
 
 gCurrentTexture : *Ui_Texture = null;
+add_uvs         : bool        = false;
 
 set_shader_for_color :: (enable_blend := false) {
-    gCurrentTexture = null;
+    arb_tri_command_add(.{
+        type = .REMOVE_TEXTURE
+    });
+    add_uvs = false;
 }
 
 
 set_shader_for_images :: (texture: *Ui_Texture) {
-    gPipelines.arbtri.bind.images[0] = texture.tex;
-    gCurrentTexture = texture;
+    arb_tri_command_add(.{
+        type = .SET_TEXTURE,
+        texture = texture
+    });
+    add_uvs = true;
 }
 
 gPreppedText: string;
@@ -163,7 +172,7 @@ immediate_triangle :: (p0: Vector3, p1: Vector3, p2: Vector3, c0 := Vector4.{1,1
     // This UV symbolizes that the sampler should not be used.
     nullUV : Vector2 = .{-4, -2};
 
-    if gCurrentTexture == null {
+    if !add_uvs {
         tri.uv[0] = nullUV;
         tri.uv[1] = nullUV;
         tri.uv[2] = nullUV;
@@ -185,7 +194,12 @@ immediate_quad :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, color := 
 }
 
 immediate_flush :: () {
-    // arb_tri_flush();
+    arb_tri_command_add(.{
+        type = .FLUSH_TRI,
+        tri_offset = arbTriState.latest_flush,
+        tri_count = arbTriState.trilist.count - arbTriState.latest_flush
+    });
+    arbTriState.latest_flush = arbTriState.trilist.count;
 }
 
 init_ui :: () {
