@@ -1,6 +1,10 @@
 #import "Basic";
 #import "Math";
+#import "Input";
+stbi :: #import "stb_image";
+
 #load "ui/ui.jai";
+#load "editor/editor.jai";
 #load "pipelines.jai";
 #load "time.jai";
 #load "arbtri.jai";
@@ -8,27 +12,27 @@
 #load "load.jai";
 #load "./shaders/jai/shader_triangle.jai";
 
-#import "Input";
-
-stbi :: #import "stb_image";
+last_frame_time : float64;
+delta\    _time : float64;
 
 state: struct {
-    pass_action: sg_pass_action;
-    dpi_scale: float;
-    fons: *FONScontext;
-    font_default: Ui_Font;
+    pass_action_clear : sg_pass_action;
+    pass_action       : sg_pass_action;
+    dpi_scale         : float;
+    fons              : *FONScontext;
+    font_default      : Ui_Font;
 };
 
 Window_Info :: struct {
-    width: s32;
-    height: s32;
-    title: *u8;
+    width  : s32;
+    height : s32;
+    title  : *u8;
 };
 
 get_window_info :: () -> Window_Info {
     return Window_Info.{
-        1200,
-        1200,
+        1920,
+        1080,
         "trueno!"
     };
 }
@@ -63,7 +67,8 @@ init :: () {
     state.font_default.fons_font = FONS_INVALID;
     create_pipelines();
 
-    state.pass_action.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0.5, g = 0.5, b = 0.9, a = 1 } };
+    state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0.5, g = 0.5, b = 0.9, a = 1 } };
+    state.pass_action.colors[0] = .{ load_action = .LOAD };
     init_font_loads();
 }
 
@@ -73,6 +78,9 @@ init_after_mandatory_loads :: () {
 
 frame :: () {
 
+    delta_time = get_time() - last_frame_time;
+    last_frame_time = get_time();
+
     sfetch_dowork();
 
     if mandatory_loads_done() && !init_after_mandatory_done {
@@ -81,6 +89,7 @@ frame :: () {
     }
 
     if !mandatory_loads_done() then return;
+    fonsClearState(state.fons);
     
     dpis := state.dpi_scale;
 
@@ -94,12 +103,11 @@ frame :: () {
     sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
 
     tick_ui();
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
-        render_ui();
-        sfons_flush(state.fons);
+    render_ui();
+    is_in_pass = true;
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
         arb_tri_flush();
-        sgl_draw();
-    sg_end_pass();
+    // sg_end_pass();
     sg_commit();
 
     input_per_frame_event_and_flag_update();

@@ -1,6 +1,37 @@
 GR :: #import "GetRect_LeftHanded"()(Type_Indicator = Ui_Type_Indicator);
 Input :: #import "Input";
 
+#load "component_themes.jai";
+
+// vw is 1/100 of view width
+vw : float;
+// vh is 1/100 of view height
+vh : float;
+
+// These are for making minimum widths and heights.
+// nvh is 1/100 of 1080;
+nvh : float : 1080 / 100;
+// nvw is 1/100 of 1920;
+nvw : float : 1920 / 100;
+
+ui_w :: (normal_w : int, min_w: int) -> float {
+    min_width    := min_w    * nvw;
+    normal_width := normal_w * vw;
+
+    if min_width > normal_width then return min_width;
+
+    return normal_width;
+}
+
+ui_h :: (normal_h : int, min_h: int) -> float {
+    min_height    := min_h    * nvh;
+    normal_height := normal_h * vh;
+
+    if min_height > normal_height then return min_height;
+
+    return normal_height;
+}
+
 default_texture : *Ui_Texture = null;
 
 Ui_Font_Glyph :: struct {
@@ -105,6 +136,7 @@ set_shader_for_color :: (enable_blend := false) {
         type = .REMOVE_TEXTURE
     });
     add_uvs = false;
+    immediate_flush();
 }
 
 
@@ -114,12 +146,20 @@ set_shader_for_images :: (texture: *Ui_Texture) {
         texture = texture
     });
     add_uvs = true;
+    immediate_flush();
 }
 
 gPreppedText: string;
 gPreppedTextWidth : s32;
 
 prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_Indicator.Font_Effects = 0) -> s64 {
+    if text.count < 1 then return 0;
+
+    arb_tri_command_add(.{
+        type = .PREPARE_TEXT,
+        font = font,
+        text = text
+    });
     fonsSetFont(state.fons, state.font_default.fons_font);
     fonsSetSize(state.fons, xx font.character_height);
     w := fonsTextBounds(state.fons, 0.0, 0.0, text.data, text.data + text.count, null);
@@ -141,12 +181,13 @@ prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_I
     return cast(s64) w;
 }
 draw_prepared_text :: (font: *Ui_Type_Indicator.Font, x: s64, y: s64, text_color: Vector4, effects: Ui_Type_Indicator.Font_Effects = 0) {
-    color := sfons_rgba(xx (255.0 * text_color.x), xx (255.0 * text_color.y), xx (255.0 * text_color.z), xx (255.0 * text_color.w));
-    fonsSetColor(state.fons, color);
-    result := cast(*u8) temporary_alloc(gPreppedText.count + 1);  // Add 1 for the zero.
-    memcpy(result, gPreppedText.data, gPreppedText.count);
-    result[gPreppedText.count] = 0;
-    fonsDrawText(state.fons, xx x, xx y, result, null);
+    arb_tri_command_add(.{
+        type = .DRAW_TEXT,
+        text_color = text_color,
+        font = font,
+        x = x,
+        y = y
+    });
 }
 get_mouse_pointer_position :: (window: Ui_Type_Indicator.Window_Type, right_handed: bool) -> (x: int, y: int, success: bool) {
     return xx input_mouse_x, xx input_mouse_y, true;
@@ -232,8 +273,12 @@ tick_ui :: () {
     for ui_events {
         GR.getrect_handle_event(it);
     }
+    vw = (cast(float) w)/100.0;
+    vh = (cast(float) h)/100.0;
     array_reset_keeping_memory(*ui_events);
     GR.ui_per_frame_update(1, xx w, xx h, get_time());
+
+    tick_editor_ui();
 }
 
 checkboxTest : bool = false;
@@ -247,29 +292,26 @@ idk : bool;
 
 test_color : Vector3 = .{1.0, 0.0, 1.0};
 
+draw_bg_rectangle :: (r: GR.Rect, theme: GR.Overall_Theme) {
+    draw_rectangle(r, theme.background_color);
+}
+
+draw_rectangle :: (r: GR.Rect, color: Vector4) {
+    set_shader_for_color();
+    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h}, color);
+    immediate_flush();
+}
+
+font_boundary :: () {
+    arb_tri_command_add(.{type = .FONT_BOUNDARY});
+}
+
 render_ui :: () {
     proc := GR.default_theme_procs[0];
     my_theme := proc();
     GR.set_default_theme(my_theme);
-
-    r := GR.get_rect(10, 10, 400, 30);
-    pressed := GR.button(r, "GetRect render lfg!!", *my_theme.button_theme);
-    if pressed {
-    }
-
-    r.y += 50;
-
-    GR.text_input(r, "TTT", *my_theme.text_input_theme);
-    
-    r.y += 150;
-    if GR.base_checkbox(r, "CHECK!!!", idk, null) {
-        idk = !idk;
-    }
-    
-    r.y += 150;
-    r.h = 500;
-
-    GR.color_picker(r, *test_color);
+    draw_editor_ui(*my_theme);
+    r := GR.get_rect(100, 100, 200, 50);
 }
 
 
