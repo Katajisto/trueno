@@ -36,6 +36,7 @@ sapp_init :: () {
         window_title = wi.title,
         // icon = .{ sokol_default = true },
         logger = .{ func = slog_func },
+        sample_count = 4,
     }));
 }
 

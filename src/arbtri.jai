@@ -104,6 +104,8 @@ debug_arb_flush : bool : false;
 layer : s32  = 0;
 
 flush_arb_commands :: () {
+    sfons_flush(state.fons); // All the text has been drawn, now flush it to the atlas.
+
     layer = 0;
     if debug_arb_flush then print(" --- !BEGIN FLUSH! ---- \n");
     for arbTriState.command_list {

@@ -10,11 +10,10 @@ stbi :: #import "stb_image";
 #load "arbtri.jai";
 #load "events.jai";
 #load "load.jai";
-#load "./shaders/jai/shader_triangle.jai";
+#load "camera.jai";
 
 last_frame_time : float64;
 delta\    _time : float64;
-
 
 V_MAJOR :: 0;
 V_MINOR :: 2;
@@ -80,6 +79,8 @@ init_after_mandatory_loads :: () {
     init_ui();
 }
 
+cam : Camera;
+
 frame :: () {
 
     delta_time = get_time() - last_frame_time;
@@ -107,14 +108,35 @@ frame :: () {
     sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
 
     tick_ui();
-    render_ui();
 
-    // UI Pass:
+    mvp := create_viewproj(*cam);
+    vs_params : Vs_Params;
+    vs_params.mvp = mvp.floats;
+
+    test : [2]Trixel_Instance;
+    test[0].pos[0] = 0.0;
+    test[0].pos[1] = 0.0;
+    test[0].pos[2] = 0.0;
+    test[0].pos[3] = 1.0;
+    test[1].pos[0] = 1.0;
+    test[1].pos[1] = 0.0;
+    test[1].pos[2] = 0.0;
+    test[1].pos[3] = 1.0;
+
+    sg_update_buffer(gPipelines.trixel.bind.storage_buffers[0], *(sg_range.{
+        ptr = test.data,
+        size = size_of(type_of(test)),
+    }));
+
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
-        arb_tri_flush();
+    sg_apply_pipeline(gPipelines.trixel.pipeline);
+    sg_apply_bindings(*gPipelines.trixel.bind);
+    sg_apply_uniforms(UB_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
+    sg_draw(0, 36, 2);
     sg_end_pass();
-    sg_commit();
 
+    ui_pass();
+    
     input_per_frame_event_and_flag_update();
     reset_temporary_storage();
 }

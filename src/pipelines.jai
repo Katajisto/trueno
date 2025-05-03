@@ -1,17 +1,103 @@
+#load "./shaders/jai/shader_triangle.jai";
+#load "./shaders/jai/shader_trixel.jai";
+
 Pipeline_Binding :: struct {
-    pipeline: sg_pipeline;
-    bind: sg_bindings;
+    pipeline : sg_pipeline;
+    bind     : sg_bindings;
 }
 
 gPipelines : struct {
-    arbtri: Pipeline_Binding;
+
+    // Arbitrary triangle rendering for rendering 2D things on the screen.
+    // Used for UI rendering.
+    arbtri : Pipeline_Binding;
+    
+    // Trixel rendering. Used for Trile editor rendering, in-game triles are rendered from
+    // generated meshes.
+    trixel : Pipeline_Binding;
+
 }
 
 create_pipelines :: () {
     create_arbtri_pipeline();
+    create_trixel_pipeline();
 }
 
+TRIXEL_SIZE_HALF : float : 1.0/2.0;
+
 gArbtriMem : [100000*3*9]float;
+
+create_trixel_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := trixel_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.buffers[0].stride = 4*3;
+    
+    pipeline.layout.attrs[ATTR_trixel_position] = .{ format = .FLOAT3 };
+    pipeline.index_type = .UINT16;
+
+    color_state := sg_color_target_state.{
+        pixel_format = .RGBA8,
+        blend = .{
+            enabled = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
+        }
+    };
+
+    verts : [24] Vector3;
+	verts[0] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF };
+	verts[1] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
+	verts[2] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF   };
+	verts[3] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
+
+	verts[4] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF  };
+	verts[5] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
+	verts[6] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF    };
+	verts[7] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
+
+	verts[8] =  .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF };
+	verts[9] =  .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
+	verts[10] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
+	verts[11] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF  };
+
+	verts[12] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF };
+	verts[13] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
+	verts[14] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
+	verts[15] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF  };
+
+	verts[16] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF };
+	verts[17] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF  };
+	verts[18] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
+	verts[19] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
+
+	verts[20] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
+	verts[21] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
+	verts[22] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF    };
+	verts[23] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF   };
+
+	indices: [] u16 = .[
+		0, 1, 2, 0, 2, 3,
+		4, 5, 6, 4, 6, 7,
+		8, 9, 10, 8, 10, 11,
+		12, 13, 14, 12, 14, 15,
+		16, 17, 18, 16, 18, 19,
+		20, 21, 22, 20, 22, 23
+	];
+    
+    pipeline.color_count = 1;
+    pipeline.colors[0]   = color_state;
+
+    gPipelines.trixel.pipeline = sg_make_pipeline(*pipeline);
+    
+    ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 36 * 2 } };
+    vbuffer         := sg_buffer_desc.{ data = .{ ptr = verts.data, size = 24 * 3 * 4 } };
+    instance_buffer := sg_buffer_desc.{ type = .STORAGEBUFFER, size = 4096 * size_of(Vector4)};
+
+    gPipelines.trixel.bind.index_buffer       = sg_make_buffer(*ibuffer);
+    gPipelines.trixel.bind.vertex_buffers[0]  = sg_make_buffer(*vbuffer);
+    gPipelines.trixel.bind.storage_buffers[0] = sg_make_buffer(*instance_buffer);
+}
 
 create_arbtri_pipeline :: () {
     pipeline: sg_pipeline_desc;

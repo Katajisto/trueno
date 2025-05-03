@@ -187,7 +187,6 @@ draw_prepared_text :: (font: *Ui_Type_Indicator.Font, x: s64, y: s64, text_color
     result[gPreppedText.count] = 0;
     sgl_layer(layer);
     fonsDrawText(state.fons, xx x, xx y, result, null);
-    sfons_flush(state.fons);
     fonsPushState(state.fons);
     arb_tri_command_add(.{
         type = .DRAW_TEXT,
@@ -320,4 +319,10 @@ render_ui :: () {
     r := GR.get_rect(100, 100, 200, 50);
 }
 
-
+ui_pass :: () {
+    render_ui(); // Generates commands that are handled in arb_tri_flush
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
+        arb_tri_flush();
+    sg_end_pass();
+    sg_commit();
+}

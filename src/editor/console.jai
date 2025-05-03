@@ -78,6 +78,7 @@ draw_console :: (theme: *GR.Overall_Theme) {
     if a & .ENTERED {
         array_add(*console_report, copy_string(tprint("> %", new)));
         state.text = console_input_start;
+        array_add(*console_report, "Unknown command.");
     }
 
     for < console_report {
