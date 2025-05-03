@@ -153,13 +153,11 @@ gPreppedText: string;
 gPreppedTextWidth : s32;
 
 prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_Indicator.Font_Effects = 0) -> s64 {
-    if text.count < 1 then return 0;
-
-    arb_tri_command_add(.{
-        type = .PREPARE_TEXT,
-        font = font,
-        text = text
-    });
+    if text.count < 1 {
+        gPreppedText = "";
+        gPreppedTextWidth = 0;
+        return 0;
+    }
     fonsSetFont(state.fons, state.font_default.fons_font);
     fonsSetSize(state.fons, xx font.character_height);
     w := fonsTextBounds(state.fons, 0.0, 0.0, text.data, text.data + text.count, null);
@@ -181,13 +179,21 @@ prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_I
     return cast(s64) w;
 }
 draw_prepared_text :: (font: *Ui_Type_Indicator.Font, x: s64, y: s64, text_color: Vector4, effects: Ui_Type_Indicator.Font_Effects = 0) {
+    if gPreppedText.count < 1 then return;
+    color := sfons_rgba(xx (255.0 * text_color.x), xx (255.0 * text_color.y), xx (255.0 * text_color.z), xx (255.0 * text_color.w));
+    fonsSetColor(state.fons, color);
+    result := cast(*u8) temporary_alloc(gPreppedText.count + 1);  // Add 1 for the zero.
+    memcpy(result, gPreppedText.data, gPreppedText.count);
+    result[gPreppedText.count] = 0;
+    sgl_layer(layer);
+    fonsDrawText(state.fons, xx x, xx y, result, null);
+    sfons_flush(state.fons);
+    fonsPushState(state.fons);
     arb_tri_command_add(.{
         type = .DRAW_TEXT,
-        text_color = text_color,
-        font = font,
-        x = x,
-        y = y
+        layer = layer 
     });
+    layer += 1;
 }
 get_mouse_pointer_position :: (window: Ui_Type_Indicator.Window_Type, right_handed: bool) -> (x: int, y: int, success: bool) {
     return xx input_mouse_x, xx input_mouse_y, true;

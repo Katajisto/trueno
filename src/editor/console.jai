@@ -4,7 +4,11 @@ Console_State :: enum {
     OPEN_FULL; 
 }
 
+MAX_REPORT_ROWS :: 100;
+
 console_state : Console_State = .CLOSED;
+
+console_report : [..]string;
 
 console_h          : float = 0.0;
 console_move_speed : float = 400.0;
@@ -53,9 +57,13 @@ tick_console :: () {
             console_h = t;
         }
     }
+
+    while console_report.count > MAX_REPORT_ROWS {
+        array_ordered_remove_by_index(*console_report, 0);
+    }
 }
 
-console_input : string = "HELLO??dasdasdasd";
+console_input_start : string = "";
 
 draw_console :: (theme: *GR.Overall_Theme) {
     if console_h < 1 then return;
@@ -65,7 +73,17 @@ draw_console :: (theme: *GR.Overall_Theme) {
     r.x -= 1*vw;
     r.y = r.h - ui_h(5, 4);
     r.h = ui_h(5, 4);
-    // GR.label(r, "HELLO?!! wTF=", *theme.label_theme);
-    a, new, state := GR.text_input(r, console_input, *theme.text_input_theme);
+
+    a, new, state := GR.text_input(r, console_input_start, *theme.text_input_theme);
+    if a & .ENTERED {
+        array_add(*console_report, copy_string(tprint("> %", new)));
+        state.text = console_input_start;
+    }
+
+    for < console_report {
+        r.y -= r.h;
+        GR.label(r, it, *t_label_left(theme));
+    }
+    
     if !state.active then GR.activate(state);
 }

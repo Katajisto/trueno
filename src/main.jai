@@ -15,6 +15,10 @@ stbi :: #import "stb_image";
 last_frame_time : float64;
 delta\    _time : float64;
 
+
+V_MAJOR :: 0;
+V_MINOR :: 2;
+
 state: struct {
     pass_action_clear : sg_pass_action;
     pass_action       : sg_pass_action;
@@ -104,7 +108,8 @@ frame :: () {
 
     tick_ui();
     render_ui();
-    is_in_pass = true;
+
+    // UI Pass:
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
         arb_tri_flush();
     sg_end_pass();
