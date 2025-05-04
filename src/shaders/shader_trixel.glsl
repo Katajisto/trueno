@@ -1,26 +1,19 @@
 @vs vs_trixel
 
 in vec4 position;
+// in vec4 inst;
 
 layout(binding=0) uniform vs_params {
     mat4 mvp;
 };
 
-struct trixel_instance {
-    vec4 pos;
-};
-
-layout(binding=0) readonly buffer instances {
-    trixel_instance inst[];
-};
-
-
 out vec4 color;
 
 void main() {
-    vec3 instancepos = inst[gl_InstanceIndex].pos.xyz;
-    gl_Position = mvp * (vec4(position.xyz + instancepos, 1.0));
-    color = vec4(instancepos, 1.0);
+    // vec3 instancepos = inst.xyz;
+    // gl_Position = mvp * (vec4(position.xyz + instancepos, 1.0));
+    gl_Position = mvp * position;
+    color = vec4(1.0, 0.0, 0.0, 1.0);
 }
 @end
 

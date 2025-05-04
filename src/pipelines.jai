@@ -23,7 +23,7 @@ create_pipelines :: () {
     create_trixel_pipeline();
 }
 
-TRIXEL_SIZE_HALF : float : 1.0/2.0;
+TRIXEL_SIZE_HALF : float : 1.0/32.0;
 
 gArbtriMem : [100000*3*9]float;
 
@@ -32,8 +32,10 @@ create_trixel_pipeline :: () {
     shader_desc := trixel_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
+    // pipeline.layout.buffers[1].step_func = .PER_INSTANCE;
     
-    pipeline.layout.attrs[ATTR_trixel_position] = .{ format = .FLOAT3 };
+    pipeline.layout.attrs[ATTR_trixel_position] = .{ format = .FLOAT3, buffer_index = 0 };
+    // pipeline.layout.attrs[ATTR_trixel_inst]     = .{ format = .FLOAT4, buffer_index = 1 };
     pipeline.index_type = .UINT16;
 
     color_state := sg_color_target_state.{
@@ -92,11 +94,11 @@ create_trixel_pipeline :: () {
     
     ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 36 * 2 } };
     vbuffer         := sg_buffer_desc.{ data = .{ ptr = verts.data, size = 24 * 3 * 4 } };
-    instance_buffer := sg_buffer_desc.{ type = .STORAGEBUFFER, size = 4096 * size_of(Vector4)};
+    // instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 4096 * size_of(Vector4)};
 
-    gPipelines.trixel.bind.index_buffer       = sg_make_buffer(*ibuffer);
-    gPipelines.trixel.bind.vertex_buffers[0]  = sg_make_buffer(*vbuffer);
-    gPipelines.trixel.bind.storage_buffers[0] = sg_make_buffer(*instance_buffer);
+    gPipelines.trixel.bind.index_buffer      = sg_make_buffer(*ibuffer);
+    gPipelines.trixel.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    // gPipelines.trixel.bind.vertex_buffers[1] = sg_make_buffer(*instance_buffer);
 }
 
 create_arbtri_pipeline :: () {

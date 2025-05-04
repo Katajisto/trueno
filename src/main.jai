@@ -82,16 +82,19 @@ init_after_mandatory_loads :: () {
 cam : Camera;
 
 frame :: () {
-
+    print("FLAG1\n");
     delta_time = get_time() - last_frame_time;
     last_frame_time = get_time();
 
     sfetch_dowork();
 
+    print("FLAG2\n");
     if mandatory_loads_done() && !init_after_mandatory_done {
+        print("FLAG3\n");
         init_after_mandatory_loads();
         init_after_mandatory_done = true;
     }
+    print("FLAG4\n");
 
     if !mandatory_loads_done() then return;
     fonsClearState(state.fons);
@@ -113,17 +116,20 @@ frame :: () {
     vs_params : Vs_Params;
     vs_params.mvp = mvp.floats;
 
-    test : [2]Trixel_Instance;
-    test[0].pos[0] = 0.0;
-    test[0].pos[1] = 0.0;
-    test[0].pos[2] = 0.0;
-    test[0].pos[3] = 1.0;
-    test[1].pos[0] = 1.0;
-    test[1].pos[1] = 0.0;
-    test[1].pos[2] = 0.0;
-    test[1].pos[3] = 1.0;
+    test : [4096]Vector4;
 
-    sg_update_buffer(gPipelines.trixel.bind.storage_buffers[0], *(sg_range.{
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                test[x * 16 * 16 + y * 16 + z].x = x * (1.0 / 16.0);
+                test[x * 16 * 16 + y * 16 + z].y = y * (1.0 / 16.0);
+                test[x * 16 * 16 + y * 16 + z].z = z * (1.0 / 16.0);
+                test[x * 16 * 16 + y * 16 + z].w = 1.0;
+            }
+        }
+    }
+
+    sg_update_buffer(gPipelines.trixel.bind.vertex_buffers[1], *(sg_range.{
         ptr = test.data,
         size = size_of(type_of(test)),
     }));
@@ -132,7 +138,7 @@ frame :: () {
     sg_apply_pipeline(gPipelines.trixel.pipeline);
     sg_apply_bindings(*gPipelines.trixel.bind);
     sg_apply_uniforms(UB_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
-    sg_draw(0, 36, 2);
+    sg_draw(0, 36, 4096);
     sg_end_pass();
 
     ui_pass();

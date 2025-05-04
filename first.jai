@@ -1,14 +1,15 @@
 #run {
-    {
-        process_result, output, error := run_command("bash", "./compile_shaders.sh", working_directory=tprint("%/src/shaders", #filepath));
-        if process_result.exit_code != 0 {
-            log_error("Shader compilation failed.");
-            if output {
-                log_error(output,, logger = runtime_support_default_logger);
-            }
-            exit(1);
-        }
-    }
+    // @ToDo: Fix this so that we are using the freshly compiled Jai files instead of the old ones.
+    // {
+    //     process_result, output, error := run_command("bash", "./compile_shaders.sh", working_directory=tprint("%/src/shaders", #filepath));
+    //     if process_result.exit_code != 0 {
+    //         log_error("Shader compilation failed.");
+    //         if output {
+    //             log_error(output,, logger = runtime_support_default_logger);
+    //         }
+    //         exit(1);
+    //     }
+    // }
     opt := get_build_options();
     args := opt.compile_time_command_line;
     doWasmBuild := false;
