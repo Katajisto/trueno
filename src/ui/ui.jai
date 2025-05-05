@@ -39,13 +39,14 @@ Ui_Font_Glyph :: struct {
 };
 
 Ui_Font :: struct {
-    em_width                       : int = 1;
-    character_height               : int = 30;
-    typical_descender              : int = 1;
-    typical_ascender               : int = 1;
-    fons_font                      : s32 = 0;
-    temporary_glyphs               : [..]Ui_Font_Glyph;
-    temporary_glyphs_byte_offsets  : [..]u32;
+    em_width                         : int = 1;
+    character_height                 : int = 30;
+    typical_descender                : int = 1;
+    typical_ascender                 : int = 1;
+    fons_font                        : s32 = 0;
+    temporary_glyphs                 : [..]Ui_Font_Glyph;
+    temporary_glyphs_byte_offsets    : [..]u32;
+    temporary_glyphs_width_in_pixels : u32;
 };
 
 ui_init_font_fields :: (font: *Ui_Font) {
@@ -167,10 +168,13 @@ prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_I
     array_reset(*font.temporary_glyphs);
     array_reset(*font.temporary_glyphs_byte_offsets);
 
+    font.temporary_glyphs_width_in_pixels = 0;
+
     for 0..(text.count-1) {
         glyph : Ui_Font_Glyph;
 
         glyph.advance = cast(u32) fonsTextBounds(state.fons, 0.0, 0.0, text.data + it, text.data + it + 1, null);
+        font.temporary_glyphs_width_in_pixels += glyph.advance;
         
         array_add(*font.temporary_glyphs, glyph);
         array_add(*font.temporary_glyphs_byte_offsets, cast(u32) it);

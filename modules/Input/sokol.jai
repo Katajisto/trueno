@@ -71,7 +71,7 @@ get_key_code :: (key: sapp_keycode) -> Key_Code {
         return PRINT_SCREEN;
 
 
-    if (key >= #char "a") && (key <= #char "z") return cast(Key_Code) (key - 0x20);
+    if (key >= #char "a") && (key <= #char "z") return cast(Key_Code) (key);
     if key > 32 && key < 127 return cast(Key_Code) key;
 
     return UNKNOWN;
@@ -153,12 +153,13 @@ handle_sokol_event :: (event: *sapp_event) {
         case .MOUSE_MOVE;
             input_mouse_x = event.mouse_x;
             input_mouse_y = event.mouse_y;
-            return;            
+            return;
+        case .MOUSE_SCROLL;
+            mouse_delta_z = cast(int) event.scroll_y;
     }
     array_add(*events_this_frame, new_event);
 }
 
-WHEEL_DELTA :: 120;
 
 /*
 

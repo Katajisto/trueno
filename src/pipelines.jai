@@ -27,16 +27,26 @@ TRIXEL_SIZE_HALF : float : 1.0/32.0;
 
 gArbtriMem : [100000*3*9]float;
 
+Position_Color :: struct {
+    pos: Vector4;
+    col: Vector4;
+}
+
 create_trixel_pipeline :: () {
     pipeline: sg_pipeline_desc;
     shader_desc := trixel_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
-    // pipeline.layout.buffers[1].step_func = .PER_INSTANCE;
+    pipeline.layout.buffers[1].step_func = .PER_INSTANCE;
     
     pipeline.layout.attrs[ATTR_trixel_position] = .{ format = .FLOAT3, buffer_index = 0 };
-    // pipeline.layout.attrs[ATTR_trixel_inst]     = .{ format = .FLOAT4, buffer_index = 1 };
+    pipeline.layout.attrs[ATTR_trixel_inst]     = .{ format = .FLOAT4, buffer_index = 1 };
+    pipeline.layout.attrs[ATTR_trixel_inst_col] = .{ format = .FLOAT4, buffer_index = 1 };
     pipeline.index_type = .UINT16;
+    pipeline.depth = .{
+            write_enabled = true,
+            compare = .LESS_EQUAL,
+    };
 
     color_state := sg_color_target_state.{
         pixel_format = .RGBA8,
@@ -79,12 +89,12 @@ create_trixel_pipeline :: () {
 	verts[23] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF   };
 
 	indices: [] u16 = .[
-		0, 1, 2, 0, 2, 3,
-		4, 5, 6, 4, 6, 7,
-		8, 9, 10, 8, 10, 11,
-		12, 13, 14, 12, 14, 15,
-		16, 17, 18, 16, 18, 19,
-		20, 21, 22, 20, 22, 23
+		0, 2, 1, 0, 3, 2,
+		4, 6, 5, 4, 7, 6,
+		8, 10, 9, 8, 11, 10,
+		12, 14, 13, 12, 15, 14,
+		16, 18, 17, 16, 19, 18,
+		20, 22, 21, 20, 23, 22
 	];
     
     pipeline.color_count = 1;
@@ -94,11 +104,11 @@ create_trixel_pipeline :: () {
     
     ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 36 * 2 } };
     vbuffer         := sg_buffer_desc.{ data = .{ ptr = verts.data, size = 24 * 3 * 4 } };
-    // instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 4096 * size_of(Vector4)};
+    instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 4096 * size_of(Position_Color)};
 
     gPipelines.trixel.bind.index_buffer      = sg_make_buffer(*ibuffer);
     gPipelines.trixel.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
-    // gPipelines.trixel.bind.vertex_buffers[1] = sg_make_buffer(*instance_buffer);
+    gPipelines.trixel.bind.vertex_buffers[1] = sg_make_buffer(*instance_buffer);
 }
 
 create_arbtri_pipeline :: () {

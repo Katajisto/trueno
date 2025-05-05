@@ -2,6 +2,7 @@
 #import,dir "../../modules/sokol-jai/sokol/gfx";
 #import,dir "../../modules/sokol-jai/sokol/gl";
 #import,dir "../../modules/sokol-jai/sokol/glue";
+#import,dir "../../modules/sokol-jai/sokol/shape";
 #import,dir "../../modules/sokol-jai/sokol/fontstash";
 #import,dir "../../modules/sokol-jai/sokol/log";
 #import,dir "../../modules/sokol-jai/sokol/time";

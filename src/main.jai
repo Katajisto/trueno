@@ -11,6 +11,7 @@ stbi :: #import "stb_image";
 #load "events.jai";
 #load "load.jai";
 #load "camera.jai";
+#load "ray.jai";
 
 last_frame_time : float64;
 delta\    _time : float64;
@@ -70,7 +71,7 @@ init :: () {
     state.font_default.fons_font = FONS_INVALID;
     create_pipelines();
 
-    state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0.5, g = 0.5, b = 0.9, a = 1 } };
+    state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0.6, g = 0.7, b = 1.0, a = 1 } };
     state.pass_action.colors[0] = .{ load_action = .LOAD };
     init_font_loads();
 }
@@ -82,19 +83,15 @@ init_after_mandatory_loads :: () {
 cam : Camera;
 
 frame :: () {
-    print("FLAG1\n");
     delta_time = get_time() - last_frame_time;
     last_frame_time = get_time();
 
     sfetch_dowork();
 
-    print("FLAG2\n");
     if mandatory_loads_done() && !init_after_mandatory_done {
-        print("FLAG3\n");
         init_after_mandatory_loads();
         init_after_mandatory_done = true;
     }
-    print("FLAG4\n");
 
     if !mandatory_loads_done() then return;
     fonsClearState(state.fons);
@@ -112,19 +109,21 @@ frame :: () {
 
     tick_ui();
 
-    mvp := create_viewproj(*cam);
+    mvp := create_viewproj(*get_trile_editor_camera());
     vs_params : Vs_Params;
     vs_params.mvp = mvp.floats;
 
-    test : [4096]Vector4;
+    test : [4096]Position_Color;
 
     for x: 0..15 {
         for y: 0..15 {
             for z: 0..15 {
-                test[x * 16 * 16 + y * 16 + z].x = x * (1.0 / 16.0);
-                test[x * 16 * 16 + y * 16 + z].y = y * (1.0 / 16.0);
-                test[x * 16 * 16 + y * 16 + z].z = z * (1.0 / 16.0);
-                test[x * 16 * 16 + y * 16 + z].w = 1.0;
+                test[x * 16 * 16 + y * 16 + z].pos.x = x * (1.0 / 16.0);
+                test[x * 16 * 16 + y * 16 + z].pos.y = y * (1.0 / 16.0);
+                test[x * 16 * 16 + y * 16 + z].pos.z = z * (1.0 / 16.0);
+                test[x * 16 * 16 + y * 16 + z].pos.w = 1.0;
+                test[x * 16 * 16 + y * 16 + z].col   = .{current_color.x, current_color.y, current_color.z, 1.0};
+
             }
         }
     }

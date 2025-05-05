@@ -1,9 +1,9 @@
 Camera :: struct {
-	fov: float = 75.0 * 3.141 / 180.0;
-	near: float = 1.0;
-	far: float = 20.0;
-	position: Vector3 = .{3, 3, 3};
-	target: Vector3 = .{0, 0, 0};
+	fov      : float   = 75.0 * 3.141 / 180.0;
+	near     : float   = 1.0;
+	far      : float   = 20.0;
+	position : Vector3 = .{2, 2, 2};
+	target   : Vector3 = .{0, 0, 0};
 }
 
 create_perspective :: (camera: *Camera) -> Matrix4 {
@@ -38,7 +38,6 @@ create_lookat :: (camera: *Camera) -> Matrix4 {
 	};
 }
 
-// TODO: maybe later don't pass in the whole context, but only the width and height.
 create_viewproj :: (camera: *Camera) -> Matrix4 {
 	return create_lookat(camera) * create_perspective(camera);
 }
