@@ -3,6 +3,7 @@
 #import "Input";
 stbi :: #import "stb_image";
 
+#load "trile.jai";
 #load "ui/ui.jai";
 #load "editor/editor.jai";
 #load "pipelines.jai";
@@ -17,7 +18,7 @@ last_frame_time : float64;
 delta\    _time : float64;
 
 V_MAJOR :: 0;
-V_MINOR :: 2;
+V_MINOR :: 3;
 
 state: struct {
     pass_action_clear : sg_pass_action;
@@ -107,39 +108,9 @@ frame :: () {
     sgl_matrix_mode_projection();
     sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
 
+    draw_trile();
+
     tick_ui();
-
-    mvp := create_viewproj(*get_trile_editor_camera());
-    vs_params : Vs_Params;
-    vs_params.mvp = mvp.floats;
-
-    test : [4096]Position_Color;
-
-    for x: 0..15 {
-        for y: 0..15 {
-            for z: 0..15 {
-                test[x * 16 * 16 + y * 16 + z].pos.x = x * (1.0 / 16.0);
-                test[x * 16 * 16 + y * 16 + z].pos.y = y * (1.0 / 16.0);
-                test[x * 16 * 16 + y * 16 + z].pos.z = z * (1.0 / 16.0);
-                test[x * 16 * 16 + y * 16 + z].pos.w = 1.0;
-                test[x * 16 * 16 + y * 16 + z].col   = .{current_color.x, current_color.y, current_color.z, 1.0};
-
-            }
-        }
-    }
-
-    sg_update_buffer(gPipelines.trixel.bind.vertex_buffers[1], *(sg_range.{
-        ptr = test.data,
-        size = size_of(type_of(test)),
-    }));
-
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
-    sg_apply_pipeline(gPipelines.trixel.pipeline);
-    sg_apply_bindings(*gPipelines.trixel.bind);
-    sg_apply_uniforms(UB_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
-    sg_draw(0, 36, 4096);
-    sg_end_pass();
-
     ui_pass();
     
     input_per_frame_event_and_flag_update();

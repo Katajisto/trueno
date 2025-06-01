@@ -24,6 +24,7 @@ create_pipelines :: () {
 }
 
 TRIXEL_SIZE_HALF : float : 1.0/32.0;
+TRIXEL_SIZE      : float : 1.0/16.0;
 
 gArbtriMem : [100000*3*9]float;
 
