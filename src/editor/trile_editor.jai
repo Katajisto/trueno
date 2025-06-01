@@ -16,7 +16,21 @@ Trile_Editor_Tab :: enum {
     MATERIAL;  
 };
 
-current_tab : Trile_Editor_Tab = .TOOLSET;
+Trile_Editor_Tool :: enum {
+    PAINT;
+    ADD;
+    REMOVE;
+}
+
+Trile_Editor_Tool_Mode :: enum {
+    POINT;
+    BRUSH;
+    AREA;
+}
+
+current_tab  : Trile_Editor_Tab       = .TOOLSET;
+current_tool : Trile_Editor_Tool      = .PAINT;
+current_mode : Trile_Editor_Tool_Mode = .AREA;
 
 current_trile : Trile;
 
@@ -25,18 +39,24 @@ current_trile : Trile;
 current_color : Vector3 = .{1.0, 0.0, 0.0};
 
 tick_trile_editor :: () {
-    if input_button_states[#char "D"] & .DOWN {
-        rotation += TRILE_ROTATION_SPEED * cast(float) delta_time;
+
+    if !input_button_states[Key_Code.CTRL] & .DOWN {
+        if input_button_states[#char "D"] & .DOWN {
+            rotation += TRILE_ROTATION_SPEED * cast(float) delta_time;
+        }
+        if input_button_states[#char "A"] & .DOWN {
+            rotation -= TRILE_ROTATION_SPEED * cast(float) delta_time;
+        }
+        if input_button_states[#char "W"] & .DOWN {
+            tilt += TRILE_ROTATION_SPEED * cast(float) delta_time;
+        }
+        if input_button_states[#char "S"] & .DOWN {
+            tilt -= TRILE_ROTATION_SPEED * cast(float) delta_time;
+        }
     }
-    if input_button_states[#char "A"] & .DOWN {
-        rotation -= TRILE_ROTATION_SPEED * cast(float) delta_time;
-    }
-    if input_button_states[#char "W"] & .DOWN {
-        tilt += TRILE_ROTATION_SPEED * cast(float) delta_time;
-    }
-    if input_button_states[#char "S"] & .DOWN {
-        tilt -= TRILE_ROTATION_SPEED * cast(float) delta_time;
-    }
+
+    trile_editor_shortcuts();
+    
     tilt = clamp(tilt, -(PI/2.0) + 0.01, PI/2.0 - 0.01);
     zoom = clamp(zoom + mouse_delta_z * -0.2, 1.0, 3.0);
 
@@ -64,6 +84,34 @@ get_trile_editor_camera :: () -> Camera {
 
 global_palette_scroll : float = 0.0;
 trile_palette_scroll  : float = 0.0;
+
+draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
+    r := area;
+    r.h = ui_h(4, 0);
+    if GR.button(r, "Paint (P)", *t_button_selectable(theme, current_tool == .PAINT)) {
+        current_tool = .PAINT;
+    }
+    r.y += r.h;
+    if GR.button(r, "Add (+)", *t_button_selectable(theme, current_tool == .ADD)) {
+        current_tool = .ADD;
+    }
+    r.y += r.h;
+    if GR.button(r, "Remove (-)", *t_button_selectable(theme, current_tool == .REMOVE)) {
+        current_tool = .REMOVE;
+    }
+    r.y += r.h * 3;
+    if GR.button(r, "Point (c-P)", *t_button_selectable(theme, current_mode == .POINT)) {
+        current_mode = .POINT;
+    }
+    r.y += r.h;
+    if GR.button(r, "Area (c-A)", *t_button_selectable(theme, current_mode == .AREA)) {
+        current_mode = .AREA;
+    }
+    r.y += r.h;
+    if GR.button(r, "Brush (c-B)", *t_button_selectable(theme, current_mode == .BRUSH)) {
+        current_mode = .BRUSH;
+    }
+}
 
 draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r := area;
@@ -166,6 +214,40 @@ draw_trile :: () {
     sg_end_pass();
 }
 
+trile_editor_shortcuts :: () {
+    if input_button_states[Key_Code.CTRL] & .DOWN {
+        if input_button_states[#char "A"] & .DOWN {
+            current_mode = .AREA;
+        }
+        if input_button_states[#char "P"] & .DOWN {
+            current_mode = .POINT;
+        }
+        if input_button_states[#char "B"] & .DOWN {
+            current_mode = .BRUSH;
+        }
+    } else {
+        if input_button_states[#char "T"] & .DOWN {
+            current_tab = .TOOLSET;
+        }
+        if input_button_states[#char "M"] & .DOWN {
+            current_tab = .MATERIAL;
+        }
+        if input_button_states[#char "I"] & .DOWN {
+            current_tab = .METADATA;
+        }
+        if input_button_states[#char "P"] & .DOWN {
+            current_tool = .PAINT;
+        }
+        // Hack: These will only work on nordic keyboards as expected...
+        if input_button_states[#char "-"] & .DOWN {
+            current_tool = .ADD;
+        }
+        if input_button_states[#char "/"] & .DOWN {
+            current_tool = .REMOVE;
+        }
+    }
+}
+
 draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
     r := GR.get_rect(0, ui_h(5,0), ui_w(20, 20), ui_h(95, 0));
     draw_bg_rectangle(r, theme);
@@ -173,15 +255,15 @@ draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
     tab_r.h = ui_h(3,0);
     tab_r.w = ui_w(20, 20) / 3;
 
-    if GR.button(tab_r, "Tool", *t_button_tab(theme, current_tab == .TOOLSET)) {
+    if GR.button(tab_r, "Tool (T)", *t_button_tab(theme, current_tab == .TOOLSET)) {
         current_tab = .TOOLSET;
     }
     tab_r.x += tab_r.w;
-    if GR.button(tab_r, "Material", *t_button_tab(theme, current_tab == .MATERIAL)) {
+    if GR.button(tab_r, "Material (M)", *t_button_tab(theme, current_tab == .MATERIAL)) {
         current_tab = .MATERIAL;
     }
     tab_r.x += tab_r.w;
-    if GR.button(tab_r, "Meta", *t_button_tab(theme, current_tab == .METADATA)) {
+    if GR.button(tab_r, "Meta (I)", *t_button_tab(theme, current_tab == .METADATA)) {
         current_tab = .METADATA;
     }
 
@@ -190,5 +272,7 @@ draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
     if current_tab == {
         case .MATERIAL;
             draw_material_tab(theme, r);
+        case .TOOLSET;
+            draw_tool_tab(theme, r);
     }
 }
