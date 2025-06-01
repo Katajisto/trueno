@@ -18,6 +18,8 @@ Trile_Editor_Tab :: enum {
 
 current_tab : Trile_Editor_Tab = .TOOLSET;
 
+current_trile : Trile;
+
 #scope_export
 
 current_color : Vector3 = .{1.0, 0.0, 0.0};
@@ -40,11 +42,6 @@ tick_trile_editor :: () {
 
     cam := get_trile_editor_camera();
     ray := get_mouse_ray(*cam);
-    hit := does_ray_hit_cube(ray, .{ .{0, 0, 0}, .{1, 1, 1}});
-
-
-    print("Ray direction %\n", ray.direction);
-     
 }
 
 get_trile_editor_camera :: () -> Camera {
@@ -97,6 +94,76 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r.y += r.h;
     GR.slider(r, *emittance, 0, 2, 1, *theme.slider_theme);
     
+}
+
+draw_trile :: () {
+    cam := get_trile_editor_camera();
+    
+    mvp := create_viewproj(*cam);
+    vs_params : Vs_Params;
+    vs_params.mvp = mvp.floats;
+
+    trixels : [4096]Position_Color;
+
+    hovered_trixel_x : int = -1;
+    hovered_trixel_y : int = -1;
+    hovered_trixel_z : int = -1;
+    min_distance     : float = 999.0;
+
+    ray := get_mouse_ray(*cam);
+
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                hit := does_ray_hit_cube(ray, .{ .{x * TRIXEL_SIZE, y * TRIXEL_SIZE, z * TRIXEL_SIZE}, .{TRIXEL_SIZE, TRIXEL_SIZE, TRIXEL_SIZE}});
+                if hit.hit && hit.distance < min_distance {
+                    hovered_trixel_x = x;
+                    hovered_trixel_y = y;
+                    hovered_trixel_z = z;
+                    min_distance = hit.distance;
+                }
+            }
+        }
+    }
+
+    trixel_count : s32 = 0;
+
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                if current_trile.trixels[x][y][z].empty then continue;
+                hit := does_ray_hit_cube(ray, .{ .{x * TRIXEL_SIZE, y * TRIXEL_SIZE, z * TRIXEL_SIZE}, .{TRIXEL_SIZE, TRIXEL_SIZE, TRIXEL_SIZE}});
+
+
+                trixels[x * 16 * 16 + y * 16 + z].pos.x = x * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[x * 16 * 16 + y * 16 + z].pos.y = y * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[x * 16 * 16 + y * 16 + z].pos.z = z * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[x * 16 * 16 + y * 16 + z].pos.w = 1.0;
+                trixel_color := current_trile.trixels[x][y][z].material.color;
+
+                if  hovered_trixel_x == x &&
+                    hovered_trixel_y == y &&
+                    hovered_trixel_z == z {
+                    trixel_color = .{1.0, 0.0, 0.0};        
+                }
+                
+                trixels[x * 16 * 16 + y * 16 + z].col   = .{trixel_color.x, trixel_color.y, trixel_color.z, 1.0};
+                trixel_count += 1;
+            }
+        }
+    }
+
+    sg_update_buffer(gPipelines.trixel.bind.vertex_buffers[1], *(sg_range.{
+        ptr = trixels.data,
+        size = size_of(type_of(trixels)),
+    }));
+
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
+    sg_apply_pipeline(gPipelines.trixel.pipeline);
+    sg_apply_bindings(*gPipelines.trixel.bind);
+    sg_apply_uniforms(UB_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
+    sg_draw(0, 36, trixel_count);
+    sg_end_pass();
 }
 
 draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {

@@ -36,6 +36,8 @@ Collision_Cube :: struct {
 Ray_Collision :: struct {
     distance : float = 99999;
     hit      : bool  = false;
+    point    : Vector3;
+    normal   : Vector3;
 }
 
 // Ported over from Raylib.
@@ -65,7 +67,22 @@ does_ray_hit_cube :: (og_ray: Ray, cube: Collision_Cube) -> Ray_Collision {
     t[7] = min(min(max(t[0], t[1]), max(t[2], t[3])), max(t[4], t[5]));
 
     collision.hit      = !((t[7] < 0) || (t[6] > t[7]));
-    collision.distance = t[6]; 
+    collision.distance = t[6];
+    collision.point    = ray.origin + ray.direction * collision.distance;
+
+    collision.normal = lerp(bmin, bmax, 0.5);
+    collision.normal = collision.point - collision.normal;
+
+    collision.normal.x = cast(float) cast(s64) collision.normal.x;
+    collision.normal.y = cast(float) cast(s64) collision.normal.y;
+    collision.normal.z = cast(float) cast(s64) collision.normal.z;
+    collision.normal   = normalize(collision.normal);
+
+    if insideBox {
+        ray.direction      = -1.0 * ray.direction;
+        collision.distance = -1.0 * collision.distance;
+        collision.normal   = -1.0 * collision.normal;
+    }
 
     return collision;
 }
