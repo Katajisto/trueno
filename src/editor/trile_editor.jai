@@ -7,6 +7,10 @@ roughness : int = 0;
 metallic  : int = 0;
 emittance : int = 0;
 
+hovered_trixel_x : int = -1;
+hovered_trixel_y : int = -1;
+hovered_trixel_z : int = -1;
+
 
 TRILE_ROTATION_SPEED :: 2.0;
 
@@ -34,12 +38,37 @@ current_mode : Trile_Editor_Tool_Mode = .AREA;
 
 current_trile : Trile;
 
+#scope_file
+
+apply_tool_to_trixel :: (x: s64, y: s64, z: s64) {
+    if current_tool == .PAINT {
+        current_trile.trixels[x][y][z].material.color = current_color;
+    }
+    if current_tool == .ADD {
+        current_trile.trixels[x][y][z].empty = false;
+    }
+    if current_tool == .REMOVE {
+        current_trile.trixels[x][y][z].empty = true;
+    }
+}
+
+handle_tool_click :: () {
+    if hovered_trixel_x < 0 && hovered_trixel_y < 0 && hovered_trixel_z < 0 then return;
+    if current_mode == .POINT {
+        apply_tool_to_trixel(hovered_trixel_x, hovered_trixel_y, hovered_trixel_z);
+    }
+}
+
 #scope_export
 
 current_color : Vector3 = .{1.0, 0.0, 0.0};
 
 tick_trile_editor :: () {
 
+    if input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
+        handle_tool_click();
+    }
+    
     if !input_button_states[Key_Code.CTRL] & .DOWN {
         if input_button_states[#char "D"] & .DOWN {
             rotation += TRILE_ROTATION_SPEED * cast(float) delta_time;
@@ -153,16 +182,18 @@ draw_trile :: () {
 
     trixels : [4096]Position_Color;
 
-    hovered_trixel_x : int = -1;
-    hovered_trixel_y : int = -1;
-    hovered_trixel_z : int = -1;
     min_distance     : float = 999.0;
 
     ray := get_mouse_ray(*cam);
 
+    hovered_trixel_x = -1;
+    hovered_trixel_y = -1;
+    hovered_trixel_z = -1;
+
     for x: 0..15 {
         for y: 0..15 {
             for z: 0..15 {
+                if current_trile.trixels[x][y][z].empty then continue;
                 hit := does_ray_hit_cube(ray, .{ .{x * TRIXEL_SIZE, y * TRIXEL_SIZE, z * TRIXEL_SIZE}, .{TRIXEL_SIZE, TRIXEL_SIZE, TRIXEL_SIZE}});
                 if hit.hit && hit.distance < min_distance {
                     hovered_trixel_x = x;
@@ -183,10 +214,10 @@ draw_trile :: () {
                 hit := does_ray_hit_cube(ray, .{ .{x * TRIXEL_SIZE, y * TRIXEL_SIZE, z * TRIXEL_SIZE}, .{TRIXEL_SIZE, TRIXEL_SIZE, TRIXEL_SIZE}});
 
 
-                trixels[x * 16 * 16 + y * 16 + z].pos.x = x * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                trixels[x * 16 * 16 + y * 16 + z].pos.y = y * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                trixels[x * 16 * 16 + y * 16 + z].pos.z = z * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                trixels[x * 16 * 16 + y * 16 + z].pos.w = 1.0;
+                trixels[trixel_count].pos.x = x * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[trixel_count].pos.y = y * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[trixel_count].pos.z = z * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[trixel_count].pos.w = 1.0;
                 trixel_color := current_trile.trixels[x][y][z].material.color;
 
                 if  hovered_trixel_x == x &&
@@ -195,7 +226,7 @@ draw_trile :: () {
                     trixel_color = .{1.0, 0.0, 0.0};        
                 }
                 
-                trixels[x * 16 * 16 + y * 16 + z].col   = .{trixel_color.x, trixel_color.y, trixel_color.z, 1.0};
+                trixels[trixel_count].col = .{trixel_color.x, trixel_color.y, trixel_color.z, 1.0};
                 trixel_count += 1;
             }
         }
@@ -216,33 +247,33 @@ draw_trile :: () {
 
 trile_editor_shortcuts :: () {
     if input_button_states[Key_Code.CTRL] & .DOWN {
-        if input_button_states[#char "A"] & .DOWN {
+        if input_button_states[#char "A"] & .START {
             current_mode = .AREA;
         }
-        if input_button_states[#char "P"] & .DOWN {
+        if input_button_states[#char "P"] & .START {
             current_mode = .POINT;
         }
-        if input_button_states[#char "B"] & .DOWN {
+        if input_button_states[#char "B"] & .START {
             current_mode = .BRUSH;
         }
     } else {
-        if input_button_states[#char "T"] & .DOWN {
+        if input_button_states[#char "T"] & .START {
             current_tab = .TOOLSET;
         }
-        if input_button_states[#char "M"] & .DOWN {
+        if input_button_states[#char "M"] & .START {
             current_tab = .MATERIAL;
         }
-        if input_button_states[#char "I"] & .DOWN {
+        if input_button_states[#char "I"] & .START {
             current_tab = .METADATA;
         }
-        if input_button_states[#char "P"] & .DOWN {
+        if input_button_states[#char "P"] & .START {
             current_tool = .PAINT;
         }
         // Hack: These will only work on nordic keyboards as expected...
-        if input_button_states[#char "-"] & .DOWN {
+        if input_button_states[#char "-"] & .START {
             current_tool = .ADD;
         }
-        if input_button_states[#char "/"] & .DOWN {
+        if input_button_states[#char "/"] & .START {
             current_tool = .REMOVE;
         }
     }
