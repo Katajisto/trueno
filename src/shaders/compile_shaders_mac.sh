@@ -1,0 +1,7 @@
+rm -rf .jai
+
+for filename in *.glsl; do
+    if [ -f "$filename" ]; then
+      ./sokol-shdc-mac -i "$filename" -o "./jai/${filename/.glsl/.jai}" -l glsl430:glsl300es:metal_macos -f sokol_jai
+    fi
+done
