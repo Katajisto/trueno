@@ -237,12 +237,10 @@ draw_trile :: () {
         size = size_of(type_of(trixels)),
     }));
 
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     sg_apply_pipeline(gPipelines.trixel.pipeline);
     sg_apply_bindings(*gPipelines.trixel.bind);
     sg_apply_uniforms(UB_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
     sg_draw(0, 36, trixel_count);
-    sg_end_pass();
 }
 
 trile_editor_shortcuts :: () {

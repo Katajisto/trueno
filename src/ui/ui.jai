@@ -325,8 +325,5 @@ render_ui :: () {
 
 ui_pass :: () {
     render_ui(); // Generates commands that are handled in arb_tri_flush
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
-        arb_tri_flush();
-    sg_end_pass();
-    sg_commit();
+    arb_tri_flush();
 }

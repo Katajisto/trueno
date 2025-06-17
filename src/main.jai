@@ -35,6 +35,7 @@ Window_Info :: struct {
 };
 
 get_window_info :: () -> Window_Info {
+    
     return Window_Info.{
         1920,
         1080,
@@ -103,17 +104,21 @@ frame :: () {
     for event: Input.events_this_frame {
         GR.getrect_handle_event(event);
     }
+    
 
     sgl_defaults();
     sgl_matrix_mode_projection();
     sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
 
-    draw_trile();
-
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     tick_ui();
     ui_pass();
-    
+    draw_trile();
+    sg_end_pass();
+    sg_commit();
+
     input_per_frame_event_and_flag_update();
+    
     reset_temporary_storage();
 }
 
