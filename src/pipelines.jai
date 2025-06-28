@@ -38,11 +38,13 @@ create_trixel_pipeline :: () {
     shader_desc := trixel_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
-    pipeline.layout.buffers[1].step_func = .PER_INSTANCE;
+    pipeline.layout.buffers[1].stride = 4*3;
+    pipeline.layout.buffers[2].step_func = .PER_INSTANCE;
     
     pipeline.layout.attrs[ATTR_trixel_position] = .{ format = .FLOAT3, buffer_index = 0 };
-    pipeline.layout.attrs[ATTR_trixel_inst]     = .{ format = .FLOAT4, buffer_index = 1 };
-    pipeline.layout.attrs[ATTR_trixel_inst_col] = .{ format = .FLOAT4, buffer_index = 1 };
+    pipeline.layout.attrs[ATTR_trixel_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
+    pipeline.layout.attrs[ATTR_trixel_inst]     = .{ format = .FLOAT4, buffer_index = 2 };
+    pipeline.layout.attrs[ATTR_trixel_inst_col] = .{ format = .FLOAT4, buffer_index = 2 };
     pipeline.index_type = .UINT16;
     pipeline.depth = .{
             write_enabled = true,
@@ -58,45 +60,77 @@ create_trixel_pipeline :: () {
         }
     };
 
-    verts : [24] Vector3;
-	verts[0] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF };
-	verts[1] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
-	verts[2] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF   };
-	verts[3] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
 
-	verts[4] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF  };
-	verts[5] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
-	verts[6] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF    };
-	verts[7] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
+    vertices : [24]Vector3 = .[
+        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
+        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2}
+    ];
 
-	verts[8] =  .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF };
-	verts[9] =  .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
-	verts[10] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
-	verts[11] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF  };
+    normals : [24]Vector3 = .[
+        .{0.0, 0.0, 1.0},
+        .{0.0, 0.0, 1.0},
+        .{0.0, 0.0, 1.0},
+        .{0.0, 0.0, 1.0},
+        .{0.0, 0.0,-1.0},
+        .{0.0, 0.0,-1.0},
+        .{0.0, 0.0,-1.0},
+        .{0.0, 0.0,-1.0},
+        .{0.0, 1.0, 0.0},
+        .{0.0, 1.0, 0.0},
+        .{0.0, 1.0, 0.0},
+        .{0.0, 1.0, 0.0},
+        .{0.0,-1.0, 0.0},
+        .{0.0,-1.0, 0.0},
+        .{0.0,-1.0, 0.0},
+        .{0.0,-1.0, 0.0},
+        .{1.0, 0.0, 0.0},
+        .{1.0, 0.0, 0.0},
+        .{1.0, 0.0, 0.0},
+        .{1.0, 0.0, 0.0},
+        .{-1.0, 0.0, 0.0},
+        .{-1.0, 0.0, 0.0},
+        .{-1.0, 0.0, 0.0},
+        .{-1.0, 0.0, 0.0}
+    ];
 
-	verts[12] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF };
-	verts[13] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
-	verts[14] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
-	verts[15] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF  };
+    k : u16 = 0;
+    i : u16 = 0;
 
-	verts[16] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF };
-	verts[17] = .{ -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF  };
-	verts[18] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
-	verts[19] = .{ TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
+    indices : [36]u16;
+    
+    while i < 36 {
+        indices[i] = 4*k;
+        indices[i + 1] = 4*k + 1;
+        indices[i + 2] = 4*k + 2;
+        indices[i + 3] = 4*k;
+        indices[i + 4] = 4*k + 2;
+        indices[i + 5] = 4*k + 3;
+        k += 1;
+        i += 6;
+    }
 
-	verts[20] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF  };
-	verts[21] = .{ -TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF   };
-	verts[22] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF    };
-	verts[23] = .{ TRIXEL_SIZE_HALF, TRIXEL_SIZE_HALF, -TRIXEL_SIZE_HALF   };
-
-	indices: [] u16 = .[
-		0, 2, 1, 0, 3, 2,
-		4, 6, 5, 4, 7, 6,
-		8, 10, 9, 8, 11, 10,
-		12, 14, 13, 12, 15, 14,
-		16, 18, 17, 16, 19, 18,
-		20, 22, 21, 20, 23, 22
-	];
     
     pipeline.color_count = 1;
     pipeline.colors[0]   = color_state;
@@ -104,12 +138,14 @@ create_trixel_pipeline :: () {
     gPipelines.trixel.pipeline = sg_make_pipeline(*pipeline);
     
     ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 36 * 2 } };
-    vbuffer         := sg_buffer_desc.{ data = .{ ptr = verts.data, size = 24 * 3 * 4 } };
+    vbuffer         := sg_buffer_desc.{ data = .{ ptr = vertices.data, size = 24 * 3 * 4 } };
+    nbuffer         := sg_buffer_desc.{ data = .{ ptr = normals.data, size = 24 * 3 * 4 } };
     instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 4096 * size_of(Position_Color)};
 
     gPipelines.trixel.bind.index_buffer      = sg_make_buffer(*ibuffer);
     gPipelines.trixel.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
-    gPipelines.trixel.bind.vertex_buffers[1] = sg_make_buffer(*instance_buffer);
+    gPipelines.trixel.bind.vertex_buffers[1] = sg_make_buffer(*nbuffer);
+    gPipelines.trixel.bind.vertex_buffers[2] = sg_make_buffer(*instance_buffer);
 }
 
 create_arbtri_pipeline :: () {

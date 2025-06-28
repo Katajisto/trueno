@@ -17,7 +17,4 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
 tick_editor_ui :: () {
     tick_trile_editor();
     tick_console();
-
-    
-    
 }

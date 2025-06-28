@@ -1,4 +1,5 @@
-rm -rf .jai
+rm -rf jai
+mkdir jai
 
 for filename in *.glsl; do
     if [ -f "$filename" ]; then
