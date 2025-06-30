@@ -112,8 +112,8 @@ frame :: () {
 
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     tick_ui();
+    draw_trile_editor();
     ui_pass();
-    draw_trile();
     sg_end_pass();
     sg_commit();
 
