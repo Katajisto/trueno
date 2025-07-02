@@ -52,11 +52,35 @@ apply_tool_to_trixel :: (x: s64, y: s64, z: s64) {
     }
 }
 
+area_start_x : int;
+area_start_y : int;
+area_start_z : int;
+area_active  : bool;
+
 handle_tool_click :: () {
     if hovered_trixel_x < 0 && hovered_trixel_y < 0 && hovered_trixel_z < 0 then return;
     if current_mode == .POINT {
         apply_tool_to_trixel(hovered_trixel_x, hovered_trixel_y, hovered_trixel_z);
     }
+    if current_mode == .AREA {
+        if area_active {
+            // Apply tool to all trixels in the area.
+            for x: min(area_start_x, hovered_trixel_x)..max(hovered_trixel_x, area_start_x) {
+                for y: min(area_start_y, hovered_trixel_y)..max(hovered_trixel_y, area_start_y) {
+                    for z: min(area_start_z, hovered_trixel_z)..max(hovered_trixel_z, area_start_z) {
+                        apply_tool_to_trixel(x,y,z);
+                    }
+                }
+            }
+            area_active = false;
+        } else {
+            area_active = true;
+            area_start_x = hovered_trixel_x;
+            area_start_y = hovered_trixel_y;
+            area_start_z = hovered_trixel_z;
+        }
+    }
+    
 }
 
 #scope_export
