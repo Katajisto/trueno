@@ -1,6 +1,8 @@
 #import "Basic";
 #import "Math";
 #import "Input";
+#import "Hash_Table";
+#import "Hash";
 stbi :: #import "stb_image";
 
 #load "trile.jai";

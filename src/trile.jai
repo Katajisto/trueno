@@ -1,3 +1,5 @@
+#load "meshgen.jai";
+
 Material :: struct {
     roughness : float   = 0.5;
     metallic  : float   = 0;
