@@ -210,8 +210,8 @@ quad_hash :: (q: Quad) -> u32 {
 Quad_Set :: Table(Quad, bool, quad_hash, quad_comp);
 Quads    :: [6][..]Quad_Set;
 
-side_to_quad_list_index :: (side: Trile_Side) {
-    if side == {
+side_to_quad_list_index :: (side: Trile_Side) -> s32 {
+    if #complete side == {
         case Trile_Side.TOP;
             return 0;
         case Trile_Side.BOTTOM;
@@ -242,7 +242,7 @@ init_quads :: (quads: *Quads) { // NOTE: unsure about if this is correctly porte
 // so that x and z are parallel to the side.
 // (And not all of it seems to work when the used x and y and normal of the side abide by the left hand rule)
 change_perspective :: (x: *$T, y: *T, z: *T, side: Trile_Side) -> (*T,*T,*T) {
-    if side == {
+    if #complete side == {
         case Trile_Side.TOP;
             return y, x, z;
         case Trile_Side.BOTTOM;
@@ -314,7 +314,9 @@ quads_to_vecs :: (quads: *Quads, vecs: *[..]float, normals: *[..]float) {
         idx := side_to_quad_list_index(side);
         for 0..quads[idx].count-1 {
             quads2d : [..]Vector2;
-            for quad : it {
+            Quad_Set :: Table(Quad, bool, quad_hash, quad_comp);
+            Quads    :: [6][..]Quad_Set;
+            for quad : quads[idx][it] {
                 array_add(*quads2d, quad.bottomLeft);
                 array_add(*quads2d, .{quad.bottomLeft.x, quad.topRight.y});
                 array_add(*quads2d, quad.topRight);
