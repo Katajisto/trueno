@@ -3,6 +3,8 @@ rotation : float = 0.0;
 tilt     : float = 0.0;
 zoom     : float = 3.0;
 
+brush_radius   : int = 5;
+
 roughness : int = 0;
 metallic  : int = 0;
 emittance : int = 0;
@@ -61,6 +63,22 @@ handle_tool_click :: () {
     if hovered_trixel_x < 0 && hovered_trixel_y < 0 && hovered_trixel_z < 0 then return;
     if current_mode == .POINT {
         apply_tool_to_trixel(hovered_trixel_x, hovered_trixel_y, hovered_trixel_z);
+    }
+    if current_mode == .BRUSH {
+        is_in_radius :: (point : Vector3, radius: float) -> bool {
+            center : Vector3 = .{xx hovered_trixel_x, xx hovered_trixel_y, xx hovered_trixel_z};
+            return length(point - center) <= radius;
+        }
+    
+        for x: 0..15 {
+            for y: 0..15 {
+                for z: 0..15 {
+                    if is_in_radius(.{xx x, xx y, xx z}, xx brush_radius) {
+                        apply_tool_to_trixel(x,y,z);
+                    }
+                }
+            }
+        }
     }
     if current_mode == .AREA {
         if area_active {
@@ -164,6 +182,9 @@ draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     if GR.button(r, "Brush (c-B)", *t_button_selectable(theme, current_mode == .BRUSH)) {
         current_mode = .BRUSH;
     }
+
+    r.y += r.h;
+    GR.slider(r, *brush_radius, 0, 12, 1, *theme.slider_theme);
 }
 
 draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
@@ -241,6 +262,7 @@ draw_trile :: () {
                     hovered_trixel_x = x;
                     hovered_trixel_y = y;
                     hovered_trixel_z = z;
+                    print("%\n", hit.normal);
                     min_distance = hit.distance;
                 }
             }

@@ -231,9 +231,9 @@ init_quads :: (quads: *Quads) { // NOTE: unsure about if this is correctly porte
     for side : trileSideValues {
         idx := side_to_quad_list_index(side);
         for i : 0..15 {
-            qlist := *quads[idx];
-            array_add(qlist, .{});
-            table_add(qlist[i], .{.{16,16}, .{0,0}}, true);
+            quadset : Quad_Set;
+            table_add(*quadset, .{.{16,16}, .{0,0}}, true);
+            array_add(*quads.*[idx], quadset);
         }
     }
 }
@@ -258,12 +258,12 @@ change_perspective :: (x: *$T, y: *T, z: *T, side: Trile_Side) -> (*T,*T,*T) {
     }
 }
 
-quad2d_add_to_quads_3d :: (quads2d: *[..]Vector2, quads3d: *[..]Vector3, side: Trile_Side, depth: int, normals: *[..]float) {
+quad2d_add_to_quads3d :: (quads2d: *[..]Vector2, quads3d: *[..]Vector3, side: Trile_Side, depth: int, normals: *[..]float) {
     x, y, z : float;
     normal  : [3]float;
     offset  : float = 0.0;
     
-    ux, uy, uz = change_perspective(*x, *y, *z, side);
+    ux, uy, uz := change_perspective(*x, *y, *z, side);
 
     if side == {
         case Trile_Side.TOP;
@@ -314,50 +314,33 @@ quads_to_vecs :: (quads: *Quads, vecs: *[..]float, normals: *[..]float) {
         idx := side_to_quad_list_index(side);
         for 0..quads[idx].count-1 {
             quads2d : [..]Vector2;
-            Quad_Set :: Table(Quad, bool, quad_hash, quad_comp);
-            Quads    :: [6][..]Quad_Set;
-            for quad : quads[idx][it] {
-                array_add(*quads2d, quad.bottomLeft);
-                array_add(*quads2d, .{quad.bottomLeft.x, quad.topRight.y});
-                array_add(*quads2d, quad.topRight);
-                array_add(*quads2d, .{quad.topRight.x, quad.bottomLeft.y});
+            table := quads.*[idx][it];
+            for k, v : table {
+                array_add(*quads2d, v.bottomLeft);
+                array_add(*quads2d, .{v.bottomLeft.x, v.topRight.y});
+                array_add(*quads2d, v.topRight);
+                array_add(*quads2d, .{v.topRight.x, v.bottomLeft.y});
             }
-            quad2_add_to_quads3d(*quads2d, *quads3d, side, it, normals);
+            quad2d_add_to_quads3d(*quads2d, *quads3d, side, it, normals);
         }
+    }
+    for quad : quads3d {
+        array_add(vecs, quad.x);
+        array_add(vecs, quad.y);
+        array_add(vecs, quad.z);
     }
 }
 
-/*
-
-void quadsToVecs(Quads& quads, std::vector<float>& vecs, std::vector<float>& normals){
-    std::vector<Vector3> quads3d;
-    for(TrileSide side : TrileSideValues){
-        for(int i=0; i<quads[side].size(); i++){
-            std::vector<Vector2> quads2d;
-            for(Quad quad : quads[side][i]){
-                quads2d.push_back(quad.bottomLeft);
-                quads2d.push_back({quad.bottomLeft.x,quad.topRight.y});
-                quads2d.push_back(quad.topRight);
-                quads2d.push_back({quad.topRight.x,quad.bottomLeft.y});
-            }
-            quad2dAddToQuads3d(quads2d,quads3d,side,i,normals);
-        }
-    }
-    for(Vector3 quad : quads3d) {
-        vecs.push_back(quad.x);
-        vecs.push_back(quad.y);
-        vecs.push_back(quad.z);
-    }
-}
-
-bool isInsideOther(Quad a, Quad other){
-    if( (other.topRight.x >= a.topRight.x) && (other.topRight.y >= a.topRight.y)){
-        if( (other.bottomLeft.x <= a.bottomLeft.x) && (other.bottomLeft.y <= a.bottomLeft.y) ){
+a_is_inside_b :: (a: Quad, b: Quad) -> bool {
+    if (b.topRight.x >= a.topRight.x) && (b.topRight.y >= a.topRight.y) {
+        if (b.bottomLeft.x <= a.bottomLeft.x) && (b.bottomLeft.y <= a.bottomLeft.y) {
             return true;
         }
     }
     return false;
 }
+
+/*
 
 void removeQuad(Quad quad, std::set<Quad>& quadSet){
     auto parentIt = quadSet.lower_bound(quad);
