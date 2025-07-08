@@ -340,59 +340,83 @@ a_is_inside_b :: (a: Quad, b: Quad) -> bool {
     return false;
 }
 
-/*
 
-void removeQuad(Quad quad, std::set<Quad>& quadSet){
-    auto parentIt = quadSet.lower_bound(quad);
-    while(!isInsideOther(quad,*parentIt)){
-        parentIt++; //The "parent"quad should always be found before reaching set end
+remove_quad :: (quad: Quad, quadSet: *Quad_Set) {
+    parent : Quad;
+    for k,v : quadSet {
+        if v < quad then continue;
+        if a_is_inside_b(quad, v) {
+            table_remove(quadSet, v);
+            parent = v;
+            break;
+        }
     }
-    Quad parent = *parentIt;
-    quadSet.erase(parentIt);
+    
+    topLeft     : Vector2 = .{quad.bottomLeft.x,quad.topRight.y};
+    bottomRight : Vector2 = .{quad.topRight.x,quad.bottomLeft.y};
 
-    Vector2 topLeft = {quad.bottomLeft.x,quad.topRight.y};
-    Vector2 bottomRight = {quad.topRight.x,quad.bottomLeft.y};
+    if quad.topRight.x != parent.topRight.x {
+        table_add(quadSet, .{parent.topRight,bottomRight}, true);
+    }
 
-    if(quad.topRight.x != parent.topRight.x){
-        quadSet.insert({parent.topRight,bottomRight});
+    if quad.topRight.y != parent.topRight.y {
+        table_add(quadSet, .{.{quad.topRight.x,parent.topRight.y},.{parent.bottomLeft.x,quad.topRight.y}}, true);
     }
-    if(quad.topRight.y != parent.topRight.y){
-        quadSet.insert({quad.topRight.x,parent.topRight.y,parent.bottomLeft.x,quad.topRight.y});
+    if quad.bottomLeft.y != parent.bottomLeft.y {
+        table_add(quadSet, .{.{parent.topRight.x,quad.bottomLeft.y},.{quad.bottomLeft.x,parent.bottomLeft.y}}, true);
     }
-    if(quad.bottomLeft.y != parent.bottomLeft.y){
-        quadSet.insert({parent.topRight.x,quad.bottomLeft.y,quad.bottomLeft.x,parent.bottomLeft.y});
-    }
-    if(quad.bottomLeft.x != parent.bottomLeft.x){
-        quadSet.insert({topLeft,parent.bottomLeft});
+    if quad.bottomLeft.x != parent.bottomLeft.x {
+        table_add(quadSet, .{topLeft,parent.bottomLeft}, true);
     }
 }
 
-void removeNotSeen(Trile *trilept, Quads& quads){
-    for(int x = 0; x < 16; x++) {
-        for(int y = 0; y < 16; y++){
-            for(int z = 0; z < 16; z++) {
-                // Check for "air" contact on each side of the trixel.
-                char exposure = SidesWithAirExposure(trilept, x, y, z);
-                for(TrileSide side : TrileSideValues){
-                    if( !(side & exposure)){
-                        int *ux,*uy,*uz;
-                        changePerspective(&x,&y,&z,ux,uy,uz,side);
-                        removeQuad(Quad{(float)*ux+1,(float)*uy+1,(float)*ux,(float)*uy},quads[side][*uz]);
+remove_not_seen :: (trilept: *Trile, quads: *Quads) {
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                exposure: u8 = sides_with_air_exposure(trilept, x, y, z);
+                for side: trileSideValues {
+                    if !((cast(u8)side) & exposure) {
+                        ux, uy, uz := change_perspective(*x, *y, *z, side);
+                        remove_quad(.{.{cast(float)ux.*+1, cast(float)uy.*+1}, .{cast(float)ux.*, cast(float)uy.*}}, *quads.*[side_to_quad_list_index(side)][uz.*]);
                     }
                 }
-
             }
         }
     }
 }
 
-void generateOptimizedQuadMesh(Trile *trilept, std::vector<float>& vecs, std::vector<float>& normals){
-    Quads quads;
-    initQuads(quads);
-    removeNotSeen(trilept,quads);
-    quadsToVecs(quads,vecs,normals);
+generate_optimized_quad_mesh :: (trilept: *Trile, vecs: *[..]float, normals: *[..]float) {
+    quads : Quads;
+    init_quads(*quads);
+    remove_not_seen(trilept, *quads);
+    quads_to_vecs(*quads, vecs, normals);
 }
 
+Pool        :: #import "Pool";
+meshgenpool :  Pool.Pool;
+
+generate_mesh_matias :: (trileptr : *Trile) {
+    Pool.set_allocators(*meshgenpool);
+    new_context := context;
+    new_context.allocator = .{Pool.pool_allocator_proc, *meshgenpool};
+    push_context new_context {
+        triangleVecs  : [..]float;
+        triangleNorms : [..]float;
+        quadVecs      : [..]float;
+        quadNorms     : [..]float;
+
+        generate_basic_quad_mesh(trileptr,*quadVecs,*quadNorms);
+        print("Quad vecs size: %\n", quadVecs.count);
+
+        quads_to_triangles(*quadVecs, *triangleVecs,*quadNorms, *triangleNorms);
+        
+        print("Triangle vecs size: %\n", triangleVecs.count);
+    }
+    Pool.reset(*meshgenpool);
+}
+
+/*
 
 Mesh GenerateMeshMatias(Trile *trileptr){
     std::vector<float> quadVecs;

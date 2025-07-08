@@ -43,6 +43,10 @@ current_trile : Trile;
 #scope_file
 
 apply_tool_to_trixel :: (x: s64, y: s64, z: s64) {
+    //temptest:
+    print("Testing meshgen!\n");
+    generate_mesh_matias(*current_trile);
+    
     if current_tool == .PAINT {
         current_trile.trixels[x][y][z].material.color = current_color;
     }
@@ -262,7 +266,6 @@ draw_trile :: () {
                     hovered_trixel_x = x;
                     hovered_trixel_y = y;
                     hovered_trixel_z = z;
-                    print("%\n", hit.normal);
                     min_distance = hit.distance;
                 }
             }
