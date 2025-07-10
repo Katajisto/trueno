@@ -6,6 +6,7 @@
 stbi :: #import "stb_image";
 
 #load "trile.jai";
+#load "rendering/rendering.jai";
 #load "ui/ui.jai";
 #load "editor/editor.jai";
 #load "pipelines.jai";
@@ -114,7 +115,7 @@ frame :: () {
 
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     tick_ui();
-    draw_trile_editor();
+    draw_editor();
     ui_pass();
     sg_end_pass();
     sg_commit();

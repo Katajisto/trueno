@@ -45,7 +45,7 @@ current_trile : Trile;
 apply_tool_to_trixel :: (x: s64, y: s64, z: s64) {
     //temptest:
     print("Testing meshgen!\n");
-    generate_mesh_matias(*current_trile);
+    set_trile("test", generate_mesh_matias(*current_trile));
     
     if current_tool == .PAINT {
         current_trile.trixels[x][y][z].material.color = current_color;
@@ -222,21 +222,9 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     
 }
 
-draw_sky :: () {
-    cam := get_trile_editor_camera();
-    
-    mvp := create_viewproj(*cam);
-    vs_params : Sky_Vs_Params;
-    vs_params.mvp = mvp.floats;
-    sg_apply_pipeline(gPipelines.sky.pipeline);
-    sg_apply_bindings(*gPipelines.sky.bind);
-    sg_apply_uniforms(UB_sky_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
-    sg_draw(0, 36, 1);
-    
-}
 
 draw_trile_editor :: () {
-    draw_sky();
+    draw_sky(*get_trile_editor_camera());
     draw_trile();
 }
 

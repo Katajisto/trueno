@@ -1,6 +1,7 @@
 #load "./shaders/jai/shader_triangle.jai";
 #load "./shaders/jai/shader_trixel.jai";
 #load "./shaders/jai/shader_sky.jai";
+#load "./shaders/jai/shader_trile.jai";
 
 Pipeline_Binding :: struct {
     pipeline : sg_pipeline;
@@ -20,11 +21,14 @@ gPipelines : struct {
     // Sky rendering.
     sky    : Pipeline_Binding;
 
+    trile  : Pipeline_Binding;
+
 }
 
 create_pipelines :: () {
     create_arbtri_pipeline();
     create_trixel_pipeline();
+    create_trile_pipeline();
     create_sky_pipeline();
 }
 
@@ -151,6 +155,36 @@ create_trixel_pipeline :: () {
     gPipelines.trixel.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
     gPipelines.trixel.bind.vertex_buffers[1] = sg_make_buffer(*nbuffer);
     gPipelines.trixel.bind.vertex_buffers[2] = sg_make_buffer(*instance_buffer);
+}
+
+create_trile_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := trixel_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.buffers[0].stride = 4*3;
+    pipeline.layout.buffers[1].stride = 4*3;
+    
+    pipeline.layout.attrs[ATTR_trile_position] = .{ format = .FLOAT3, buffer_index = 0 };
+    pipeline.layout.attrs[ATTR_trile_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
+    pipeline.depth = .{
+            write_enabled = true,
+            compare = .LESS_EQUAL,
+    };
+
+    color_state := sg_color_target_state.{
+        pixel_format = .RGBA8,
+        blend = .{
+            enabled = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
+        }
+    };
+
+
+    pipeline.color_count = 1;
+    pipeline.colors[0]   = color_state;
+
+    gPipelines.trile.pipeline = sg_make_pipeline(*pipeline);
 }
 
 create_sky_pipeline :: () {

@@ -394,9 +394,9 @@ generate_optimized_quad_mesh :: (trilept: *Trile, vecs: *[..]float, normals: *[.
 }
 
 Pool        :: #import "Pool";
-meshgenpool :  Pool.Pool;
 
-generate_mesh_matias :: (trileptr : *Trile) {
+generate_mesh_matias :: (trileptr : *Trile) -> Mesh {
+    meshgenpool :  Pool.Pool;
     Pool.set_allocators(*meshgenpool);
     new_context := context;
     new_context.allocator = .{Pool.pool_allocator_proc, *meshgenpool};
@@ -410,10 +410,18 @@ generate_mesh_matias :: (trileptr : *Trile) {
         print("Quad vecs size: %\n", quadVecs.count);
 
         quads_to_triangles(*quadVecs, *triangleVecs,*quadNorms, *triangleNorms);
+
+        trile_vert_buffer_info := sg_buffer_desc.{ data = .{ ptr = triangleVecs.data, size = xx (triangleVecs.count * 4) } };
+        trile_vert_buffer      := sg_make_buffer(*trile_vert_buffer_info);
+        
+        trile_normal_buffer_info := sg_buffer_desc.{ data = .{ ptr = triangleNorms.data, size = xx (triangleNorms.count * 4) } };
+        trile_normal_buffer      := sg_make_buffer(*trile_normal_buffer_info);
         
         print("Triangle vecs size: %\n", triangleVecs.count);
+        Pool.reset(*meshgenpool);
+
+        return .{ trile_vert_buffer, trile_normal_buffer, triangleVecs.count / 3 };
     }
-    Pool.reset(*meshgenpool);
 }
 
 /*
