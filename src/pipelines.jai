@@ -159,7 +159,7 @@ create_trixel_pipeline :: () {
 
 create_trile_pipeline :: () {
     pipeline: sg_pipeline_desc;
-    shader_desc := trixel_shader_desc(sg_query_backend());
+    shader_desc := trile_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
     pipeline.layout.buffers[1].stride = 4*3;

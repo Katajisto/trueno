@@ -1,6 +1,6 @@
 Trile_Side :: enum_flags u8 {
-    TOP    :: 0x0;  // Larger Y
-    LEFT   :: 0x1;  // Larger Z
+    TOP    :: 0x1;  // Larger Y
+    LEFT   :: 0x2;  // Larger Z
     RIGHT  :: 0x4;  // Smaller Z
     FRONT  :: 0x8;  // Larger X
     BACK   :: 0x10; // Smaller X
@@ -233,9 +233,10 @@ init_quads :: (quads: *Quads) { // NOTE: unsure about if this is correctly porte
         for i : 0..15 {
             quadset : Quad_Set;
             table_add(*quadset, .{.{16,16}, .{0,0}}, true);
-            array_add(*quads.*[idx], quadset);
+            array_add(*(quads.*[idx]), quadset);
         }
     }
+    print("qcount??: %", quads[0].count);
 }
 
 // Looking at the side, what axis should be used as x,y and z,
@@ -244,17 +245,17 @@ init_quads :: (quads: *Quads) { // NOTE: unsure about if this is correctly porte
 change_perspective :: (x: *$T, y: *T, z: *T, side: Trile_Side) -> (*T,*T,*T) {
     if #complete side == {
         case Trile_Side.TOP;
-            return y, x, z;
-        case Trile_Side.BOTTOM;
-            return y, z, x;
-        case Trile_Side.FRONT;
             return x, z, y;
-        case Trile_Side.BACK;
-            return x, y, z;
-        case Trile_Side.LEFT;
-            return z, y, x;
-        case Trile_Side.RIGHT;
+        case Trile_Side.BOTTOM;
             return z, x, y;
+        case Trile_Side.FRONT;
+            return z, y, x;
+        case Trile_Side.BACK;
+            return y, z, x;
+        case Trile_Side.LEFT;
+            return y, x, z;
+        case Trile_Side.RIGHT;
+            return x, y, z;
     }
 }
 
@@ -312,9 +313,9 @@ quads_to_vecs :: (quads: *Quads, vecs: *[..]float, normals: *[..]float) {
 
     for side : trileSideValues {
         idx := side_to_quad_list_index(side);
-        for 0..quads[idx].count-1 {
+        for 0..quads.*[idx].count-1 {
             quads2d : [..]Vector2;
-            table := quads.*[idx][it];
+            table := *(quads.*[idx][it]);
             for k, v : table {
                 array_add(*quads2d, v.bottomLeft);
                 array_add(*quads2d, .{v.bottomLeft.x, v.topRight.y});
@@ -343,11 +344,28 @@ a_is_inside_b :: (a: Quad, b: Quad) -> bool {
 
 remove_quad :: (quad: Quad, quadSet: *Quad_Set) {
     parent : Quad;
+
+    qlist : [..]Quad;
+    
     for k,v : quadSet {
-        if v < quad then continue;
-        if a_is_inside_b(quad, v) {
-            table_remove(quadSet, v);
-            parent = v;
+        array_add(*qlist, v);
+    }
+
+    Sort :: #import "Sort";
+
+    qcomp :: (a: Quad, b: Quad) -> s64 {
+        if a < b then return -1;
+        if b < a then return 1;
+        return 0;
+    }
+
+    Sort.bubble_sort(qlist, qcomp);
+
+    for qlist {
+        if it < quad then continue;
+        if a_is_inside_b(quad, it) {
+            parent = it;
+            table_remove(quadSet, it);
             break;
         }
     }
@@ -406,7 +424,7 @@ generate_mesh_matias :: (trileptr : *Trile) -> Mesh {
         quadVecs      : [..]float;
         quadNorms     : [..]float;
 
-        generate_basic_quad_mesh(trileptr,*quadVecs,*quadNorms);
+        generate_optimized_quad_mesh(trileptr,*quadVecs,*quadNorms);
         print("Quad vecs size: %\n", quadVecs.count);
 
         quads_to_triangles(*quadVecs, *triangleVecs,*quadNorms, *triangleNorms);

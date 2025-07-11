@@ -5,8 +5,9 @@ get_level_editor_camera :: () -> Camera {
     camera.near = 0.1;
     camera.far  = 100;
 
-	camera.position = .{5,5,5};
-	camera.target   = .{0,0,0};
+	camera.position = .{xx (sin(get_time()) * 2),xx sin(get_time() * 0.3),xx (cos(get_time()) * 2)};
+	camera.target   = .{0.5,0.5,0.5};
+	camera.position += .{0.5, 0.5, 0.5};
     return camera;
 }
 

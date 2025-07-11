@@ -43,10 +43,6 @@ current_trile : Trile;
 #scope_file
 
 apply_tool_to_trixel :: (x: s64, y: s64, z: s64) {
-    //temptest:
-    print("Testing meshgen!\n");
-    set_trile("test", generate_mesh_matias(*current_trile));
-    
     if current_tool == .PAINT {
         current_trile.trixels[x][y][z].material.color = current_color;
     }
@@ -189,6 +185,12 @@ draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
 
     r.y += r.h;
     GR.slider(r, *brush_radius, 0, 12, 1, *theme.slider_theme);
+    r.y += r.h * 2;
+    if GR.button(r, "Save and gen", *theme.button_theme) {
+        //temptest:
+        print("Testing meshgen!\n");
+        set_trile("test", generate_mesh_matias(*current_trile));
+    };
 }
 
 draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
