@@ -236,7 +236,6 @@ init_quads :: (quads: *Quads) { // NOTE: unsure about if this is correctly porte
             array_add(*(quads.*[idx]), quadset);
         }
     }
-    print("qcount??: %", quads[0].count);
 }
 
 // Looking at the side, what axis should be used as x,y and z,
@@ -413,7 +412,7 @@ generate_optimized_quad_mesh :: (trilept: *Trile, vecs: *[..]float, normals: *[.
 
 Pool        :: #import "Pool";
 
-generate_mesh_matias :: (trileptr : *Trile) -> Mesh {
+generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
     meshgenpool :  Pool.Pool;
     Pool.set_allocators(*meshgenpool);
     new_context := context;
@@ -425,7 +424,6 @@ generate_mesh_matias :: (trileptr : *Trile) -> Mesh {
         quadNorms     : [..]float;
 
         generate_optimized_quad_mesh(trileptr,*quadVecs,*quadNorms);
-        print("Quad vecs size: %\n", quadVecs.count);
 
         quads_to_triangles(*quadVecs, *triangleVecs,*quadNorms, *triangleNorms);
 
@@ -435,9 +433,9 @@ generate_mesh_matias :: (trileptr : *Trile) -> Mesh {
         trile_normal_buffer_info := sg_buffer_desc.{ data = .{ ptr = triangleNorms.data, size = xx (triangleNorms.count * 4) } };
         trile_normal_buffer      := sg_make_buffer(*trile_normal_buffer_info);
         
-        print("Triangle vecs size: %\n", triangleVecs.count);
         Pool.reset(*meshgenpool);
 
+        print("Successfully generated mesh for trile with % triangles.\n", triangleVecs.count / 3 / 3);
         return .{ trile_vert_buffer, trile_normal_buffer, triangleVecs.count / 3 };
     }
 }

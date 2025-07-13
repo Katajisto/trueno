@@ -10,7 +10,7 @@ layout(binding=0) uniform sky_vs_params {
 out vec4 pos;
 
 void main() {
-    gl_Position = mvp * (vec4(position.xyz * 500.0, 1.0));
+    gl_Position = mvp * (vec4(position.xyz * 1000.0, 1.0));
     pos = position;
 }
 @end

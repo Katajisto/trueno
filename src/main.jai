@@ -7,6 +7,7 @@ stbi :: #import "stb_image";
 
 #load "trile.jai";
 #load "rendering/rendering.jai";
+#load "input/hotkeys.jai";
 #load "ui/ui.jai";
 #load "editor/editor.jai";
 #load "pipelines.jai";
@@ -79,6 +80,9 @@ init :: () {
     state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0.6, g = 0.7, b = 1.0, a = 1 } };
     state.pass_action.colors[0] = .{ load_action = .LOAD };
     init_font_loads();
+
+    // Add empty trile.
+    set_trile("test", Trile.{});
 }
 
 init_after_mandatory_loads :: () {

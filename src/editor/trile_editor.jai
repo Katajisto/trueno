@@ -38,7 +38,7 @@ current_tab  : Trile_Editor_Tab       = .TOOLSET;
 current_tool : Trile_Editor_Tool      = .PAINT;
 current_mode : Trile_Editor_Tool_Mode = .AREA;
 
-current_trile : Trile;
+current_trile : *Trile;
 
 #scope_file
 
@@ -106,6 +106,7 @@ handle_tool_click :: () {
 current_color : Vector3 = .{1.0, 0.0, 0.0};
 
 tick_trile_editor :: () {
+    if !current_trile then current_trile = get_trile("test");
 
     if input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
         handle_tool_click();
@@ -187,9 +188,7 @@ draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     GR.slider(r, *brush_radius, 0, 12, 1, *theme.slider_theme);
     r.y += r.h * 2;
     if GR.button(r, "Save and gen", *theme.button_theme) {
-        //temptest:
-        print("Testing meshgen!\n");
-        set_trile("test", generate_mesh_matias(*current_trile));
+        set_trile_gfx("test", generate_trile_gfx_matias(current_trile));
     };
 }
 
@@ -247,6 +246,7 @@ draw_trile :: () {
     hovered_trixel_y = -1;
     hovered_trixel_z = -1;
 
+    print("BURGER!\n");
     for x: 0..15 {
         for y: 0..15 {
             for z: 0..15 {
@@ -261,6 +261,7 @@ draw_trile :: () {
             }
         }
     }
+    print("BURGER!\n");
 
     trixel_count : s32 = 0;
 
@@ -289,6 +290,7 @@ draw_trile :: () {
         }
     }
 
+    print("BURGER!\n");
     sg_update_buffer(gPipelines.trixel.bind.vertex_buffers[2], *(sg_range.{
         ptr = trixels.data,
         size = size_of(type_of(trixels)),
