@@ -246,7 +246,6 @@ draw_trile :: () {
     hovered_trixel_y = -1;
     hovered_trixel_z = -1;
 
-    print("BURGER!\n");
     for x: 0..15 {
         for y: 0..15 {
             for z: 0..15 {
@@ -261,7 +260,6 @@ draw_trile :: () {
             }
         }
     }
-    print("BURGER!\n");
 
     trixel_count : s32 = 0;
 
@@ -290,7 +288,6 @@ draw_trile :: () {
         }
     }
 
-    print("BURGER!\n");
     sg_update_buffer(gPipelines.trixel.bind.vertex_buffers[2], *(sg_range.{
         ptr = trixels.data,
         size = size_of(type_of(trixels)),

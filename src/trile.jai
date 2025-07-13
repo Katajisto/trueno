@@ -40,6 +40,7 @@ set_trile_gfx :: (name: string, gfx: Trile_GFX, skip_preexist_check: bool = fals
         if success {
             sg_destroy_buffer(old_gfx.vertex_buffer);
             sg_destroy_buffer(old_gfx.normal_buffer);
+            print("Destroyed old GFX buffers for trile: %\n", name);
         }
     }
     table_set(*trile_gfx_table, name, gfx);

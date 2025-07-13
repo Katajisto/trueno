@@ -91,6 +91,7 @@
             "modules/sokol-jai/sokol/stbi/stb_image.a",
             "-o", "dist/index.html",
             "-sSTACK_SIZE=10MB",
+            "-sALLOW_MEMORY_GROWTH",
             "-sERROR_ON_UNDEFINED_SYMBOLS=1", "-sMEMORY64", "-sMAX_WEBGL_VERSION=2",
             "--js-library=src/platform_specific/runtime.js",
             "--shell-file=src/platform_specific/shell.html",
