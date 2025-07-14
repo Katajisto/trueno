@@ -8,7 +8,7 @@ mouse2ActivationPosition : Vector2;
 mouse3Active             : bool;
 mouse3ActivationPosition : Vector2;
 
-cameraTilt        : float;
+cameraTilt        : float = 0.2;
 cameraDist        : float = 10.0;
 cameraRotation    : float;
 oldCameraRotation : float;
@@ -28,33 +28,32 @@ get_level_editor_camera :: () -> Camera {
     camera.near = 0.1;
     camera.far  = 1000;
 	camera.target = .{cameraCenter.x, xx editY, cameraCenter.y};
-	if get_time() - lastInputTime > CAMERA_INACTIVE_TIME_TO_ORBIT { // idle rotating camera
-		camera.position  = camera.target;		
-		camera.position += normalize(Vector3.{xx sin(get_time()), 0.6, xx cos(get_time())}) * cameraDist;
-	} else {
-		cameraDir : Vector3    = .{1, 0, 0};
-	    qrotation : Quaternion = .{cos(cameraRotation/2.0),0,sin(cameraRotation/2.0),0};
-	    qtilt     : Quaternion = .{cos(cameraTilt/2.0),sin(cameraTilt/2.0), 0, 0};
-	
-		rotate(*cameraDir, qrotation * qtilt);
+	cameraDir : Vector3    = .{1, 0, 0};
+    qrotation : Quaternion = .{cos(-cameraRotation/2.0),0,sin(-cameraRotation/2.0),0};
+    qtilt     : Quaternion = .{cos(-cameraTilt/2.0),sin(-cameraTilt/2.0), 0, 0};
 
-		camera.position  = camera.target;
-		camera.position += cameraDir * cameraDist;
-	}
-	
+	rotate(*cameraDir, qrotation * qtilt);
+
+	camera.position  = camera.target;
+	camera.position += cameraDir * cameraDist;
     return camera;
 }
 
 tick_level_editor_camera :: () {
+	if get_time() - lastInputTime > CAMERA_INACTIVE_TIME_TO_ORBIT { // idle rotating camera
+		cameraRotation += cast(float) delta_time;
+	}
+
 	cameraSpeed :: 5.1;
 
-	forward   : Vector3   = .{1, 0, 0};
-    qrotation : Quaternion = .{cos(cameraRotation/2.0),0,sin(cameraRotation/2.0),0};
+	forward   : Vector3    = .{1, 0, 0};
+    qrotation : Quaternion = .{cos(-cameraRotation/2.0),0,sin(-cameraRotation/2.0),0};
+	
 	rotate(*forward, qrotation);
 	forward2d := Vector2.{forward.x, forward.z};
 
-	left           : Vector3   = .{0, 0, 1};
-    qrotation_left : Quaternion = .{cos(cameraRotation/2.0),0,sin(cameraRotation/2.0),0};
+	left           : Vector3    = .{0, 0, 1};
+    qrotation_left : Quaternion = .{cos(-cameraRotation/2.0),0,sin(-cameraRotation/2.0),0};
 	rotate(*left, qrotation_left);
 	left2d := Vector2.{left.x, left.z};
 	 
@@ -86,6 +85,38 @@ tick_level_editor_camera :: () {
 		editY = max(editY - 1, 0);
 	}
 	
+	if input_button_states[Key_Code.MOUSE_BUTTON_RIGHT] & .DOWN {
+		if mouse2Active {
+			lastInputTime = get_time();
+			diff := mouse2ActivationPosition - Vector2.{input_mouse_x, input_mouse_y};
+			diff *= 0.5;
+			cameraRotation = oldCameraRotation + diff.x / 100;
+			cameraTilt = oldCameraTilt - diff.y / 100;
+			cameraTilt = max(0.1, cameraTilt);
+			cameraTilt = min(PI/2.2, cameraTilt);
+		} else {
+			mouse2Active = true;
+			mouse2ActivationPosition = Vector2.{input_mouse_x, input_mouse_y};
+			oldCameraRotation = cameraRotation;
+			oldCameraTilt = cameraTilt;
+		}
+	} else {
+		mouse2Active = false;
+	}
+
+	if input_button_states[Key_Code.MOUSE_BUTTON_MIDDLE] & .DOWN {
+		if mouse3Active {
+			lastInputTime = get_time();
+			diff := mouse3ActivationPosition - Vector2.{input_mouse_x, input_mouse_y};
+			cameraCenter = cameraCenter + forward2d * -diff.y * cast(float) delta_time * 0.1;
+			cameraCenter = cameraCenter + left2d    * -diff.x * cast(float) delta_time * 0.1;
+		} else {
+			mouse3Active = true;
+			mouse3ActivationPosition = Vector2.{input_mouse_x, input_mouse_y};
+		}
+	} else {
+		mouse3Active = false;
+	}
 	
 }
 
