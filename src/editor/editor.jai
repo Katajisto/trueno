@@ -14,6 +14,10 @@ current_editor_view : Editor_View = .Trile_Editor;
 
 #scope_export
 
+// Used when the console is open, so typing doesn't cause all sorts of stuff.
+console_open_ignore_input : bool = false;
+
+
 draw_editor_ui :: (theme: *GR.Overall_Theme) {
     r := GR.get_rect(0,0,0,0);
     r.x = 0; r.w = 100*vw;

@@ -61,6 +61,12 @@ tick_console :: () {
     while console_report.count > MAX_REPORT_ROWS {
         array_ordered_remove_by_index(*console_report, 0);
     }
+
+    if console_state != .CLOSED {
+        console_open_ignore_input = true;
+    } else {
+        console_open_ignore_input = false;
+    }
 }
 
 console_input_start : string = "";

@@ -2,6 +2,9 @@
 
 // @ToDo do a config tweak file thing like jblow has and add this there.
 CAMERA_INACTIVE_TIME_TO_ORBIT :: 20.0;
+MAX_CAMERA_DIST               :: 25.0;
+MIN_CAMERA_DIST               :: 2.0;
+DIST_SCROLL_SPEED             :: 0.8;
 
 mouse2Active             : bool;
 mouse2ActivationPosition : Vector2;
@@ -40,11 +43,13 @@ get_level_editor_camera :: () -> Camera {
 }
 
 tick_level_editor_camera :: () {
+    if console_open_ignore_input then return;
+
 	if get_time() - lastInputTime > CAMERA_INACTIVE_TIME_TO_ORBIT { // idle rotating camera
 		cameraRotation += cast(float) delta_time;
 	}
 
-	cameraSpeed :: 5.1;
+	cameraSpeed :: 150;
 
 	forward   : Vector3    = .{1, 0, 0};
     qrotation : Quaternion = .{cos(-cameraRotation/2.0),0,sin(-cameraRotation/2.0),0};
@@ -56,23 +61,28 @@ tick_level_editor_camera :: () {
     qrotation_left : Quaternion = .{cos(-cameraRotation/2.0),0,sin(-cameraRotation/2.0),0};
 	rotate(*left, qrotation_left);
 	left2d := Vector2.{left.x, left.z};
+	
+	cameraDist = clamp(cameraDist - mouse_delta_z * DIST_SCROLL_SPEED, MIN_CAMERA_DIST, MAX_CAMERA_DIST);
+
+	distRange : float = MAX_CAMERA_DIST - MIN_CAMERA_DIST;
+	zoomCameraMovementMultiplier := 0.03 + ((cameraDist - MIN_CAMERA_DIST) / distRange) * 0.15; 
 	 
 	if input_button_states[#char "W"] & .DOWN {
 		lastInputTime = get_time();
-		cameraCenter += -cameraSpeed * (xx delta_time) * forward2d;
+		cameraCenter += -cameraSpeed * zoomCameraMovementMultiplier * (xx delta_time) * forward2d;
 	}
 	if input_button_states[#char "S"] & .DOWN {
 		lastInputTime = get_time();
-		cameraCenter += cameraSpeed * (xx delta_time) * forward2d;
+		cameraCenter += cameraSpeed * zoomCameraMovementMultiplier * (xx delta_time) * forward2d;
 	}
 
 	if input_button_states[#char "A"] & .DOWN {
 		lastInputTime = get_time();
-		cameraCenter += -cameraSpeed * (xx delta_time) * left2d;
+		cameraCenter += -cameraSpeed * zoomCameraMovementMultiplier * (xx delta_time) * left2d;
 	}
 	if input_button_states[#char "D"] & .DOWN {
 		lastInputTime = get_time();
-		cameraCenter += cameraSpeed * (xx delta_time) * left2d;
+		cameraCenter += cameraSpeed * zoomCameraMovementMultiplier * (xx delta_time) * left2d;
 	}
 	
 	if input_button_states[Key_Code.ARROW_UP] & .START {
@@ -104,12 +114,13 @@ tick_level_editor_camera :: () {
 		mouse2Active = false;
 	}
 
+
 	if input_button_states[Key_Code.MOUSE_BUTTON_MIDDLE] & .DOWN {
 		if mouse3Active {
 			lastInputTime = get_time();
 			diff := mouse3ActivationPosition - Vector2.{input_mouse_x, input_mouse_y};
-			cameraCenter = cameraCenter + forward2d * -diff.y * cast(float) delta_time * 0.1;
-			cameraCenter = cameraCenter + left2d    * -diff.x * cast(float) delta_time * 0.1;
+			cameraCenter = cameraCenter + forward2d * -diff.y * cast(float) delta_time * zoomCameraMovementMultiplier;
+			cameraCenter = cameraCenter + left2d    * -diff.x * cast(float) delta_time * zoomCameraMovementMultiplier;
 		} else {
 			mouse3Active = true;
 			mouse3ActivationPosition = Vector2.{input_mouse_x, input_mouse_y};
@@ -117,6 +128,7 @@ tick_level_editor_camera :: () {
 	} else {
 		mouse3Active = false;
 	}
+
 	
 }
 

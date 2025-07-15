@@ -106,6 +106,8 @@ handle_tool_click :: () {
 current_color : Vector3 = .{1.0, 0.0, 0.0};
 
 tick_trile_editor :: () {
+    if console_open_ignore_input then return;
+
     if !current_trile then current_trile = get_trile("test");
 
     if input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
@@ -300,6 +302,8 @@ draw_trile :: () {
 }
 
 trile_editor_shortcuts :: () {
+    if console_open_ignore_input then return;
+
     if input_button_states[Key_Code.CTRL] & .DOWN {
         if input_button_states[#char "A"] & .START {
             current_mode = .AREA;
