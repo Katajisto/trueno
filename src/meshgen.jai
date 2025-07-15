@@ -411,10 +411,10 @@ generate_optimized_quad_mesh :: (trilept: *Trile, vecs: *[..]float, normals: *[.
 }
 
 Pool        :: #import "Pool";
+meshgenpool :  Pool.Pool;
 
 generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
-    meshgenpool :  Pool.Pool;
-    Pool.set_allocators(*meshgenpool);
+    Pool.set_allocators(*meshgenpool); // @ToDo: Only do this if we haven't yet done it.
     new_context := context;
     new_context.allocator = .{Pool.pool_allocator_proc, *meshgenpool};
     push_context new_context {
@@ -433,10 +433,38 @@ generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
         trile_normal_buffer_info := sg_buffer_desc.{ data = .{ ptr = triangleNorms.data, size = xx (triangleNorms.count * 4) } };
         trile_normal_buffer      := sg_make_buffer(*trile_normal_buffer_info);
         
-        Pool.reset(*meshgenpool);
-
         print("Successfully generated mesh for trile with % triangles.\n", triangleVecs.count / 3 / 3);
 
+        centres : [..]float;
+
+        // Generate triangle centers.
+        for 0..(triangleVecs.count/3/3)-1 {
+            x1 := triangleVecs[it * 9 + 0];
+            x2 := triangleVecs[it * 9 + 3];
+            x3 := triangleVecs[it * 9 + 6];
+            xr := (x1+x2+x3) / 3.0;
+            
+            y1 := triangleVecs[it * 9 + 1];
+            y2 := triangleVecs[it * 9 + 4];
+            y3 := triangleVecs[it * 9 + 7];
+            yr := (y1+y2+y3) / 3.0;
+
+            z1 := triangleVecs[it * 9 + 2];
+            z2 := triangleVecs[it * 9 + 5];
+            z3 := triangleVecs[it * 9 + 8];
+            zr := (z1+z2+z3) / 3.0;
+
+            for 0..2 {
+                array_add(*centres, xr);
+                array_add(*centres, yr);
+                array_add(*centres, zr);
+            }
+        }
+
+        trile_centre_buffer_info := sg_buffer_desc.{ data = .{ ptr = centres.data, size = xx (centres.count * 4) } };
+        trile_centre_buffer      := sg_make_buffer(*trile_centre_buffer_info);
+
+        Pool.reset(*meshgenpool);
         // Create the texture for the trile, from which it gets it's colors for trixels.
 
         materialdata : [16*16*16*4]u8;
@@ -481,6 +509,6 @@ generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
         state := sg_query_image_state(img);
         print("IMG: %\n", state);
         
-        return .{ img, trile_vert_buffer, trile_normal_buffer, triangleVecs.count / 3 };
+        return .{ img, trile_vert_buffer, trile_normal_buffer, trile_centre_buffer, triangleVecs.count / 3 };
     }
 }

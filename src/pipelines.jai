@@ -163,9 +163,11 @@ create_trile_pipeline :: () {
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
     pipeline.layout.buffers[1].stride = 4*3;
+    pipeline.layout.buffers[1].stride = 4*3;
     
     pipeline.layout.attrs[ATTR_trile_position] = .{ format = .FLOAT3, buffer_index = 0 };
     pipeline.layout.attrs[ATTR_trile_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
+    pipeline.layout.attrs[ATTR_trile_centre]   = .{ format = .FLOAT3, buffer_index = 2 };
     pipeline.depth = .{
             write_enabled = true,
             compare = .LESS_EQUAL,

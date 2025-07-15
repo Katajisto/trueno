@@ -155,6 +155,7 @@ draw_level_editor :: () {
 	bindings : sg_bindings;
 	bindings.vertex_buffers[0] = trilegfx.vertex_buffer;
 	bindings.vertex_buffers[1] = trilegfx.normal_buffer;
+	bindings.vertex_buffers[2] = trilegfx.centre_buffer;
     bindings.samplers[0]       = gPipelines.trile.bind.samplers[0];
 	bindings.images[0]         = trilegfx.trixel_colors;
 	
