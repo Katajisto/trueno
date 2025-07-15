@@ -147,19 +147,21 @@ draw_level_editor :: () {
 	vs_params : Trile_Vs_Params;
 	vs_params.mvp = mvp.floats;
 
-	mesh := get_trile_gfx("test");
+	trilegfx := get_trile_gfx("test");
 
 	sg_apply_pipeline(gPipelines.trile.pipeline);
 
 
 	bindings : sg_bindings;
-	bindings.vertex_buffers[0] = mesh.vertex_buffer;
-	bindings.vertex_buffers[1] = mesh.normal_buffer;
+	bindings.vertex_buffers[0] = trilegfx.vertex_buffer;
+	bindings.vertex_buffers[1] = trilegfx.normal_buffer;
+    bindings.samplers[0]       = gPipelines.trile.bind.samplers[0];
+	bindings.images[0]         = trilegfx.trixel_colors;
 	
 	sg_apply_bindings(*bindings);
 	sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
 
-	sg_draw(0, cast(s32) mesh.vertex_count, 1);
+	sg_draw(0, cast(s32) trilegfx.vertex_count, 1);
 
 	
 }

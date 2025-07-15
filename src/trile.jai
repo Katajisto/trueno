@@ -8,6 +8,7 @@ trile_table     : Table(string, Trile);
 #scope_export
 
 Trile_GFX :: struct {
+    trixel_colors : sg_image;
     vertex_buffer : sg_buffer;
     normal_buffer : sg_buffer;
     vertex_count  : s64;
@@ -74,3 +75,11 @@ Trixel :: struct {
 Trile  :: struct {
     trixels : [16][16][16] Trixel;  
 };
+
+material_to_rgba :: (mat: Material) -> (r: u8, g: u8, b: u8, a: u8) {
+    r : u8 = cast(u8) (mat.color.x * 255.0);
+    g : u8 = cast(u8) (mat.color.y * 255.0);
+    b : u8 = cast(u8) (mat.color.z * 255.0);
+    a : u8 = 255; // @ToDo: Do actual material value encode here.
+    return r,g,b,a;
+}

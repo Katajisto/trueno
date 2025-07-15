@@ -185,6 +185,12 @@ create_trile_pipeline :: () {
     pipeline.colors[0]   = color_state;
 
     gPipelines.trile.pipeline = sg_make_pipeline(*pipeline);
+    gPipelines.trile.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
 }
 
 create_sky_pipeline :: () {

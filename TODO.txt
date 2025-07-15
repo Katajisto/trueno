@@ -1,0 +1,20 @@
+DONE:
+- Implement idle orbit thing using the rotation in the level editor camera. (Cool transition effect?)
+- Level editor camera movement complete.
+
+TODO:
+- Level format (just a hash map?). Store a matrix so that we can rotate and maybe scale blocks. Scaling will cause problems with RDM, so figure that out.
+- Trile color textures.
+- Sun lighting and shadowmap for levels.
+- A ground plane with customizable material (ground or water or maybe a reflective floor. Think about what part of this should be done with triles and what with textures.)
+- Sky editor.
+- Level saving
+- Trile atlas saving? JSON?
+
+PLANNED:
+- Render distance, sky and fog?
+- Load RDMs. Load into the Trile_GFX structure?
+- Render RDMs.
+- Start working on game port for proof of concept.
+- Maybe port tacoma in as a part of the engine in plain Vulkan without nvpro. Would also allow for cool ability to render levels as path traced for screenshots and references.
+- Improve the bz4x format, or figure out a pre-existing format.

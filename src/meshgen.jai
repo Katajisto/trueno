@@ -436,37 +436,51 @@ generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
         Pool.reset(*meshgenpool);
 
         print("Successfully generated mesh for trile with % triangles.\n", triangleVecs.count / 3 / 3);
-        return .{ trile_vert_buffer, trile_normal_buffer, triangleVecs.count / 3 };
+
+        // Create the texture for the trile, from which it gets it's colors for trixels.
+
+        materialdata : [16*16*16*4]u8;
+        counter      : int = 0;
+
+        for x: 0..15 {
+            for y: 0..15 {
+                for z: 0..15 {
+                    if trileptr.trixels[x][y][z].empty {
+                        // @ToDo: add some null pattern here to help in shader side.
+                        materialdata[counter + 0] = 0;
+                        materialdata[counter + 1] = 0;
+                        materialdata[counter + 2] = 0;
+                        materialdata[counter + 3] = 0;
+                        counter += 4;
+                    } else {
+                        r,g,b,a := material_to_rgba(trileptr.trixels[x][y][z].material);
+                        materialdata[counter + 0] = r;
+                        materialdata[counter + 1] = g;
+                        materialdata[counter + 2] = b;
+                        materialdata[counter + 3] = a;
+                        counter += 4;
+                    }
+                }
+            } 
+        }
+
+        imgdata : sg_image_data;
+        imgdata.subimage[0][0] = .{materialdata.data, materialdata.count};
+        
+        texdesc : sg_image_desc = .{
+            render_target = false,
+            width         = 16,
+            height        = 16*16,  
+            pixel_format  = sg_pixel_format.RGBA8,
+            sample_count  = 1,
+            data          = imgdata
+        };
+
+        img := sg_make_image(*texdesc);
+        
+        state := sg_query_image_state(img);
+        print("IMG: %\n", state);
+        
+        return .{ img, trile_vert_buffer, trile_normal_buffer, triangleVecs.count / 3 };
     }
 }
-
-/*
-
-Mesh GenerateMeshMatias(Trile *trileptr){
-    std::vector<float> quadVecs;
-    std::vector<float> triangleVecs;
-    std::vector<float> quadNorms;
-    std::vector<float> triangleNorms;
-    Mesh temp = {};
-
-    generateOptimizedQuadMesh(trileptr,quadVecs,quadNorms);
-
-    //generateBasicQuadMesh(trileptr,quadVecs,quadNorms);
-    quadsToTriangles(quadVecs, triangleVecs,quadNorms, triangleNorms);
-
-    temp.vertexCount = triangleVecs.size() / 3;
-    temp.triangleCount = temp.vertexCount / 3;
-
-    float* vecs = new float[triangleVecs.size()];
-    float* norms = new float[triangleNorms.size()];
-    for(int i=0; i<triangleVecs.size(); i++){
-        vecs[i] = triangleVecs[i];
-        norms[i] = triangleNorms[i];
-    }
-
-    temp.vertices = vecs;
-    temp.normals = norms;
-
-    return temp;
-}
-*/
