@@ -2,6 +2,10 @@
 #load "trile_editor.jai";
 #load "level_editor.jai";
 
+#if HAS_TACOMA {
+    #load "tacoma.jai";
+}
+
 #scope_file
 
 Editor_View :: enum {

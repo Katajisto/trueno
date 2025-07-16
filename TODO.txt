@@ -7,7 +7,7 @@ TODO:
 - Trile color textures.
 - Sun lighting and shadowmap for levels.
 - A ground plane with customizable material (ground or water or maybe a reflective floor. Think about what part of this should be done with triles and what with textures.)
-- Sky editor.
+- Sky editor and passing to shader.
 - Level saving
 - Trile atlas saving? JSON?
 

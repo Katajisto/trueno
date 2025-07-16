@@ -12,6 +12,7 @@ Trile_GFX :: struct {
     vertex_buffer : sg_buffer;
     normal_buffer : sg_buffer;
     centre_buffer : sg_buffer;
+    vertices      : []float;
     vertex_count  : s64;
 };
 
@@ -43,6 +44,7 @@ set_trile_gfx :: (name: string, gfx: Trile_GFX, skip_preexist_check: bool = fals
             sg_destroy_buffer(old_gfx.vertex_buffer);
             sg_destroy_buffer(old_gfx.normal_buffer);
             sg_destroy_image(old_gfx.trixel_colors);
+            array_reset(*old_gfx.vertices);
             print("Destroyed old GFX buffers for trile: %\n", name);
         }
     }
@@ -63,9 +65,10 @@ get_trile :: (name: string) -> (*Trile, success: bool) {
 }
 
 Material :: struct {
-    roughness : float   = 0.5;
-    metallic  : float   = 0;
-    emittance : float   = 0;
+    addRoughness : u8 = 0;
+    roughness : u8 = 4;
+    metallic  : u8 = 0;
+    emittance : u8 = 0;
     color     : Vector3 = .{1.0, 0.0, 1.0};
 }
 
@@ -78,10 +81,21 @@ Trile  :: struct {
     trixels : [16][16][16] Trixel;  
 };
 
+material_encode_to_char :: (mat: Material) -> u8 {
+    return (mat.addRoughness & 0x1) | ((mat.emittance & 0x3) << 1) |
+            ((mat.metallic & 0x3) << 3) | ((mat.roughness & 0x7) << 5);
+}
+
+material_encode_to_float :: (mat: Material) -> float {
+    return cast(float)(material_encode_to_char(mat)) / 255.0;
+}
+
 material_to_rgba :: (mat: Material) -> (r: u8, g: u8, b: u8, a: u8) {
     r : u8 = cast(u8) (mat.color.x * 255.0);
     g : u8 = cast(u8) (mat.color.y * 255.0);
     b : u8 = cast(u8) (mat.color.z * 255.0);
-    a : u8 = 255; // @ToDo: Do actual material value encode here.
+    a : u8 = material_encode_to_char(mat); // @ToDo: Do actual material value encode here.
     return r,g,b,a;
 }
+
+

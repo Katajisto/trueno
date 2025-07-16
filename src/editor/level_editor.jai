@@ -18,6 +18,10 @@ oldCameraRotation : float;
 oldCameraTilt     : float;
 cameraCenter      : Vector2;
 
+tacomaSamples : s32 = 100;
+tacomaWidth   : s32 = 500;
+tacomaHeight  : s32 = 500;
+
 lastInputTime : float64;
 
 editY : s32;
@@ -25,6 +29,14 @@ editY : s32;
 pointerHit : bool;
 pointerX   : s32;
 pointerY   : s32;
+
+Level_Editor_Tab :: enum {
+    TACOMA;
+    TOOLS;
+    INFO;  
+};
+
+current_tab : Level_Editor_Tab = .TOOLS;
 
 get_level_editor_camera :: () -> Camera {
     camera: Camera;
@@ -132,6 +144,46 @@ tick_level_editor_camera :: () {
 	
 }
 
+draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
+	r := total_r;
+	r.h = ui_h(3,0);
+	#if HAS_TACOMA {
+		if GR.button(r, "Render with Tacoma", *theme.button_theme) {
+			cam := get_level_editor_camera();
+			test_gen(tacomaWidth, tacomaHeight, .{cam.target, cam.position, tacomaSamples, false});
+		}
+		r.y += r.h;
+		if current_screenshot.valid {
+			aspect := cast(float)current_screenshot.width / cast(float)current_screenshot.height;
+			
+			r.h = r.w / aspect;
+			uiTex := Ui_Texture.{*current_screenshot.image};
+			set_shader_for_images(*uiTex);
+		    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h});
+			set_shader_for_color();
+			r.y += r.h;
+		}
+		r.h = ui_h(4,0);
+
+	    GR.label(r, "Samples", *t_label_left(theme));
+	    r.y += r.h;
+	    GR.slider(r, *tacomaSamples, 10, 100000, 10, *theme.slider_theme);
+		r.y += r.h;
+	    GR.label(r, "Width", *t_label_left(theme));
+	    r.y += r.h;
+	    GR.slider(r, *tacomaWidth, 10, 5000, 10, *theme.slider_theme);
+		r.y += r.h;
+	    GR.label(r, "Height", *t_label_left(theme));
+	    r.y += r.h;
+	    GR.slider(r, *tacomaHeight, 10, 5000, 10, *theme.slider_theme);
+		r.y += r.h;
+
+		
+	} else {
+		GR.label(r, "Tacoma is not enabled in this build.", *theme.label_theme);
+	}
+}
+
 #scope_export
 
 tick_level_editor :: () {
@@ -168,4 +220,27 @@ draw_level_editor :: () {
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
+    r := GR.get_rect(0, ui_h(5,0), ui_w(20, 20), ui_h(95, 0));
+    draw_bg_rectangle(r, theme);
+    tab_r := r;
+    tab_r.h = ui_h(3,0);
+    tab_r.w = ui_w(20, 20) / 3;
+
+    if GR.button(tab_r, "Tools", *t_button_tab(theme, current_tab == .TOOLS)) {
+		current_tab = .TOOLS;
+    }
+    tab_r.x += tab_r.w;
+    if GR.button(tab_r, "Info", *t_button_tab(theme, current_tab == .INFO)) {
+		current_tab = .INFO;
+    }
+    tab_r.x += tab_r.w;
+    if GR.button(tab_r, "Tacoma", *t_button_tab(theme, current_tab == .TACOMA)) {
+        current_tab = .TACOMA;
+    }
+    r.y += tab_r.h;
+
+    if current_tab == {
+        case .TACOMA;
+			draw_tacoma_tab(theme, r);
+    }
 }

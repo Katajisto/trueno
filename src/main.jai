@@ -127,6 +127,7 @@ frame :: () {
     input_per_frame_event_and_flag_update();
     
     reset_temporary_storage();
+    memory_visualizer_per_frame_update();
 }
 
 cleanup :: () {

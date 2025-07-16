@@ -34,19 +34,21 @@ layout(binding = 0) uniform sampler trilesmp;
 
 void main() {
     //frag_color = vec4((fnormal.xyz + vec3(1.0, 1.0, 1.0)) * 0.5, 1.0);
-    vec3 pos_after_adjust_f = vpos - fnormal.xyz * 0.01 + normalize(to_center) * 0.01;
-    vec3 pos_after_adjust_b = vpos - fnormal.xyz * 0.01 + normalize(to_center) * 0.1;
-    int xpos_f = int(clamp(pos_after_adjust_f.z, 0.0001, 0.99999) * 16.0);
-    int ypos_f = int(clamp(pos_after_adjust_f.y, 0.0001, 0.99999) * 16.0);
-    int zpos_f = int(clamp(pos_after_adjust_f.x, 0.0001, 0.99999) * 16.0);
-    int xpos_b = int(clamp(pos_after_adjust_b.z, 0.0001, 0.99999) * 16.0);
-    int ypos_b = int(clamp(pos_after_adjust_b.y, 0.0001, 0.99999) * 16.0);
-    int zpos_b = int(clamp(pos_after_adjust_b.x, 0.0001, 0.99999) * 16.0);
+    vec3 pos_after_adjust = vpos - fnormal.xyz * 0.02;
+    int count = 0;
+    vec4 trixel_material;
+    while (count < 5) {
+        int xpos = int(clamp(pos_after_adjust.z, 0.0001, 0.99999) * 16.0);
+        int ypos = int(clamp(pos_after_adjust.y, 0.0001, 0.99999) * 16.0);
+        int zpos = int(clamp(pos_after_adjust.x, 0.0001, 0.99999) * 16.0);
 
-    vec4 trixel_material_b = texelFetch(sampler2D(triletex, trilesmp), ivec2(xpos_b, ypos_b + zpos_b * 16), 0);
-    vec4 trixel_material_f = texelFetch(sampler2D(triletex, trilesmp), ivec2(xpos_f, ypos_f + zpos_f * 16), 0);
-    frag_color = vec4(max(trixel_material_f.xyz, trixel_material_b.xyz), 1.0);
+        trixel_material = texelFetch(sampler2D(triletex, trilesmp), ivec2(xpos, ypos + zpos * 16), 0);
+        if (length(trixel_material) > 0.01) break; // @ToDo: Replace with proper null trixel check.
+        pos_after_adjust -= to_center * 0.005;
+        count++;
+    }
     // frag_color = vec4(vec3(length(to_center)), 1.0);
+    frag_color = vec4(trixel_material.xyz, 1.0);
 }
 @end
 

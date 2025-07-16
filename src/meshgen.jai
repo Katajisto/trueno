@@ -414,7 +414,9 @@ Pool        :: #import "Pool";
 meshgenpool :  Pool.Pool;
 
 generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
-    Pool.set_allocators(*meshgenpool); // @ToDo: Only do this if we haven't yet done it.
+    if !meshgenpool.block_allocator.proc then Pool.set_allocators(*meshgenpool); // @ToDo: Only do this if we haven't yet done it.
+
+    old_alloc := context.allocator;
     new_context := context;
     new_context.allocator = .{Pool.pool_allocator_proc, *meshgenpool};
     push_context new_context {
@@ -464,7 +466,6 @@ generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
         trile_centre_buffer_info := sg_buffer_desc.{ data = .{ ptr = centres.data, size = xx (centres.count * 4) } };
         trile_centre_buffer      := sg_make_buffer(*trile_centre_buffer_info);
 
-        Pool.reset(*meshgenpool);
         // Create the texture for the trile, from which it gets it's colors for trixels.
 
         materialdata : [16*16*16*4]u8;
@@ -508,7 +509,10 @@ generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
         
         state := sg_query_image_state(img);
         print("IMG: %\n", state);
-        
-        return .{ img, trile_vert_buffer, trile_normal_buffer, trile_centre_buffer, triangleVecs.count / 3 };
+
+        context.allocator = old_alloc;
+        vecsCopy := array_copy(triangleVecs);
+        Pool.reset(*meshgenpool);
+        return .{ img, trile_vert_buffer, trile_normal_buffer, trile_centre_buffer, vecsCopy, triangleVecs.count / 3 };
     }
 }

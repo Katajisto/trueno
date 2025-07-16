@@ -4,5 +4,5 @@ cd src/shaders/
 ./compile_shaders.sh
 cd ..
 cd ..
-jai -x64 first.jai
+jai-linux -x64 first.jai
 ./first
