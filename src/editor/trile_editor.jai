@@ -5,9 +5,9 @@ zoom     : float = 3.0;
 
 brush_radius   : int = 5;
 
-roughness : int = 0;
-metallic  : int = 0;
-emittance : int = 0;
+roughness : u8 = 0;
+metallic  : u8 = 0;
+emittance : u8 = 0;
 
 hovered_trixel_x : int = -1;
 hovered_trixel_y : int = -1;
@@ -45,6 +45,9 @@ current_trile : *Trile;
 apply_tool_to_trixel :: (x: s64, y: s64, z: s64) {
     if current_tool == .PAINT {
         current_trile.trixels[x][y][z].material.color = current_color;
+        current_trile.trixels[x][y][z].material.metallic = metallic;
+        current_trile.trixels[x][y][z].material.roughness = roughness;
+        current_trile.trixels[x][y][z].material.emittance = emittance;
     }
     if current_tool == .ADD {
         current_trile.trixels[x][y][z].empty = false;
