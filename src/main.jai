@@ -17,6 +17,7 @@ stbi :: #import "stb_image";
 #load "load.jai";
 #load "camera.jai";
 #load "ray.jai";
+#load "world.jai";
 
 last_frame_time : float64;
 delta\    _time : float64;

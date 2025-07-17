@@ -30,6 +30,8 @@ pointerHit : bool;
 pointerX   : s32;
 pointerY   : s32;
 
+world : World;
+
 Level_Editor_Tab :: enum {
     TACOMA;
     TOOLS;

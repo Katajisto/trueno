@@ -44,7 +44,7 @@ void main() {
 
         trixel_material = texelFetch(sampler2D(triletex, trilesmp), ivec2(xpos, ypos + zpos * 16), 0);
         if (length(trixel_material) > 0.01) break; // @ToDo: Replace with proper null trixel check.
-        pos_after_adjust -= to_center * 0.005;
+        pos_after_adjust += to_center * 0.1;
         count++;
     }
     // frag_color = vec4(vec3(length(to_center)), 1.0);

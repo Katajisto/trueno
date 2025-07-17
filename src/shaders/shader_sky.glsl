@@ -7,6 +7,7 @@ layout(binding=0) uniform sky_vs_params {
 };
 
 
+
 out vec4 pos;
 
 void main() {
@@ -16,6 +17,23 @@ void main() {
 @end
 
 @fs fs_sky
+layout(binding=1) uniform sky_world_config {
+    vec3 skyBase;
+    vec3 skyTop;
+    vec3 sunDisk;
+    vec3 horizonHalo;
+    vec3 sunHalo;
+    vec3 sunLightColor;
+    vec3 sunPosition;
+    float sunIntensity;
+
+    int hasClouds;
+
+    int hasPlane;
+    float planeHeight;
+    int planeType;
+};
+
 in vec4 pos;
 out vec4 frag_color;
 
@@ -68,11 +86,6 @@ vec3 filmic_aces(vec3 v)
 }
 
 vec3 sky(vec3 skypos, vec3 sunpos) {
-    vec3 skyBase = vec3(0.3843, 0.8117, 0.9568);
-    vec3 skyTop = vec3(0.17, 0.4, 0.95);
-    vec3 sunDisk = vec3(1.0, 1.0, 1.0);
-    vec3 horizonHalo = vec3(1.0, 1.0, 1.0);
-    vec3 sunHalo = vec3(1.0, 1.0, 1.0);
 
     vec3 sunCol = sunDisk.xyz;
     vec3 baseSky = skyBase.xyz;
