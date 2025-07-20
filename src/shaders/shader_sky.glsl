@@ -32,14 +32,15 @@ layout(binding=1) uniform sky_world_config {
     int hasPlane;
     float planeHeight;
     int planeType;
+
+    float time;
 };
 
 in vec4 pos;
 out vec4 frag_color;
 
-const float time = 0.0;
 const float cirrus = 0.5;
-const float cumulus = 0.6;
+const float cumulus = 20.0;
 
 // ----- SKY SHADER -------
 

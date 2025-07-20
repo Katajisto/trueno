@@ -1,7 +1,7 @@
 #load "common.jai";
 
 main :: () {
-    push_context,defer_pop default_context;
+    default_context = context;
     sapp_init();
 }
 

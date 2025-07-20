@@ -1,6 +1,7 @@
 #load "console.jai";
 #load "trile_editor.jai";
 #load "level_editor.jai";
+#load "iprof.jai";
 
 #if HAS_TACOMA {
     #load "tacoma.jai";
@@ -17,6 +18,10 @@ Editor_View :: enum {
 current_editor_view : Editor_View = .Trile_Editor;
 
 #scope_export
+
+init_editor :: () {
+    init_profiler();
+}
 
 // Used when the console is open, so typing doesn't cause all sorts of stuff.
 console_open_ignore_input : bool = false;
@@ -46,6 +51,7 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
             draw_level_editor_ui(theme);
     }
     draw_console(theme);
+    draw_profiler();
 }
 
 draw_editor :: () {

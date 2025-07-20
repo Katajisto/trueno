@@ -171,8 +171,6 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
     
             // Set options        
             iprof_plugin.instrument_modules = true;
-            iprof_plugin.min_size = 100; // Hitting MAX_PROFILING_ZONES with the default of 30, so bumped up. What is the correct thing to do?
-            iprof_plugin.csv_output_filename = "iprof_report.csv"; // Disable this if we don't want to output the report.
 
             iprof_plugin.before_intercept(iprof_plugin, null);
         }

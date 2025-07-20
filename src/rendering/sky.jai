@@ -1,10 +1,10 @@
-draw_sky :: (cam: *Camera) {
+draw_sky :: (cam: *Camera, worldConfig: *World_Config = null) {
     mvp := create_viewproj(cam);
     vs_params : Sky_Vs_Params;
 
     world_conf : Sky_World_Config;
 
-    wc : World_Config;
+    wc : *World_Config = ifx worldConfig == null then *(World_Config.{}) else worldConfig;
 
     world_config_to_shader_type(wc, *world_conf);
 

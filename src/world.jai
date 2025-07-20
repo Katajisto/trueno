@@ -1,12 +1,12 @@
 World_Config :: struct {
-    skyBase       : Vector3 = .{0.5, 0.5, 1.0};
-    skyTop        : Vector3 = .{0.8, 0.8, 1.0};
-    sunDisk       : Vector3;
-    horizonHalo   : Vector3;
-    sunHalo       : Vector3;
+    skyBase       : Vector3 = .{0.38, 0.81, 0.95};
+    skyTop        : Vector3 = .{0.17, 0.4, 0.95};
+    sunDisk       : Vector3 = .{1.0, 1.0, 1.0};
+    horizonHalo   : Vector3 = .{1.0, 1.0, 1.0};
+    sunHalo       : Vector3 = .{1.0, 1.0, 1.0};
     sunLightColor : Vector3 = .{1.0, 1.0, 1.0};
     sunPosition   : Vector3 = #run normalize(Vector3.{0.5, 0.5, 0.5});
-    sunIntensity  : float = 1.0;
+    sunIntensity  : float = 2.0;
 
     hasClouds     : int = 1;
 
@@ -15,13 +15,13 @@ World_Config :: struct {
     planeType     : int   = 0;
 }
 
-world_config_to_shader_type :: (wc: World_Config, data: *$T) {
-    data.skyBase[0] = wc.skyBase.x;
-    data.skyBase[1] = wc.skyBase.y;
-    data.skyBase[2] = wc.skyBase.z;
-    data.skyTop[0] = wc.skyTop.x;
-    data.skyTop[1] = wc.skyTop.y;
-    data.skyTop[2] = wc.skyTop.z;
+world_config_to_shader_type :: (wc: *World_Config, data: *$T) {
+    data.skyBase = wc.skyBase.component;
+    data.skyTop = wc.skyTop.component;
+    data.sunDisk = wc.sunDisk.component;
+    data.horizonHalo = wc.horizonHalo.component;
+    data.sunHalo = wc.sunHalo.component;
+    data.time = cast(float) get_time();
 }
 
 IVector3 :: struct {

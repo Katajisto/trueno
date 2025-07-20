@@ -3,7 +3,7 @@
 #import "Input";
 #import "Hash_Table";
 #import "Hash";
-stbi :: #import "stb_image";
+stbi  :: #import "stb_image";
 
 #load "trile.jai";
 #load "rendering/rendering.jai";
@@ -23,7 +23,7 @@ last_frame_time : float64;
 delta\    _time : float64;
 
 V_MAJOR :: 0;
-V_MINOR :: 3;
+V_MINOR :: 4;
 
 state: struct {
     pass_action_clear : sg_pass_action;
@@ -56,6 +56,7 @@ round_pow2 :: (v: float) -> s32 {
     return cast(s32) (vi + 1);
 }
 
+
 init :: () {
     sg_setup(*(sg_desc.{
         environment = cast,force(sg_environment) sglue_environment(),
@@ -84,6 +85,8 @@ init :: () {
 
     // Add empty trile.
     set_trile("test", Trile.{});
+
+    init_editor();
 }
 
 init_after_mandatory_loads :: () {
@@ -108,12 +111,12 @@ frame :: () {
     
     dpis := state.dpi_scale;
 
+    tick_profiler();
     fonsClearState(state.fons);
     for event: Input.events_this_frame {
         GR.getrect_handle_event(event);
     }
     
-
     sgl_defaults();
     sgl_matrix_mode_projection();
     sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
@@ -126,9 +129,12 @@ frame :: () {
     sg_commit();
 
     input_per_frame_event_and_flag_update();
-    
-    reset_temporary_storage();
+
+
     memory_visualizer_per_frame_update();
+
+    profiler_update();
+    reset_temporary_storage();
 }
 
 cleanup :: () {

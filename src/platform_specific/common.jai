@@ -22,7 +22,7 @@ sapp_init :: () {
     temporary_storage.original_data = temporary_storage_data.data;
     temporary_storage.original_size = temporary_storage_data.count;    
 
-    push_context,defer_pop default_context;
+    push_context default_context {
     context.logger = logger;
 
     wi := get_window_info();
@@ -39,6 +39,7 @@ sapp_init :: () {
         logger = .{ func = slog_func },
         sample_count = 4,
     }));
+    }
 }
 
 init_plat :: () #c_call {
