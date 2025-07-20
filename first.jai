@@ -34,6 +34,7 @@ ascii_car : string = #string DONE
                                                                     
 DONE
 
+Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
 
 #run {
     print("%\n", ascii_car);
@@ -107,6 +108,7 @@ DONE
 
         add_build_file("src/platform_specific/main_web.jai", w);
         add_build_string("HAS_TACOMA :: false;", w);
+        add_build_string("HAS_IPROF :: false;", w);
 
         while true {
             message := compiler_wait_for_message();
@@ -148,13 +150,51 @@ DONE
         }
     }
     } else {
-        w := get_current_workspace();
+        set_build_options_dc(.{do_output=false});
+
+        current_w := get_current_workspace();
+        root_opts := get_build_options();
+        w := compiler_create_workspace("Target");
+        opts := get_build_options(w);
+        copy_commonly_propagated_fields(*opts, *root_opts);
+        opts.cpu_target = root_opts.cpu_target;
+        opts.os_target  = root_opts.os_target;
+        opts.output_executable_name = root_opts.output_executable_name;
+        set_build_options(opts, w);
+        iprof_plugin: *Iprof.My_Plugin;
+
+        profile :: true;
+
+        if profile {
+            iprof_plugin = cast(*Iprof.My_Plugin) Iprof.get_plugin();
+            iprof_plugin.workspace = w;
+    
+            // Set options        
+            iprof_plugin.instrument_modules = true;
+            iprof_plugin.min_size = 100; // Hitting MAX_PROFILING_ZONES with the default of 30, so bumped up. What is the correct thing to do?
+            iprof_plugin.csv_output_filename = "iprof_report.csv"; // Disable this if we don't want to output the report.
+
+            iprof_plugin.before_intercept(iprof_plugin, null);
+        }
+
+        compiler_begin_intercept(w);
         if hasTacoma {
             add_build_string("HAS_TACOMA :: true;", w);
         } else {
             add_build_string("HAS_TACOMA :: false;", w);
         }
+        iprof_plugin.add_source(iprof_plugin);
         add_build_file("src/platform_specific/main_native.jai", w);
+
+       while true {
+            message := compiler_wait_for_message();
+            iprof_plugin.message(iprof_plugin, message);
+            if message.kind == .COMPLETE then break;
+        }
+        compiler_end_intercept(w);
+        iprof_plugin.finish(iprof_plugin);
+        iprof_plugin.shutdown(iprof_plugin);
+        
     }
 }
 
