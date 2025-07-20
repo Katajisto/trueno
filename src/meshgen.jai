@@ -344,27 +344,11 @@ a_is_inside_b :: (a: Quad, b: Quad) -> bool {
 remove_quad :: (quad: Quad, quadSet: *Quad_Set) {
     parent : Quad;
 
-    qlist : [..]Quad;
-    
-    for k,v : quadSet {
-        array_add(*qlist, v);
-    }
-
-    Sort :: #import "Sort";
-
-    qcomp :: (a: Quad, b: Quad) -> s64 {
-        if a < b then return -1;
-        if b < a then return 1;
-        return 0;
-    }
-
-    Sort.bubble_sort(qlist, qcomp);
-
-    for qlist {
-        if it < quad then continue;
-        if a_is_inside_b(quad, it) {
-            parent = it;
-            table_remove(quadSet, it);
+    for v, k : quadSet {
+        if k < quad then continue;
+        if a_is_inside_b(quad, k) {
+            parent = k;
+            table_remove(quadSet, k);
             break;
         }
     }

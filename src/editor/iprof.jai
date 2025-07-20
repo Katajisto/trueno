@@ -37,6 +37,15 @@ draw_rectangle_prof :: (x0: float, y0: float, x1: float, y1: float, color: Vecto
 	draw_rectangle(r, color);
 }
 
+graph_begin :: (x: float, y: float, width: float, height: float) {
+	return;
+}
+
+graph_end   :: (x: float, y: float, width: float, height: float) {
+	return;
+}
+
+
 iprof_cycle_active_report_mode :: () {
     iprof_active_report_mode := __Iprof.displayed_quantity;
     if iprof_active_report_mode == .SELF_TIME               __Iprof.set_report_mode(.HIERARCHICAL_TIME);
