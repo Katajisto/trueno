@@ -5,23 +5,29 @@ World_Config :: struct {
     horizonHalo   : Vector3 = .{1.0, 1.0, 1.0};
     sunHalo       : Vector3 = .{1.0, 1.0, 1.0};
     sunLightColor : Vector3 = .{1.0, 1.0, 1.0};
-    sunPosition   : Vector3 = #run normalize(Vector3.{0.5, 0.5, 0.5});
+    sunPosition   : Vector3 = #run normalize(Vector3.{0.2, 0.3, 0.4});
     sunIntensity  : float = 2.0;
 
-    hasClouds     : int = 1;
+    hasClouds     : s32 = 1;
 
-    hasPlane      : int  = 0;
+    hasPlane      : s32  = 0;
     planeHeight   : float = 0.0;
-    planeType     : int   = 0;
+    planeType     : s32   = 0;
 }
 
+// Copies over all the fields of our world config into a given shader type.
+// Requires that the shader type has all of the fields the world config has.
 world_config_to_shader_type :: (wc: *World_Config, data: *$T) {
-    data.skyBase = wc.skyBase.component;
-    data.skyTop = wc.skyTop.component;
-    data.sunDisk = wc.sunDisk.component;
-    data.horizonHalo = wc.horizonHalo.component;
-    data.sunHalo = wc.sunHalo.component;
-    data.time = cast(float) get_time();
+    generate_copy_code :: () -> string {
+        builder : String_Builder;
+        ti := type_info(World_Config);
+        for ti.members {
+            if it.type == type_info(Vector3) then print_to_builder(*builder, "data.% = wc.%.component;\n", it.name, it.name);
+            else print_to_builder(*builder, "data.% = wc.%;\n", it.name, it.name);
+        }
+        return builder_to_string(*builder);
+    }
+    #insert #run generate_copy_code();
 }
 
 IVector3 :: struct {

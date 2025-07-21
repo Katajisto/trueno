@@ -69,6 +69,8 @@ init_profiler :: () {
 	iprof_conf.text_width = text_width;
 	iprof_conf.draw_rectangle = draw_rectangle_prof;
 	iprof_conf.draw_line = draw_line;
+	iprof_conf.graph_begin = graph_begin;
+	iprof_conf.graph_end = graph_end;
 }
 
 draw_profiler :: () {

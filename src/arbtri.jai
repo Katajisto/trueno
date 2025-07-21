@@ -61,21 +61,22 @@ arb_tri_add :: (tri: Arb_Tri) {
     array_add(*arbTriState.trilist, tri);
 }
 
+transform_to_screen_x :: (coord: float) -> float {
+    w, h := get_window_size();
+    return (coord / cast(float) w) * 2.0 - 1.0;
+}
+
+transform_to_screen_y :: (coord: float) -> float {
+    w, h := get_window_size();
+    return (coord / cast(float) h) * 2.0 - 1.0;
+}
+
 arb_tri_flush :: () {
     if !arbTriState.active {
         return;
     }
 
 
-    transform_to_screen_x :: (coord: float) -> float {
-        w, h := get_window_size();
-        return (coord / cast(float) w) * 2.0 - 1.0;
-    }
-
-    transform_to_screen_y :: (coord: float) -> float {
-        w, h := get_window_size();
-        return (coord / cast(float) h) * 2.0 - 1.0;
-    }
 
     arbTriState.active = false;    
 

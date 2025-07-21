@@ -94,7 +94,7 @@ material_to_rgba :: (mat: Material) -> (r: u8, g: u8, b: u8, a: u8) {
     r : u8 = cast(u8) (mat.color.x * 255.0);
     g : u8 = cast(u8) (mat.color.y * 255.0);
     b : u8 = cast(u8) (mat.color.z * 255.0);
-    a : u8 = material_encode_to_char(mat); // @ToDo: Do actual material value encode here.
+    a : u8 = material_encode_to_char(mat);
     return r,g,b,a;
 }
 

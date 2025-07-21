@@ -1,4 +1,4 @@
-#import "Basic";
+#import "Basic"()(MEMORY_DEBUGGER=true);
 #import "Math";
 #import "Input";
 #import "Hash_Table";
@@ -131,7 +131,7 @@ frame :: () {
     input_per_frame_event_and_flag_update();
 
 
-    memory_visualizer_per_frame_update();
+    // memory_visualizer_per_frame_update();
 
     profiler_update();
     reset_temporary_storage();
