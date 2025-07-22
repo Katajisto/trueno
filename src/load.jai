@@ -9,6 +9,7 @@ mandatory_loads_done :: () -> bool {
 }
 
 init_font_loads :: () {
+    mandatory_loads_left += 1;
     sfetch_send(*(sfetch_request_t.{
         path = "./resources/DroidSerif-Regular.ttf".data,
         callback = fontcb,
@@ -23,5 +24,5 @@ fontcb :: (res: *sfetch_response_t) #c_call {
     push_context,defer_pop default_context;
     state.font_default.fons_font = fonsAddFontMem(state.fons, "sans", res.data.ptr, xx res.data.size, 0);
     ui_init_font_fields(*state.font_default);
-    mandatory_done = true;
+    mandatory_loads_left -= 1;
 }
