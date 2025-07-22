@@ -1,4 +1,10 @@
-#import "Basic"()(MEMORY_DEBUGGER=true);
+MEM_DEBUG :: false;
+
+#if MEM_DEBUG {
+    #import "Basic"()(MEMORY_DEBUGGER=true);
+} else {
+    #import "Basic";
+}
 #import "Math";
 #import "Input";
 #import "Hash_Table";
@@ -129,9 +135,9 @@ frame :: () {
     sg_commit();
 
     input_per_frame_event_and_flag_update();
-
-
-    // memory_visualizer_per_frame_update();
+    #if MEM_DEBUG {
+        memory_visualizer_per_frame_update();
+    }
 
     profiler_update();
     reset_temporary_storage();

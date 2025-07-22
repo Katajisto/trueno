@@ -2,6 +2,7 @@ GR :: #import "GetRect_LeftHanded"()(Type_Indicator = Ui_Type_Indicator);
 Input :: #import "Input";
 
 #load "component_themes.jai";
+#load "autoedit.jai";
 
 // vw is 1/100 of view width
 vw : float;

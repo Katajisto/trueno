@@ -25,3 +25,9 @@ t_button_selectable :: (theme: *GR.Overall_Theme, active: bool) -> GR.Button_The
     
     return t;
 }
+
+t_button_color :: (theme: *GR.Overall_Theme, color: Vector4) -> GR.Button_Theme {
+    t := theme.button_theme;
+    t.surface_color = color;
+    return t;
+}

@@ -1,18 +1,19 @@
 World_Config :: struct {
-    skyBase       : Vector3 = .{0.38, 0.81, 0.95};
-    skyTop        : Vector3 = .{0.17, 0.4, 0.95};
-    sunDisk       : Vector3 = .{1.0, 1.0, 1.0};
-    horizonHalo   : Vector3 = .{1.0, 1.0, 1.0};
-    sunHalo       : Vector3 = .{1.0, 1.0, 1.0};
-    sunLightColor : Vector3 = .{1.0, 1.0, 1.0};
+    // All of the @Notes are for the autoedit functionality.
+    skyBase       : Vector3 = .{0.38, 0.81, 0.95}; @Color
+    skyTop        : Vector3 = .{0.17, 0.4, 0.95}; @Color
+    sunDisk       : Vector3 = .{1.0, 1.0, 1.0}; @Color
+    horizonHalo   : Vector3 = .{1.0, 1.0, 1.0}; @Color
+    sunHalo       : Vector3 = .{1.0, 1.0, 1.0}; @Color
+    sunLightColor : Vector3 = .{1.0, 1.0, 1.0}; @Color
     sunPosition   : Vector3 = #run normalize(Vector3.{0.2, 0.3, 0.4});
-    sunIntensity  : float = 2.0;
+    sunIntensity  : float = 2.0; @Slider,0,10,0.5
 
-    hasClouds     : s32 = 1;
+    hasClouds     : s32 = 1; @Slider,0,1,1
 
-    hasPlane      : s32  = 0;
-    planeHeight   : float = 0.0;
-    planeType     : s32   = 0;
+    hasPlane      : s32  = 0; @Slider,0,1,1
+    planeHeight   : float = 0.0; @Slider,-100,100,1
+    planeType     : s32   = 0; @Slider,0,2,1
 }
 
 // Copies over all the fields of our world config into a given shader type.

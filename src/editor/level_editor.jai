@@ -194,7 +194,7 @@ tick_level_editor :: () {
 }
 
 draw_level_editor :: () {
-	draw_sky(*get_level_editor_camera());
+	draw_sky(*get_level_editor_camera(), *world.conf);
 	cam := get_level_editor_camera();
 	mvp := create_viewproj(*cam);
 
@@ -244,5 +244,7 @@ draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
     if current_tab == {
         case .TACOMA;
 			draw_tacoma_tab(theme, r);
+		case .INFO;
+			autoedit(r, *world.conf, theme);
     }
 }
