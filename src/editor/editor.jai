@@ -21,6 +21,7 @@ current_editor_view : Editor_View = .Trile_Editor;
 
 init_editor :: () {
     init_profiler();
+    init_console();
 }
 
 // Used when the console is open, so typing doesn't cause all sorts of stuff.

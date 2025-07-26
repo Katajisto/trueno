@@ -1,5 +1,15 @@
-#scope_file 
+#if HAS_IPROF == false {
 
+init_profiler :: () {}
+
+draw_profiler :: () {}
+
+profiler_update :: () {}
+
+tick_profiler :: () {}
+
+} else {
+#scope_file 
 
 iprof_conf : __Iprof.Config;
 iprof_font : Ui_Font;
@@ -118,4 +128,5 @@ tick_profiler :: () {
 	}
 
     __Iprof.set_cursor_screen_coordinates(xx input_mouse_x, xx input_mouse_y);
+}
 }

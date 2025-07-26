@@ -77,6 +77,7 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
 
         while true {
             message := compiler_wait_for_message();
+            custom_message_handler(message, *w);
             if message.kind == {
                 case .TYPECHECKED;
                     typechecked := cast(*Message_Typechecked) message;
@@ -146,15 +147,14 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         } else {
             add_build_string("HAS_TACOMA :: false;", w);
         }
+        add_build_string("HAS_IPROF :: true;", w);
         iprof_plugin.add_source(iprof_plugin);
         add_build_file("src/platform_specific/main_native.jai", w);
 
-       lint_ok := true;
        while true {
             message := compiler_wait_for_message();
             iprof_plugin.message(iprof_plugin, message);
-            if !lint_checks(message) then lint_ok = false;
-            
+            custom_message_handler(message, *w);
             if message.kind == .COMPLETE then break;
         }
         compiler_end_intercept(w);

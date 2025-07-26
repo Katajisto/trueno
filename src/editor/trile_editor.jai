@@ -108,6 +108,10 @@ handle_tool_click :: () {
 
 current_color : Vector3 = .{1.0, 0.0, 0.0};
 
+reset_trile :: () {
+    print("Reset called!\n");
+} @Command
+
 tick_trile_editor :: () {
     if console_open_ignore_input then return;
 

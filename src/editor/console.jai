@@ -1,3 +1,5 @@
+#scope_file
+
 Console_State :: enum {
     CLOSED;
     OPEN_HALF;
@@ -21,6 +23,38 @@ get_console_h_target_from_state :: (state: Console_State) -> float {
             return 95 * vh;
     }
     return 0;
+}
+
+
+console_input_start : string = "";
+
+
+parse_argument_float :: (s: string) -> bool {
+    return false;
+}
+
+command_add :: (a: int, b: int) -> int {
+    return a + b;
+}
+
+command_add_front :: (args: []string) {
+    if verify_argument_count(2,2,args.count) {
+        array_add(*console_report, sprint("Argument count error: count = % not in range %..%.", args.count, 2, 2));
+        return;
+    }
+} 
+
+#scope_export
+
+console_command_procs : [..]([]string) -> string;
+console_command_names : [..]string;
+
+init_console :: () {
+    register_commands();
+}
+
+verify_argument_count :: (range_start: s64, range_end: s64, count: s64) -> bool {
+    return count >= range_start && count <= range_end;
 }
 
 tick_console :: () {
@@ -69,7 +103,6 @@ tick_console :: () {
     }
 }
 
-console_input_start : string = "";
 
 draw_console :: (theme: *GR.Overall_Theme) {
     if console_h < 1 then return;
@@ -84,7 +117,15 @@ draw_console :: (theme: *GR.Overall_Theme) {
     if a & .ENTERED {
         array_add(*console_report, copy_string(tprint("> %", new)));
         state.text = console_input_start;
-        array_add(*console_report, "Unknown command.");
+        found := false;
+        for it, idx : console_command_names {
+            print("%\n", it);
+            if it == new {
+                array_add(*console_report, console_command_procs[idx](.[]));
+                found = true;
+            }
+        }
+        if !found then array_add(*console_report, "Unknown command.");
     }
 
     for < console_report {

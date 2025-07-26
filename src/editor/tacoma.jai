@@ -1,5 +1,5 @@
 #run {
-    #load "../../meta/ascii.jai";
+    #load "../meta/ascii.jai";
     print("%\n", ascii_tacoma);
 }
 

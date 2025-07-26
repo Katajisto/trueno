@@ -28,7 +28,7 @@ world_config_to_shader_type :: (wc: *World_Config, data: *$T) {
         }
         return builder_to_string(*builder);
     }
-    #insert #run generate_copy_code();
+    #insert #run,stallable generate_copy_code();
 }
 
 IVector3 :: struct {

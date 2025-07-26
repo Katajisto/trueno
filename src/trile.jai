@@ -5,6 +5,7 @@
 trile_gfx_table : Table(string, Trile_GFX);
 trile_table     : Table(string, Trile);
 
+
 #scope_export
 
 Trile_GFX :: struct {
@@ -21,7 +22,7 @@ Trile_GFX :: struct {
 // once it's more clear how this whole trile storage thing 
 // will pan out. -ktjst
 get_trile_gfx :: (name: string) -> (Trile_GFX, success: bool) {
-    value, success := table_find(*trile_gfx_table, name);
+    success, value := table_find_new(*trile_gfx_table, name);
     if !success {
         // Check if such a trile exists. 
         trile, success_with_trile := get_trile(name);
