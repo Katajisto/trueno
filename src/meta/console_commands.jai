@@ -38,7 +38,6 @@ add_console_commands :: (message: *Message, w: *Workspace) {
                 }
             }
             if !is_command then continue;
-            print("Found console command called: %\n", expression.name);
 
             if expression.flags & .SCOPE_FILE {
         	    compiler_report(sprint("Command % is file scoped, that is not okay. Commands must be exported.", expression.name), make_location(cast(*Code_Node)expression), .ERROR);
@@ -67,7 +66,6 @@ add_console_commands :: (message: *Message, w: *Workspace) {
 
             
             for arg, i : header.arguments {
-                print("ARG% (%): %\n", i, arg.type_inst.result.type, arg.name);
                 type_tag := arg.type_inst.result.type;
                 arg_name := arg.name;
                 if type_tag == {
@@ -101,9 +99,9 @@ add_console_commands :: (message: *Message, w: *Workspace) {
             for arg_count_min..arg_count {
                 print_to_builder(*builder, "if args.count == % then return sprint(\"\%\", %(%));\n", it, expression.name, get_call_string(it));
             }
+            print_to_builder(*builder, "return \"Something really really weird has happened. Your argument count somehow went trough all the return checks....\";\n");
             print_to_builder(*builder, "}\n");
             str := builder_to_string(*builder);
-            print("%\n", str);
             array_add(*console_commands_to_register, sprint("%", expression.name));
             add_build_string(str, w.*);
             free(str);
