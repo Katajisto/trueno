@@ -33,18 +33,35 @@ parse_argument_float :: (s: string) -> bool {
     return false;
 }
 
-command_add :: (a: int, b: int) -> int {
-    return a + b;
+#scope_export
+
+string_to_bool :: (s: string) -> (bool, bool) {
+    if s == {
+        case "True"; #through;
+        case "TRUE"; #through;
+        case "1"; #through;
+        case "true"; #through;
+        case "t"; #through;
+        case "T";
+            return true, true;
+        case "False"; #through;
+        case "FALSE"; #through;
+        case "0"; #through;
+        case "false"; #through;
+        case "f"; #through;
+        case "F";
+            return false, true;
+        case;
+            return false, false;
+    }
+    if s == "true" || s == "TRUE" return true, true;
+    if s == "false" || s == "FALSE" return false, true;
+    return false, false;
 }
 
-command_add_front :: (args: []string) {
-    if verify_argument_count(2,2,args.count) {
-        array_add(*console_report, sprint("Argument count error: count = % not in range %..%.", args.count, 2, 2));
-        return;
-    }
-} 
-
-#scope_export
+add :: (a: int, b: int) -> int {
+    return a + b;
+} @Command
 
 console_command_procs : [..]([]string) -> string;
 console_command_names : [..]string;
@@ -118,13 +135,18 @@ draw_console :: (theme: *GR.Overall_Theme) {
         array_add(*console_report, copy_string(tprint("> %", new)));
         state.text = console_input_start;
         found := false;
+        args := split(trim(new), " ");
+        if args.count < 1 then return;
         for it, idx : console_command_names {
-            print("%\n", it);
-            if it == new {
-                array_add(*console_report, console_command_procs[idx](.[]));
+            if it == args[0] {
+                args.count -= 1;
+                args.data += 1;
+                array_add(*console_report, console_command_procs[idx](args));
                 found = true;
+                break;
             }
         }
+        // array_reset(*args);
         if !found then array_add(*console_report, "Unknown command.");
     }
 
