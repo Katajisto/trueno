@@ -120,6 +120,9 @@ tick_console :: () {
     }
 }
 
+console_add_output_line :: (s: string) {
+    array_add(*console_report, s);
+}
 
 draw_console :: (theme: *GR.Overall_Theme) {
     if console_h < 1 then return;

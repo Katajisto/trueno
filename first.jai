@@ -1,26 +1,35 @@
 #load "./src/meta/meta.jai";
+
 Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
 
 #run {
     print("%\n", ascii_car);
-    // @ToDo: Fix this so that we are using the freshly compiled Jai files instead of the old ones.
-    // {
-    //     process_result, output, error := run_command("bash", "./compile_shaders.sh", working_directory=tprint("%/src/shaders", #filepath));
-    //     if process_result.exit_code != 0 {
-    //         log_error("Shader compilation failed.");
-    //         if output {
-    //             log_error(output,, logger = runtime_support_default_logger);
-    //         }
-    //         exit(1);
-    //     }
-    // }
+
+    // Step 1. Compile shaders.
+    {
+        print("--- Shader Compile Step ---\n");
+        process_result, output, error := run_command("bash", "./compile_shaders.sh", working_directory=tprint("%/src/shaders", #filepath));
+        if process_result.exit_code != 0 {
+            log_error("Shader compilation failed.");
+            if output {
+                log_error(output,, logger = runtime_support_default_logger);
+            }
+            exit(1);
+        }
+    }
+
+    // Step 2. Create a pack file for all of the assets in ./resources.
+    create_pack();
+   
     opt := get_build_options();
     args := opt.compile_time_command_line;
     doWasmBuild := false;
     hasTacoma := false;
+    releaseBuild := false;
     for arg : args {
         if arg == "wasm" then doWasmBuild = true;
         if arg == "tacoma" then hasTacoma = true;
+        if arg == "release" then releaseBuild = true;
     }
 
     if doWasmBuild {
@@ -74,6 +83,7 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         add_build_file("src/platform_specific/main_web.jai", w);
         add_build_string("HAS_TACOMA :: false;", w);
         add_build_string("HAS_IPROF :: false;", w);
+        add_shaders_to_workspace(w);
 
         while true {
             message := compiler_wait_for_message();
@@ -123,13 +133,16 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         w := compiler_create_workspace("Target");
         opts := get_build_options(w);
         copy_commonly_propagated_fields(*opts, *root_opts);
+        
         opts.cpu_target = root_opts.cpu_target;
         opts.os_target  = root_opts.os_target;
+        opts.backend    = ifx releaseBuild then .LLVM else .X64;
         opts.output_executable_name = root_opts.output_executable_name;
+
         set_build_options(opts, w);
         iprof_plugin: *Iprof.My_Plugin;
 
-        profile :: true;
+        profile := !releaseBuild;
 
         if profile {
             iprof_plugin = cast(*Iprof.My_Plugin) Iprof.get_plugin();
@@ -147,19 +160,26 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         } else {
             add_build_string("HAS_TACOMA :: false;", w);
         }
-        add_build_string("HAS_IPROF :: true;", w);
-        iprof_plugin.add_source(iprof_plugin);
+        if profile {
+            add_build_string("HAS_IPROF :: true;", w);
+            iprof_plugin.add_source(iprof_plugin);
+        } else {
+            add_build_string("HAS_IPROF :: false;", w);
+        }
         add_build_file("src/platform_specific/main_native.jai", w);
+        add_shaders_to_workspace(w);
 
        while true {
             message := compiler_wait_for_message();
-            iprof_plugin.message(iprof_plugin, message);
+            if profile then iprof_plugin.message(iprof_plugin, message);
             custom_message_handler(message, *w);
             if message.kind == .COMPLETE then break;
         }
         compiler_end_intercept(w);
-        iprof_plugin.finish(iprof_plugin);
-        iprof_plugin.shutdown(iprof_plugin);
+        if profile {
+            iprof_plugin.finish(iprof_plugin);
+            iprof_plugin.shutdown(iprof_plugin);
+        }
         
     }
 }

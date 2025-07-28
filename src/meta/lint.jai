@@ -38,6 +38,10 @@ lint_procedure_name :: (name: string, node: Code_Node) -> bool {
 	for name {
 		if it >= #char "a" && it <= #char "z" then continue;
 		if it == #char "_" then continue;
+		if it == #char "+" then continue;
+		if it == #char "=" then continue;
+		if it == #char "<" then continue;
+		if it == #char ">" then continue;
 		if it >= #char "0" && it <= #char "9" then continue;
 		name_ok = false;
 		wrong_char = it;

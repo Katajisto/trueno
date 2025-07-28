@@ -108,8 +108,10 @@ handle_tool_click :: () {
 
 current_color : Vector3 = .{1.0, 0.0, 0.0};
 
-reset_trile :: (a: bool = false) {
-    print("Reset called, with arg: %!\n", a);
+reset_trile :: () {
+    newt : Trile;
+    set_trile("test", newt);
+    current_trile = get_trile("test");
 } @Command
 
 tick_trile_editor :: () {

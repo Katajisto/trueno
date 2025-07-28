@@ -9,6 +9,7 @@ MEM_DEBUG :: false;
 #import "Input";
 #import "Hash_Table";
 #import "Hash";
+#import "Simple_Package_Reader";
 stbi  :: #import "stb_image";
 
 #load "trile.jai";
@@ -87,16 +88,19 @@ init :: () {
 
     state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0.6, g = 0.7, b = 1.0, a = 1 } };
     state.pass_action.colors[0] = .{ load_action = .LOAD };
-    init_font_loads();
 
-    // Add empty trile.
-    set_trile("test", Trile.{});
+    init_asset_pack_load();
 
-    init_editor();
 }
 
-init_after_mandatory_loads :: () {
+init_after_asset_pack :: () {
+    
+    add_font_from_pack("./resources/DroidSerif-Regular.ttf");
+    ui_init_font_fields(*state.font_default);
+
     init_ui();
+    set_trile("test", Trile.{});
+    init_editor();
 }
 
 cam : Camera;
@@ -108,7 +112,7 @@ frame :: () {
     sfetch_dowork();
 
     if mandatory_loads_done() && !init_after_mandatory_done {
-        init_after_mandatory_loads();
+        init_after_asset_pack();
         init_after_mandatory_done = true;
     }
 

@@ -113,8 +113,10 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
     final = vec3(final);
 
     // Cirrus Clouds
-    float density = smoothstep(1.0 - cirrus, 1.0, fbm(npos.xyz / npos.y * 2.0 + time * 0.05)) * 0.3;
-    final.rgb = mix(final.rgb, vec3(1.0, 1.0, 1.0), max(0.0, npos.y) * density * 2.0);
+    if(hasClouds == 1) { 
+        float density = smoothstep(1.0 - cirrus, 1.0, fbm(npos.xyz / npos.y * 2.0 + time * 0.05)) * 0.3;
+        final.rgb = mix(final.rgb, vec3(1.0, 1.0, 1.0), max(0.0, npos.y) * density * 2.0);
+    }
 
     return final;
 }
@@ -123,7 +125,7 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
 
 void main() {
     vec3 dir = normalize(pos.xyz);
-    vec3 color = sky(dir, normalize(vec3(0.6,0.9,0.6)));
+    vec3 color = sky(dir, sunPosition);
     frag_color = vec4(color, 1.0);
 }
 @end

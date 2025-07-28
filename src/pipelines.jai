@@ -1,8 +1,3 @@
-#load "./shaders/jai/shader_triangle.jai";
-#load "./shaders/jai/shader_trixel.jai";
-#load "./shaders/jai/shader_sky.jai";
-#load "./shaders/jai/shader_trile.jai";
-
 Pipeline_Binding :: struct {
     pipeline : sg_pipeline;
     bind     : sg_bindings;
