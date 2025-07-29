@@ -56,6 +56,7 @@ note_to_autoedit_conf :: (notes: []string) -> Autoedit_Conf {
 		}
 		assert(false, "Input must have either 1 or 3 parts");
 	}
+	return .{};
 } 
 
 input_code_from_type_and_notes :: (name: string, type: *Type_Info, notes: []string) -> string {

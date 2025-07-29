@@ -3,6 +3,8 @@ Pipeline_Binding :: struct {
     bind     : sg_bindings;
 }
 
+g_specular_lut : sg_image;
+
 gPipelines : struct {
 
     // Arbitrary triangle rendering for rendering 2D things on the screen.
@@ -158,11 +160,15 @@ create_trile_pipeline :: () {
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
     pipeline.layout.buffers[1].stride = 4*3;
-    pipeline.layout.buffers[1].stride = 4*3;
+
+    pipeline.layout.buffers[3].step_func = .PER_INSTANCE;
+
+    instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 4096 * 4 * 4};
     
     pipeline.layout.attrs[ATTR_trile_position] = .{ format = .FLOAT3, buffer_index = 0 };
     pipeline.layout.attrs[ATTR_trile_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
     pipeline.layout.attrs[ATTR_trile_centre]   = .{ format = .FLOAT3, buffer_index = 2 };
+    pipeline.layout.attrs[ATTR_trile_instance] = .{ format = .MAT4, buffer_index = 3 };
     pipeline.depth = .{
             write_enabled = true,
             compare = .LESS_EQUAL,
@@ -188,6 +194,7 @@ create_trile_pipeline :: () {
         min_filter = .NEAREST,
         mag_filter = .NEAREST,
     }));
+    gPipelines.trile.bind.vertex_buffers[3] = sg_make_buffer(*instance_buffer);
 }
 
 create_sky_pipeline :: () {
@@ -214,30 +221,30 @@ create_sky_pipeline :: () {
 
 
     vertices : [24]Vector3 = .[
-        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, -TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, -TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, TRIXEL_SIZE/2},
-        .{-TRIXEL_SIZE/2, TRIXEL_SIZE/2, -TRIXEL_SIZE/2}
+        .{-1, -1, 1},
+        .{1, -1, 1},
+        .{1, 1, 1},
+        .{-1, 1, 1},
+        .{-1, -1, -1},
+        .{-1, 1, -1},
+        .{1, 1, -1},
+        .{1, -1, -1},
+        .{-1, 1, -1},
+        .{-1, 1, 1},
+        .{1, 1, 1},
+        .{1, 1, -1},
+        .{-1, -1, -1},
+        .{1, -1, -1},
+        .{1, -1, 1},
+        .{-1, -1, 1},
+        .{1, -1, -1},
+        .{1, 1, -1},
+        .{1, 1, 1},
+        .{1, -1, 1},
+        .{-1, -1, -1},
+        .{-1, -1, 1},
+        .{-1, 1, 1},
+        .{-1, 1, -1}
     ];
 
     k : u16 = 0;

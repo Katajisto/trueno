@@ -150,7 +150,7 @@ tick_trile_editor :: () {
 get_trile_editor_camera :: () -> Camera {
     camera: Camera;
     camera.near = 0.1;
-    camera.far = 100;
+    camera.far = 5000;
 
     cameraDir : Vector3    = .{1, 0, 0};
     qrotation : Quaternion = .{cos(rotation/2.0),0,sin(rotation/2.0),0};

@@ -43,7 +43,7 @@ current_tab : Level_Editor_Tab = .TOOLS;
 get_level_editor_camera :: () -> Camera {
     camera: Camera;
     camera.near = 0.1;
-    camera.far  = 1000;
+    camera.far  = 5000;
 	camera.target = .{cameraCenter.x, xx editY, cameraCenter.y};
 	cameraDir : Vector3    = .{1, 0, 0};
     qrotation : Quaternion = .{cos(-cameraRotation/2.0),0,sin(-cameraRotation/2.0),0};
@@ -194,29 +194,44 @@ tick_level_editor :: () {
 }
 
 draw_level_editor :: () {
+	positions : [4096]Vector4;
+	positions[0] = .{1, 0, 0, 1};
+	positions[1] = .{0, 1, 1, 1};
+
 	draw_sky(*get_level_editor_camera(), *world.conf);
 	cam := get_level_editor_camera();
 	mvp := create_viewproj(*cam);
 
 	vs_params : Trile_Vs_Params;
 	vs_params.mvp = mvp.floats;
+    vs_params.camera = cam.position.component;
 
 	trilegfx := get_trile_gfx("test");
 
+    sg_update_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
+        ptr = positions.data,
+        size = size_of(type_of(positions)),
+    }));
+
 	sg_apply_pipeline(gPipelines.trile.pipeline);
+
+    world_conf : Trile_World_Config;
+    world_config_to_shader_type(*world.conf, *world_conf);
 
 
 	bindings : sg_bindings;
 	bindings.vertex_buffers[0] = trilegfx.vertex_buffer;
 	bindings.vertex_buffers[1] = trilegfx.normal_buffer;
 	bindings.vertex_buffers[2] = trilegfx.centre_buffer;
+	bindings.vertex_buffers[3] = gPipelines.trile.bind.vertex_buffers[3];
     bindings.samplers[0]       = gPipelines.trile.bind.samplers[0];
 	bindings.images[0]         = trilegfx.trixel_colors;
 	
 	sg_apply_bindings(*bindings);
 	sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
+    sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
 
-	sg_draw(0, cast(s32) trilegfx.vertex_count, 1);
+	sg_draw(0, cast(s32) trilegfx.vertex_count, 2);
 
 	
 }
