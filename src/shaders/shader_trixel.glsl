@@ -36,6 +36,7 @@ layout(binding=1) uniform trixel_world_config {
     vec3 sunLightColor;
     vec3 sunPosition;
     float sunIntensity;
+    float skyIntensity;
 
     int hasClouds;
 

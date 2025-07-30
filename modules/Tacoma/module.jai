@@ -11,6 +11,7 @@ Sky_Config :: struct {
   sunLightColor : Vector3 = .{1.0, 1.0, 1.0};
   sunPosition   : Vector3 = #run normalize(Vector3.{0.5, 0.5, 0.5});
   sunIntensity  : float = 1.0;
+  skyIntensity  : float = 10.0;
 }
 
 Trixel_Data :: struct {

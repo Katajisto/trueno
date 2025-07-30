@@ -12,7 +12,8 @@ layout(binding=0) uniform trile_vs_params {
 
 out vec3 cam;
 out vec3 to_center;
-out vec3 vpos;
+out vec3 vpos; // The actual position;
+out vec3 ipos; // Trile space position;
 out vec4 fnormal;
 
 void main() {
@@ -20,6 +21,7 @@ void main() {
     fnormal = normal;
     to_center = centre.xyz - position.xyz;
     vpos = position.xyz + instance.xyz;
+    ipos = position.xyz;
     cam = camera;
 }
 @end
@@ -35,6 +37,7 @@ layout(binding=1) uniform trile_world_config {
     vec3 sunLightColor;
     vec3 sunPosition;
     float sunIntensity;
+    float skyIntensity;
 
     int hasClouds;
 
@@ -48,6 +51,7 @@ layout(binding=1) uniform trile_world_config {
 in vec3 cam;
 in vec3 to_center;
 in vec3 vpos;
+in vec3 ipos;
 in vec4 fnormal;
 out vec4 frag_color;
 
@@ -174,7 +178,7 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 
 void main() {
     //frag_color = vec4((fnormal.xyz + vec3(1.0, 1.0, 1.0)) * 0.5, 1.0);
-    vec3 pos_after_adjust = vpos - fnormal.xyz * 0.02;
+    vec3 pos_after_adjust = ipos - fnormal.xyz * 0.02;
     int count = 0;
     vec4 trixel_material;
     while (count < 5) {

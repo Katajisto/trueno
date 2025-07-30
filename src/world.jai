@@ -7,7 +7,8 @@ World_Config :: struct {
     sunHalo       : Vector3 = .{1.0, 1.0, 1.0}; @Color
     sunLightColor : Vector3 = .{1.0, 1.0, 1.0}; @Color
     sunPosition   : Vector3 = #run normalize(Vector3.{0.2, 0.3, 0.4});
-    sunIntensity  : float = 2.0; @Slider,0,10,0.5
+    sunIntensity  : float = 2.0; @Slider,0,100,0.5
+    skyIntensity  : float = 2.0; @Slider,0,10,0.5
 
     hasClouds     : s32 = 1; @Slider,0,1,1
 

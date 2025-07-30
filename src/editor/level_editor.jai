@@ -18,9 +18,11 @@ oldCameraRotation : float;
 oldCameraTilt     : float;
 cameraCenter      : Vector2;
 
-tacomaSamples : s32 = 100;
-tacomaWidth   : s32 = 500;
-tacomaHeight  : s32 = 500;
+tacomaSamples    : s32   = 100;
+tacomaResolution : s32   = 500;
+tacomaExposure   : float = 1.0;
+tacomaContrast   : float = 1.0;
+tacomaSaturation : float = 1.0;
 
 lastInputTime : float64;
 
@@ -152,7 +154,7 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	#if HAS_TACOMA {
 		if GR.button(r, "Render with Tacoma", *theme.button_theme) {
 			cam := get_level_editor_camera();
-			test_gen(tacomaWidth, tacomaHeight, .{cam.target, cam.position, tacomaSamples, false});
+			test_gen(tacomaResolution, tacomaResolution, .{tacomaExposure, tacomaContrast, tacomaSaturation}, .{cam.target, cam.position, tacomaSamples, true}, world.conf);
 		}
 		r.y += r.h;
 		if current_screenshot.valid {
@@ -169,15 +171,23 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 
 	    GR.label(r, "Samples", *t_label_left(theme));
 	    r.y += r.h;
-	    GR.slider(r, *tacomaSamples, 10, 100000, 10, *theme.slider_theme);
+	    GR.slider(r, *tacomaSamples, 10, 10000, 10, *theme.slider_theme);
 		r.y += r.h;
-	    GR.label(r, "Width", *t_label_left(theme));
+	    GR.label(r, "Resolution", *t_label_left(theme));
 	    r.y += r.h;
-	    GR.slider(r, *tacomaWidth, 10, 5000, 10, *theme.slider_theme);
+	    GR.slider(r, *tacomaResolution, 10, 5000, 10, *theme.slider_theme);
 		r.y += r.h;
-	    GR.label(r, "Height", *t_label_left(theme));
+	    GR.label(r, "Exposure", *t_label_left(theme));
 	    r.y += r.h;
-	    GR.slider(r, *tacomaHeight, 10, 5000, 10, *theme.slider_theme);
+	    GR.slider(r, *tacomaExposure, 0.5, 3.0, 0.1, *theme.slider_theme);
+		r.y += r.h;
+	    GR.label(r, "Contrast", *t_label_left(theme));
+	    r.y += r.h;
+	    GR.slider(r, *tacomaContrast, 0.5, 3.0, 0.1, *theme.slider_theme);
+		r.y += r.h;
+	    GR.label(r, "Saturation", *t_label_left(theme));
+	    r.y += r.h;
+	    GR.slider(r, *tacomaSaturation, 0.5, 3.0, 0.1, *theme.slider_theme);
 		r.y += r.h;
 
 		

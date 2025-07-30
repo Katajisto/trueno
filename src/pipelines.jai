@@ -168,7 +168,7 @@ create_trile_pipeline :: () {
     pipeline.layout.attrs[ATTR_trile_position] = .{ format = .FLOAT3, buffer_index = 0 };
     pipeline.layout.attrs[ATTR_trile_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
     pipeline.layout.attrs[ATTR_trile_centre]   = .{ format = .FLOAT3, buffer_index = 2 };
-    pipeline.layout.attrs[ATTR_trile_instance] = .{ format = .MAT4, buffer_index = 3 };
+    pipeline.layout.attrs[ATTR_trile_instance] = .{ format = .FLOAT4, buffer_index = 3 };
     pipeline.depth = .{
             write_enabled = true,
             compare = .LESS_EQUAL,
