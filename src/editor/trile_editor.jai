@@ -40,6 +40,23 @@ current_mode : Trile_Editor_Tool_Mode = .AREA;
 
 current_trile : *Trile;
 
+#scope_export
+
+new_trile :: (name: string) {
+    print("Create new trile: %\n", name);
+    set_trile_gfx(current_trile.name, generate_trile_gfx_matias(current_trile));
+    newt : Trile;
+    newt.name = sprint("%", name);
+    set_trile(newt.name, newt);
+    current_trile = get_trile(newt.name);
+} @Command
+
+edit_trile :: (name: string) {
+    set_trile_gfx(current_trile.name, generate_trile_gfx_matias(current_trile));
+    current_trile = get_trile(name);
+} @Command
+
+
 #scope_file
 
 apply_tool_to_trixel :: (x: s64, y: s64, z: s64) {

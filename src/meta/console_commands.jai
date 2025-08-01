@@ -90,7 +90,7 @@ add_console_commands :: (message: *Message, w: *Workspace) {
                     case .STRING;
                         print_to_builder(*builder, "a% : string;;\n", i);
                         print_to_builder(*builder, "if args.count > % {\n", i);
-                        print_to_builder(*builder, "a% := args[%];\n", i, i);
+                        print_to_builder(*builder, "a% = args[%];\n", i, i);
                         print_to_builder(*builder, "}\n");
                     case;
                 	    compiler_report(sprint("Argument % is of type %, which is not handled by automatic command registration.", arg_name, type_tag), make_location(cast(*Code_Node)arg), .ERROR);
@@ -102,6 +102,7 @@ add_console_commands :: (message: *Message, w: *Workspace) {
             print_to_builder(*builder, "return \"Something really really weird has happened. Your argument count somehow went trough all the return checks....\";\n");
             print_to_builder(*builder, "}\n");
             str := builder_to_string(*builder);
+            // print("Generated: %\n", str);
             array_add(*console_commands_to_register, sprint("%", expression.name));
             add_build_string(str, w.*);
             free(str);

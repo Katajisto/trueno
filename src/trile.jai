@@ -65,6 +65,15 @@ get_trile :: (name: string) -> (*Trile, success: bool) {
     return trileptr, true;
 }
 
+list_trile :: () -> string {
+    count := 0;
+    for v : trile_table {
+        console_add_output_line(sprint("%", v.name));
+        count += 1;
+    }
+    return tprint("% triles", count);
+} @Command
+
 Material :: struct {
     addRoughness : u8 = 0;
     roughness : u8 = 4;
@@ -79,6 +88,7 @@ Trixel :: struct {
 };
 
 Trile  :: struct {
+    name    : string = "test";
     trixels : [16][16][16] Trixel;  
 };
 
