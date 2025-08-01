@@ -26,6 +26,8 @@ stbi  :: #import "stb_image";
 #load "ray.jai";
 #load "world.jai";
 
+#load "../game/game.jai";
+
 last_frame_time : float64;
 delta\    _time : float64;
 
@@ -101,9 +103,8 @@ init_after_asset_pack :: () {
     init_ui();
     set_trile("test", Trile.{});
     init_editor();
+    game_init();
 }
-
-cam : Camera;
 
 frame :: () {
     delta_time = get_time() - last_frame_time;
@@ -122,6 +123,7 @@ frame :: () {
     dpis := state.dpi_scale;
 
     tick_profiler();
+    if !in_editor_view then game_tick();
     fonsClearState(state.fons);
     for event: Input.events_this_frame {
         GR.getrect_handle_event(event);
@@ -134,6 +136,7 @@ frame :: () {
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     tick_ui();
     draw_editor();
+    if !in_editor_view then game_draw();
     ui_pass();
     sg_end_pass();
     sg_commit();

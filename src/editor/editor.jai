@@ -9,6 +9,7 @@
 
 #scope_file
 
+
 Editor_View :: enum {
     Closed_Editor;
     Trile_Editor;
@@ -18,6 +19,8 @@ Editor_View :: enum {
 current_editor_view : Editor_View = .Trile_Editor;
 
 #scope_export
+
+in_editor_view : bool = false;
 
 init_editor :: () {
     init_profiler();
@@ -29,33 +32,37 @@ console_open_ignore_input : bool = false;
 
 
 draw_editor_ui :: (theme: *GR.Overall_Theme) {
-    r := GR.get_rect(0,0,0,0);
-    r.x = 0; r.w = 100*vw;
-    r.y = 0; r.h = ui_h(5, 0);
-    draw_bg_rectangle(r, theme);
-    r.w = 15*vw;
-    GR.label(r, tprint("Trueno v%.%", V_MAJOR, V_MINOR), *t_label_left(theme));
+    if in_editor_view {
+        r := GR.get_rect(0,0,0,0);
+        r.x = 0; r.w = 100*vw;
+        r.y = 0; r.h = ui_h(5, 0);
+        draw_bg_rectangle(r, theme);
+        r.w = 15*vw;
+        GR.label(r, tprint("Trueno v%.%", V_MAJOR, V_MINOR), *t_label_left(theme));
 
-    r.x = 100*vw - r.w;
-    if GR.button(r, "Level editor", *t_button_selectable(theme, current_editor_view == .Level_Editor)) 
-        then current_editor_view = .Level_Editor;
+        r.x = 100*vw - r.w;
+        if GR.button(r, "Level editor", *t_button_selectable(theme, current_editor_view == .Level_Editor)) 
+            then current_editor_view = .Level_Editor;
 
-    r.x -= r.w;
-    if GR.button(r, "Trile editor", *t_button_selectable(theme, current_editor_view == .Trile_Editor)) 
-        then current_editor_view = .Trile_Editor;
+        r.x -= r.w;
+        if GR.button(r, "Trile editor", *t_button_selectable(theme, current_editor_view == .Trile_Editor)) 
+            then current_editor_view = .Trile_Editor;
     
 
-    if current_editor_view == {
-        case .Trile_Editor;
-            draw_trile_editor_ui(theme);
-        case .Level_Editor;
-            draw_level_editor_ui(theme);
+        if current_editor_view == {
+            case .Trile_Editor;
+                draw_trile_editor_ui(theme);
+            case .Level_Editor;
+                draw_level_editor_ui(theme);
+        }
     }
     draw_console(theme);
     draw_profiler();
 }
 
 draw_editor :: () {
+    if !in_editor_view then return;
+
     if current_editor_view == {
         case .Trile_Editor;
             draw_trile_editor();
@@ -66,11 +73,18 @@ draw_editor :: () {
 }
 
 tick_editor_ui :: () {
-    if current_editor_view == {
-        case .Trile_Editor;
-            tick_trile_editor();
-        case .Level_Editor;
-            tick_level_editor();
+    if input_button_states[Key_Code.F3] & .START {
+        in_editor_view = !in_editor_view;
     }
+
+    if in_editor_view {
+        if current_editor_view == {
+            case .Trile_Editor;
+                tick_trile_editor();
+            case .Level_Editor;
+                tick_level_editor();
+        }
+    }
+
     tick_console();
 }
