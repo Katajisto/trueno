@@ -236,6 +236,57 @@ immediate_triangle :: (p0: Vector3, p1: Vector3, p2: Vector3, c0 := Vector4.{1,1
     arb_tri_add(tri);
 }
 
+immediate_rect :: (x: float, y: float, w: float, h: float, rotation: float = 0) {
+    if rotation == 0 {
+        immediate_quad(.{xx x, xx y}, .{xx x + w, xx y}, .{xx x + w, xx y + h}, .{xx x, xx y + h});
+        return;
+    }
+
+    // 1. Find the center of the rectangle, which will be our pivot point.
+    center_x := x + w / 2.0;
+    center_y := y + h / 2.0;
+
+    // 2. Pre-calculate the sine and cosine of the rotation angle.
+    // The angle is assumed to be in radians.
+    s := sin(rotation);
+    c := cos(rotation);
+
+    // 3. Define the corners relative to the origin (0,0) before rotation.
+    half_w := w / 2.0;
+    half_h := h / 2.0;
+    
+    // Relative positions of the four corners
+    p1_rel_x := -half_w; p1_rel_y := -half_h; // Top-left
+    p2_rel_x :=  half_w; p2_rel_y := -half_h; // Top-right
+    p3_rel_x :=  half_w; p3_rel_y :=  half_h; // Bottom-right
+    p4_rel_x := -half_w; p4_rel_y :=  half_h; // Bottom-left
+
+    // 4. Apply the 2D rotation formula to each corner and add the center offset.
+    // The formula is:
+    // x' = x * cos(θ) - y * sin(θ)
+    // y' = x * sin(θ) + y * cos(θ)
+
+    p1x := center_x + p1_rel_x * c - p1_rel_y * s;
+    p1y := center_y + p1_rel_x * s + p1_rel_y * c;
+
+    p2x := center_x + p2_rel_x * c - p2_rel_y * s;
+    p2y := center_y + p2_rel_x * s + p2_rel_y * c;
+
+    p3x := center_x + p3_rel_x * c - p3_rel_y * s;
+    p3y := center_y + p3_rel_x * s + p3_rel_y * c;
+
+    p4x := center_x + p4_rel_x * c - p4_rel_y * s;
+    p4y := center_y + p4_rel_x * s + p4_rel_y * c;
+
+    // 5. Draw the quad using the final, rotated corner coordinates.
+    immediate_quad(
+        .{xx p1x, xx p1y}, 
+        .{xx p2x, xx p2y}, 
+        .{xx p3x, xx p3y}, 
+        .{xx p4x, xx p4y}
+    );
+}
+
 immediate_quad :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, color := Vector4.{1,1,1,1}, uv0 := Vector2.{0,0}, uv1 := Vector2.{1,0}, uv2 := Vector2.{1,1}, uv3 := Vector2.{0, 1}) {
     to_3d_vec :: (v: Vector2) -> Vector3 {
         return .{v.x, v.y, 0.0};

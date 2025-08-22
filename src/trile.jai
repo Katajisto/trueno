@@ -5,8 +5,9 @@
 trile_gfx_table : Table(string, Trile_GFX);
 trile_table     : Table(string, Trile);
 
-
 #scope_export
+
+
 
 Trile_GFX :: struct {
     trixel_colors : sg_image;
@@ -16,6 +17,10 @@ Trile_GFX :: struct {
     vertices      : []float;
     vertex_count  : s64;
 };
+
+get_trile_table_ptr :: () -> *Table(string, Trile) {
+    return *trile_table;
+}
 
 // @Note: Creates the gfx things if they are not yet created.
 // Could be a bad idea to do this implicitly. Think about it

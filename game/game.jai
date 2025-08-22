@@ -1,19 +1,33 @@
 #scope_file
-cam   : Camera;
-world : World;
-#scope_export
 
+#load "./roule/roule.jai";
+
+bg_tex    : Ui_Texture;
+
+
+#scope_export
 game_init :: () {
     print("Game init...\n");
-    cam.position = .{5,5,5};
-    cam.target   = .{3,6,3};
-    cam.near     = 0.1;
-    cam.far      = 5000;
+    print("Loading bg...\n");
+    img := create_texture_from_pack("./game/resources/bg.png");
+    bg_tex.tex = img;
+    table_init();
 }
 
 game_tick :: () {
+	if input_button_states[#char "W"] & .START {
+        table_roll();
+    }
 }
 
+
 game_draw :: () {
-    draw_sky(*cam, *world.conf);
+    w,h := get_window_size();
+
+    
+    set_shader_for_images(*bg_tex);
+    immediate_rect(0,0,xx w,xx h);
+    immediate_flush();
+
+    draw_table();
 }

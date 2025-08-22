@@ -1,6 +1,6 @@
 #scope_file
 
-MAX_FILE_SIZE :: 200_000;
+MAX_FILE_SIZE :: 2_000_000_000;
 buf : [MAX_FILE_SIZE]u8;
 
 g_asset_pack : Load_Package;
@@ -12,6 +12,7 @@ packcb :: (res: *sfetch_response_t) #c_call {
     mem : []u8;
     mem.count = res.data.size.(s64);
     mem.data = res.data.ptr;
+    print("Mem count %\n", mem.count);
 
     success := init_from_memory(*g_asset_pack, mem, "main_asset_pack");
     print("Succesfully loaded main asset pack!\n");
