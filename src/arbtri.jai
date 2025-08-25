@@ -13,6 +13,8 @@ Arb_Draw_Command_Type :: enum {
     FONT_BOUNDARY;
     QUAD_OCCLUDER;
     REMOVE_TEXTURE;
+    SET_SCISSOR;
+    REMOVE_SCISSOR;
 }
 
 Arb_Draw_Command :: struct {
@@ -25,6 +27,8 @@ Arb_Draw_Command :: struct {
     
     // for text
     layer: s32  = 0;
+
+    scissor: Ui_Rect;
 
 }
 
@@ -100,7 +104,7 @@ arb_tri_flush :: () {
     flush_arb_commands();
 }
 
-debug_arb_flush : bool : false;
+debug_arb_flush : bool : true;
 
 layer : s32  = 0;
 
@@ -122,6 +126,15 @@ flush_arb_commands :: () {
                 sg_apply_bindings(*gPipelines.arbtri.bind);
                 sg_draw(xx (it.tri_offset * 3), xx (it.tri_count * 3), 1);
             case .PREPARE_TEXT;
+            case .SET_SCISSOR;
+                s := it.scissor;
+                w,h := get_window_size();
+                sgl_viewport(0,0,w,h,true);
+                sg_apply_scissor_rect(s.x, s.y, s.w, s.h, true);
+            case .REMOVE_SCISSOR;
+                print("REMOVING scissor!\n");
+                w,h := get_window_size();
+                sg_apply_scissor_rect(0, 0, w, w, true);
             case .DRAW_TEXT;
                 sgl_draw_layer(it.layer);
         }

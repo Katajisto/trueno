@@ -122,12 +122,10 @@ get_render_size :: () -> (s32, s32) {
 }
 
 set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32)  {
-    w,h := get_render_size();
-    gScissor = .{x0, y0, x1 - x0, y1 - y0};
-    gScissorActive = true;
+    arb_tri_command_add(.{ type = .SET_SCISSOR, scissor = .{x0, y0, x1 - x0, y1 - y0}});
 }
 clear_scissor :: () {
-    gScissorActive = false;
+    arb_tri_command_add(.{type = .REMOVE_SCISSOR});
 }
 
 gCurrentTexture : *Ui_Texture = null;
