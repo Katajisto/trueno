@@ -104,7 +104,7 @@ arb_tri_flush :: () {
     flush_arb_commands();
 }
 
-debug_arb_flush : bool : true;
+debug_arb_flush : bool : false;
 
 layer : s32  = 0;
 

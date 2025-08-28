@@ -8,7 +8,7 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
     // Step 1. Compile shaders.
     {
         print("--- Shader Compile Step ---\n");
-        process_result, output, error := run_command("bash", "./compile_shaders.sh", working_directory=tprint("%/src/shaders", #filepath));
+        process_result, output, error := run_command("bash", ifx OS == .MACOS then "./compile_shaders_mac.sh" else "./compile_shaders.sh", working_directory=tprint("%/src/shaders", #filepath));
         if process_result.exit_code != 0 {
             log_error("Shader compilation failed.");
             if output {
@@ -136,7 +136,7 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         
         opts.cpu_target = root_opts.cpu_target;
         opts.os_target  = root_opts.os_target;
-        opts.backend    = ifx releaseBuild then .LLVM else .X64;
+        opts.backend    = ifx (releaseBuild || OS == .MACOS) then .LLVM else .X64;
         opts.output_executable_name = root_opts.output_executable_name;
 
         set_build_options(opts, w);
