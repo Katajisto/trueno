@@ -7,7 +7,7 @@ trile_table     : Table(string, Trile);
 
 #scope_export
 
-
+editor_current_trile : *Trile = null;
 
 Trile_GFX :: struct {
     trixel_colors : sg_image;
@@ -58,6 +58,7 @@ set_trile_gfx :: (name: string, gfx: Trile_GFX, skip_preexist_check: bool = fals
 }
 
 set_trile :: (name: string, trile: Trile) {
+    print("Setting trile with name: %\n",name);
     table_set(*trile_table, name, trile);
 }
 
@@ -70,13 +71,38 @@ get_trile :: (name: string) -> (*Trile, success: bool) {
     return trileptr, true;
 }
 
-list_trile :: () -> string {
+lstrile :: () -> string {
     count := 0;
     for v : trile_table {
         console_add_output_line(sprint("%", v.name));
         count += 1;
     }
     return tprint("% triles", count);
+} @Command
+
+striles :: () {
+    Jaison :: #import "Jaison";
+    triles : [..]TrileSerialize;
+    triles.allocator = temp;
+    for v : trile_table {
+        array_add(*triles, trile_to_serialize_form(v));
+    }
+    #if OS != .WASM {
+        file :: #import "File";
+        json := Jaison.json_write_string(triles, " ");
+        file.write_entire_file("./game/resources/triles.json", json);
+        
+    }
+} @Command
+
+ltriles :: () {
+    Jaison :: #import "Jaison";
+    s := load_string_from_pack("./game/resources/triles.json");
+    success, triles := Jaison.json_parse_string(s, [..]TrileSerialize,, temp);
+    for triles {
+        set_trile(sprint("%",it.name), trile_from_serialize_form(it));
+        print("Loaded %\n", it.name);
+    }
 } @Command
 
 Material :: struct {
@@ -92,10 +118,49 @@ Trixel :: struct {
     empty    : bool = false;
 };
 
-Trile  :: struct {
+Trile :: struct {
     name    : string = "test";
     trixels : [16][16][16] Trixel;  
 };
+
+TrixelSerialize :: [5]u8;
+
+TrileSerialize :: struct {
+    name    : string = "test";
+    trixels : [16][16][16] TrixelSerialize;  
+};
+
+trile_to_serialize_form :: (t: Trile) -> TrileSerialize {
+    ts := TrileSerialize.{
+        name = t.name,
+    };
+    for i: 0..15 {
+        for j: 0..15 {
+            for k: 0..15 {
+                r,g,b,a := material_to_rgba(t.trixels[i][j][k].material);
+                ts.trixels[i][j][k] = .[ifx t.trixels[i][j][k].empty then cast(u8)0 else cast(u8)1, r,g,b,a]; 
+            }
+        }
+    }
+    return ts;
+}
+
+trile_from_serialize_form :: (ts: TrileSerialize) -> Trile {
+    t := Trile.{
+        name = sprint("%",ts.name)
+    };
+    for i: 0..15 {
+        for j: 0..15 {
+            for k: 0..15 {
+                matinfo := ts.trixels[i][j][k];
+                mat := material_from_rgba(matinfo[1], matinfo[2], matinfo[3], matinfo[4]);
+                t.trixels[i][j][k].material = mat;
+                t.trixels[i][j][k].empty = cast(bool) matinfo[0];
+            }
+        }
+    }
+    return t;
+}
 
 material_encode_to_char :: (mat: Material) -> u8 {
     return (mat.addRoughness & 0x1) | ((mat.emittance & 0x3) << 1) |
@@ -106,6 +171,14 @@ material_encode_to_float :: (mat: Material) -> float {
     return cast(float)(material_encode_to_char(mat)) / 255.0;
 }
 
+material_decode_from_char :: (packedMaterial: u8) -> Material {
+    mat : Material;
+    mat.emittance    = (packedMaterial >> 1) & 3;
+    mat.roughness    = (packedMaterial >> 5) & 7;
+    mat.metallic     = (packedMaterial >> 3) & 3;
+    return mat;
+}
+
 material_to_rgba :: (mat: Material) -> (r: u8, g: u8, b: u8, a: u8) {
     r : u8 = cast(u8) (mat.color.x * 255.0);
     g : u8 = cast(u8) (mat.color.y * 255.0);
@@ -114,4 +187,26 @@ material_to_rgba :: (mat: Material) -> (r: u8, g: u8, b: u8, a: u8) {
     return r,g,b,a;
 }
 
+material_from_rgba :: (r: u8, g: u8, b: u8, a: u8) -> Material {
+    mat := material_decode_from_char(a);
+    mat.color.x = (cast(float) r)/255.0;
+    mat.color.y = (cast(float) g)/255.0;
+    mat.color.z = (cast(float) b)/255.0;
+    return mat;
+}
 
+draw_trile_picker :: (theme: *GR.Overall_Theme) {
+    r := GR.get_rect(ui_w(85,85), ui_h(5,0), ui_w(15, 15), ui_h(95, 0));
+    draw_bg_rectangle(r, theme);
+	tpt := get_trile_table_ptr();
+	r.h = ui_h(4,4);
+	count := 0;
+	for v : tpt {
+        print("Current trile name: %\n", editor_current_trile.name);
+		if GR.button(r, v.name, *t_button_selectable(theme, editor_current_trile != null && editor_current_trile.name == v.name), count) {
+			editor_current_trile = get_trile(v.name);
+		}
+		count += 1;
+		r.y += r.h;
+	}
+}

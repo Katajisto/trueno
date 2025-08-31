@@ -1,7 +1,8 @@
 #scope_file
 
 cam : Camera = .{
-	far = 1000.0
+	far = 2000.0,
+	near = 1.0
 };
 
 #scope_export

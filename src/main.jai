@@ -101,7 +101,17 @@ init_after_asset_pack :: () {
     ui_init_font_fields(*state.font_default);
 
     init_ui();
-    set_trile("test", Trile.{});
+    ltriles();
+    tt := get_trile_table_ptr();
+    if tt.count == 0 {
+        set_trile("test", Trile.{});
+    } else {
+        name : string;
+        for v : tt {
+            name = v.name;
+            break;
+        }
+    }
     init_editor();
     game_init();
 }

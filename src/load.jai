@@ -82,6 +82,19 @@ create_texture_from_pack :: (path: string) -> sg_image {
     return img;
 }
 
+load_string_from_pack :: (path: string) -> string {
+    ok, entry := table_find_new(*g_asset_pack.lookup, path);
+    if !ok {
+        print("Failed to load string from pack: %\n", path);
+        return "";
+    }
+
+    s: string;
+    s.data = entry.data.data;
+    s.count = entry.data.count;
+    return s;
+}
+
 asset_list :: () -> string #expand {
     count := 0;
     for v : g_asset_pack.lookup {

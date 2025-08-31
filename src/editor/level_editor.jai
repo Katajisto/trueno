@@ -41,6 +41,7 @@ Level_Editor_Tab :: enum {
 };
 
 current_tab : Level_Editor_Tab = .TOOLS;
+current_trile : *Trile = null;
 
 get_level_editor_camera :: () -> Camera {
     camera: Camera;
@@ -196,19 +197,6 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	}
 }
 
-draw_trile_picker :: (theme: *GR.Overall_Theme) {
-    r := GR.get_rect(ui_w(85,85), ui_h(5,0), ui_w(15, 15), ui_h(95, 0));
-    draw_bg_rectangle(r, theme);
-	tpt := get_trile_table_ptr();
-	r.h = ui_h(4,4);
-	count := 0;
-	for v : tpt {
-		GR.button(r, v.name, *theme.button_theme, count);
-		count += 1;
-		r.y += r.h;
-	}
-}
-
 #scope_export
 
 tick_level_editor :: () {
@@ -229,7 +217,7 @@ draw_level_editor :: () {
 	vs_params.mvp = mvp.floats;
     vs_params.camera = cam.position.component;
 
-	trilegfx := get_trile_gfx("test");
+	trilegfx := get_trile_gfx(editor_current_trile.name);
 
     sg_update_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
         ptr = positions.data,
