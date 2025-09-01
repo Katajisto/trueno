@@ -155,7 +155,7 @@ trile_from_serialize_form :: (ts: TrileSerialize) -> Trile {
                 matinfo := ts.trixels[i][j][k];
                 mat := material_from_rgba(matinfo[1], matinfo[2], matinfo[3], matinfo[4]);
                 t.trixels[i][j][k].material = mat;
-                t.trixels[i][j][k].empty = cast(bool) matinfo[0];
+                t.trixels[i][j][k].empty = matinfo[0] == 0;
             }
         }
     }
@@ -202,7 +202,6 @@ draw_trile_picker :: (theme: *GR.Overall_Theme) {
 	r.h = ui_h(4,4);
 	count := 0;
 	for v : tpt {
-        print("Current trile name: %\n", editor_current_trile.name);
 		if GR.button(r, v.name, *t_button_selectable(theme, editor_current_trile != null && editor_current_trile.name == v.name), count) {
 			editor_current_trile = get_trile(v.name);
 		}

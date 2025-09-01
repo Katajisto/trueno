@@ -259,7 +259,7 @@ draw_trile_editor :: () {
 }
 
 draw_trile :: () {
-    // if editor_current_trile == null then return;
+    if editor_current_trile == null then return;
     cam := get_trile_editor_camera();
     
     mvp := create_viewproj(*cam);

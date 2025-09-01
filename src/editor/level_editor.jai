@@ -59,6 +59,7 @@ get_level_editor_camera :: () -> Camera {
     return camera;
 }
 
+
 tick_level_editor_camera :: () {
     if console_open_ignore_input then return;
 
@@ -199,16 +200,26 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 
 #scope_export
 
+add_trile :: (name: string, x: float, y: float, z: float) {
+	for world.positions {
+		if it.trileName == name {
+			array_add(*it.positions, Vector4.{x,y,z,1});
+			return;
+		}
+	}
+	poses := TrilePositions.{
+		trileName = name,
+	};
+	
+	array_add(*poses.positions, Vector4.{x,y,z,1});
+	array_add(*world.positions, poses);
+} @Command
+
 tick_level_editor :: () {
 	tick_level_editor_camera();
-	
 }
 
 draw_level_editor :: () {
-	positions : [4096]Vector4;
-	positions[0] = .{1, 0, 0, 1};
-	positions[1] = .{0, 1, 1, 1};
-
 	draw_sky(*get_level_editor_camera(), *world.conf);
 	cam := get_level_editor_camera();
 	mvp := create_viewproj(*cam);
@@ -217,33 +228,37 @@ draw_level_editor :: () {
 	vs_params.mvp = mvp.floats;
     vs_params.camera = cam.position.component;
 
-	trilegfx := get_trile_gfx(editor_current_trile.name);
-
-    sg_update_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
-        ptr = positions.data,
-        size = size_of(type_of(positions)),
-    }));
-
 	sg_apply_pipeline(gPipelines.trile.pipeline);
-
     world_conf : Trile_World_Config;
     world_config_to_shader_type(*world.conf, *world_conf);
+		
+	for world.positions {
+		positions : [4096]Vector4;
+		trilegfx := get_trile_gfx(it.trileName);
+		idx : s32 = 0;
+		for pos : it.positions {
+			positions[idx] = pos;
+			idx += 1;
+		}
 
-
-	bindings : sg_bindings;
-	bindings.vertex_buffers[0] = trilegfx.vertex_buffer;
-	bindings.vertex_buffers[1] = trilegfx.normal_buffer;
-	bindings.vertex_buffers[2] = trilegfx.centre_buffer;
-	bindings.vertex_buffers[3] = gPipelines.trile.bind.vertex_buffers[3];
-    bindings.samplers[0]       = gPipelines.trile.bind.samplers[0];
-	bindings.images[0]         = trilegfx.trixel_colors;
+	    sg_update_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
+	        ptr = positions.data,
+	        size = size_of(type_of(positions)),
+	    }));
 	
-	sg_apply_bindings(*bindings);
-	sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
-    sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
-
-	sg_draw(0, cast(s32) trilegfx.vertex_count, 2);
-
+		bindings : sg_bindings;
+		bindings.vertex_buffers[0] = trilegfx.vertex_buffer;
+		bindings.vertex_buffers[1] = trilegfx.normal_buffer;
+		bindings.vertex_buffers[2] = trilegfx.centre_buffer;
+		bindings.vertex_buffers[3] = gPipelines.trile.bind.vertex_buffers[3];
+	    bindings.samplers[0]       = gPipelines.trile.bind.samplers[0];
+		bindings.images[0]         = trilegfx.trixel_colors;
+		
+		sg_apply_bindings(*bindings);
+		sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
+	    sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
+		sg_draw(0, cast(s32) trilegfx.vertex_count, idx+1);
+	}
 	
 }
 

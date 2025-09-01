@@ -32,23 +32,13 @@ world_config_to_shader_type :: (wc: *World_Config, data: *$T) {
     #insert #run,stallable generate_copy_code();
 }
 
-IVector3 :: struct {
-    x: s32;
-    y: s32;
-    z: s32;
+TrilePositions :: struct {
+    trileName: string;
+    positions: [..]Vector4;
 }
-
-ivec_comp :: (a: IVector3, b: IVector3) -> bool {
-    if a.x != b.x || a.y != b.y || a.z != b.z then return false;
-    return true;
-}
-
-ivec_hash :: (v: IVector3) -> u32 {
-    return sdbm_hash(*v, size_of(IVector3));
-}
-
 
 World :: struct {
-    conf   : World_Config;
-    triles : Table(IVector3, string, ivec_hash, ivec_comp);
+    // @ToDo: Add a pool into here so we allocate all of the world stuff in it's own pool.
+    conf      : World_Config;
+    positions : [..]TrilePositions;
 }
