@@ -208,7 +208,7 @@ add_trile :: (name: string, x: float, y: float, z: float) {
 		}
 	}
 	poses := TrilePositions.{
-		trileName = name,
+		trileName = sprint("%", name),
 	};
 	
 	array_add(*poses.positions, Vector4.{x,y,z,1});

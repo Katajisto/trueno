@@ -112,7 +112,14 @@ modifiers_cause_char_event_ignore :: (sokol_event: *sapp_event) -> bool {
 #scope_export
 
 handle_sokol_event :: (event: *sapp_event) {
-    new_event: Event;
+    is_stupid_useless_weird_character :: (char: u32) -> bool {
+        if char == 127 return true;
+        if char == 13  return true;
+        if char == 27  return true;
+        return false;
+    }
+
+    new_event: Event;   
     if event.type == {
         case .KEY_DOWN;
             mapped := get_key_code(event.key_code);    
@@ -141,7 +148,7 @@ handle_sokol_event :: (event: *sapp_event) {
             new_event.key_pressed = 0;
             input_button_states[mapped] = .END; 
         case .CHAR;
-            if modifiers_cause_char_event_ignore(event) then return;
+            if modifiers_cause_char_event_ignore(event) || is_stupid_useless_weird_character(event.char_code) then return;
             new_event.type = .TEXT_INPUT;
             new_event.utf32 = event.char_code;            
         case .FOCUSED;
