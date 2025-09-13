@@ -257,7 +257,7 @@ draw_level_editor :: () {
 		sg_apply_bindings(*bindings);
 		sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
 	    sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
-		sg_draw(0, cast(s32) trilegfx.vertex_count, idx+1);
+		sg_draw(0, cast(s32) trilegfx.vertex_count, idx);
 	}
 	
 }
