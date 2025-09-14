@@ -217,6 +217,8 @@ add_trile :: (name: string, x: float, y: float, z: float) {
 
 tick_level_editor :: () {
 	tick_level_editor_camera();
+	ray := get_mouse_ray(*get_level_editor_camera());
+	print("Collison point %\n", ray_plane_collision_point(ray, 0));
 }
 
 draw_level_editor :: () {
