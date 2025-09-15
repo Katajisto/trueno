@@ -42,14 +42,13 @@ Ray_Collision :: struct {
 
 // At which 2D XZ point does a ray hit the ground plane at a height of
 // plane_height. Used for the level editor and maybe later the trile editor as well.
-ray_plane_collision_point :: (ray: Ray, plane_height: float) -> Vector2 {
-    // @ToDo: This is stupid, but I don't feel like bothering to do this correctly right now...
-    collision_cube : Collision_Cube = .{
-        .{-100000, plane_height, -100000},
-        .{100000, plane_height + 0.001, 100000}  
-    };
-    collision := does_ray_hit_cube(ray, collision_cube);
-    return .{collision.point.x, collision.point.z};
+ray_plane_collision_point :: (ray: Ray, plane_height: float) -> (bool, Vector2) {
+    dist_to_plane := ray.origin.y - plane_height;
+    if ray.direction.y >= 0 then return false, .{0,0};
+    multi := dist_to_plane / abs(ray.direction.y);
+    ray_to_plane := ray.direction * multi;
+    planePoint := ray_to_plane + ray.origin;
+    return true, .{planePoint.x, planePoint.z};
 }
 
 // Ported over from Raylib.
