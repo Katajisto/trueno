@@ -34,6 +34,11 @@ pointerY   : s32;
 
 world : World;
 
+show_trile_preview : bool = true;
+trile_preview_x    : int  = 0;
+trile_preview_y    : int  = 0;
+trile_preview_z    : int  = 0;
+
 Level_Editor_Tab :: enum {
     TACOMA;
     TOOLS;
@@ -241,9 +246,18 @@ add_trile :: (name: string, x: float, y: float, z: float) {
 tick_level_editor :: () {
 	tick_level_editor_camera();
 	ray := get_mouse_ray(*get_level_editor_camera());
-	hit, point := ray_plane_collision_point(ray, 0.0);
-	if hit && input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
-		handle_tool_click(xx floor(point.x), 0, xx floor(point.y));
+	hit, point := ray_plane_collision_point(ray, 0.0, 20);
+	
+	show_trile_preview = false;
+	if hit {
+		show_trile_preview = true;
+		trile_preview_x = xx floor(point.x);
+		trile_preview_y = xx floor(0);
+		trile_preview_z = xx floor(point.y);
+
+		if input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
+			handle_tool_click(xx floor(point.x), 0, xx floor(point.y));
+		}
 	}
 }
 
@@ -266,6 +280,11 @@ draw_level_editor :: () {
 		idx : s32 = 0;
 		for pos : it.positions {
 			positions[idx] = pos;
+			idx += 1;
+		}
+
+		if show_trile_preview && it.trileName == editor_current_trile.name {
+			positions[idx] = .{xx trile_preview_x, xx trile_preview_y, xx trile_preview_z, 0.0};
 			idx += 1;
 		}
 
