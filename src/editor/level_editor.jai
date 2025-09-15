@@ -41,8 +41,6 @@ Level_Editor_Tab :: enum {
 };
 
 current_tab : Level_Editor_Tab = .TOOLS;
-current_trile : *Trile = null;
-
 get_level_editor_camera :: () -> Camera {
     camera: Camera;
     camera.near = 0.1;
@@ -198,9 +196,32 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	}
 }
 
+handle_tool_click :: (x: int, y: int, z: int) {
+	if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
+} 
+
 #scope_export
 
 add_trile :: (name: string, x: float, y: float, z: float) {
+
+	loose_float_comp :: (a: float, b: float) -> bool {
+		return abs(a-b) < 0.001;
+	}
+
+	// Check if the position is already occupied. @ToDo: we would probably like to
+	// have some acceleration structure like a hashmap to speed up this check when
+	// we are checking for collisions.
+	for world.positions {
+		for v, idx: it.positions {
+			if loose_float_comp(v.x, x)
+			&& loose_float_comp(v.y, y)
+			&& loose_float_comp(v.z, z) {
+				array_unordered_remove_by_index(*it.positions, idx);
+				break;
+			}
+		}
+	}
+	
 	for world.positions {
 		if it.trileName == name {
 			array_add(*it.positions, Vector4.{x,y,z,1});
@@ -215,10 +236,15 @@ add_trile :: (name: string, x: float, y: float, z: float) {
 	array_add(*world.positions, poses);
 } @Command
 
+
+
 tick_level_editor :: () {
 	tick_level_editor_camera();
 	ray := get_mouse_ray(*get_level_editor_camera());
-	print("Collison point %\n", ray_plane_collision_point(ray, 0));
+	hit, point := ray_plane_collision_point(ray, 0.0);
+	if hit && input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
+		handle_tool_click(xx floor(point.x), 0, xx floor(point.y));
+	}
 }
 
 draw_level_editor :: () {
