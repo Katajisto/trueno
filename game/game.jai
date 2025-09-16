@@ -14,4 +14,5 @@ game_tick :: () {
 
 game_draw :: () {
 	draw_sky(*cam);
+	draw_ground_plane(*cam);
 }

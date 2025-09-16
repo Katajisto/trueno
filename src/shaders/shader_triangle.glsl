@@ -8,6 +8,7 @@ out vec4 texcoord;
 
 void main() {
     gl_Position = position;
+    gl_Position.y += float(gl_InstanceIndex) * 0.1;
     color = color0;
     texcoord = uv;
 }

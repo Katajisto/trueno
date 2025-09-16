@@ -18,7 +18,11 @@ gPipelines : struct {
     // Sky rendering.
     sky    : Pipeline_Binding;
 
+    // Renders sets of triles
     trile  : Pipeline_Binding;
+
+    // Renders the ground plane.
+    plane  : Pipeline_Binding;
 
 }
 
@@ -27,6 +31,7 @@ create_pipelines :: () {
     create_trixel_pipeline();
     create_trile_pipeline();
     create_sky_pipeline();
+    create_plane_pipeline();
 }
 
 TRIXEL_SIZE_HALF : float : 1.0/32.0;
@@ -274,6 +279,52 @@ create_sky_pipeline :: () {
 
     gPipelines.sky.bind.index_buffer      = sg_make_buffer(*ibuffer);
     gPipelines.sky.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+}
+
+create_plane_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := plane_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.buffers[0].stride = 4*3;
+    
+    pipeline.layout.attrs[ATTR_plane_position] = .{ format = .FLOAT3, buffer_index = 0 };
+    pipeline.index_type = .UINT16;
+    pipeline.depth = .{
+            write_enabled = true,
+            compare = .LESS_EQUAL,
+    };
+
+    color_state := sg_color_target_state.{
+        pixel_format = .RGBA8,
+        blend = .{
+            enabled = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
+        }
+    };
+
+    vertices: [4]Vector3 = .[
+        .{-1.0, 0.0, -1.0},
+        .{ 1.0, 0.0, -1.0},
+        .{ 1.0, 0.0,  1.0},
+        .{-1.0, 0.0,  1.0},
+    ];
+
+    indices: [6]u16 = .[
+        0, 1, 2,
+        0, 2, 3,
+    ];
+    
+    pipeline.color_count = 1;
+    pipeline.colors[0]   = color_state;
+
+    gPipelines.plane.pipeline = sg_make_pipeline(*pipeline);
+    
+    ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 6 * 2 } };
+    vbuffer         := sg_buffer_desc.{ data = .{ ptr = vertices.data, size = 4 * 3 * 4 } };
+
+    gPipelines.plane.bind.index_buffer      = sg_make_buffer(*ibuffer);
+    gPipelines.plane.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
 }
 
 create_arbtri_pipeline :: () {

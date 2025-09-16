@@ -263,6 +263,7 @@ tick_level_editor :: () {
 
 draw_level_editor :: () {
 	draw_sky(*get_level_editor_camera(), *world.conf);
+	draw_ground_plane(*get_level_editor_camera(), *world.conf);
 	cam := get_level_editor_camera();
 	mvp := create_viewproj(*cam);
 
