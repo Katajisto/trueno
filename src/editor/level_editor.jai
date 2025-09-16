@@ -246,17 +246,17 @@ add_trile :: (name: string, x: float, y: float, z: float) {
 tick_level_editor :: () {
 	tick_level_editor_camera();
 	ray := get_mouse_ray(*get_level_editor_camera());
-	hit, point := ray_plane_collision_point(ray, 0.0, 20);
+	hit, point := ray_plane_collision_point(ray, xx editY, 20);
 	
 	show_trile_preview = false;
 	if hit {
 		show_trile_preview = true;
 		trile_preview_x = xx floor(point.x);
-		trile_preview_y = xx floor(0);
+		trile_preview_y = editY;
 		trile_preview_z = xx floor(point.y);
 
 		if input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
-			handle_tool_click(xx floor(point.x), 0, xx floor(point.y));
+			handle_tool_click(xx floor(point.x), xx editY, xx floor(point.y));
 		}
 	}
 }
@@ -283,11 +283,6 @@ draw_level_editor :: () {
 			idx += 1;
 		}
 
-		if show_trile_preview && it.trileName == editor_current_trile.name {
-			positions[idx] = .{xx trile_preview_x, xx trile_preview_y, xx trile_preview_z, 0.0};
-			idx += 1;
-		}
-
 	    sg_update_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
 	        ptr = positions.data,
 	        size = size_of(type_of(positions)),
@@ -307,6 +302,28 @@ draw_level_editor :: () {
 		sg_draw(0, cast(s32) trilegfx.vertex_count, idx);
 	}
 	
+	if show_trile_preview {
+		positions : [1]Vector4;
+		trilegfx := get_trile_gfx(editor_current_trile.name);
+		positions[0] = .{xx trile_preview_x, xx trile_preview_y, xx trile_preview_z, 0.0};
+	    sg_update_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
+	        ptr = positions.data,
+	        size = size_of(type_of(positions)),
+	    }));
+	
+		bindings : sg_bindings;
+		bindings.vertex_buffers[0] = trilegfx.vertex_buffer;
+		bindings.vertex_buffers[1] = trilegfx.normal_buffer;
+		bindings.vertex_buffers[2] = trilegfx.centre_buffer;
+		bindings.vertex_buffers[3] = gPipelines.trile.bind.vertex_buffers[3];
+	    bindings.samplers[0]       = gPipelines.trile.bind.samplers[0];
+		bindings.images[0]         = trilegfx.trixel_colors;
+		
+		sg_apply_bindings(*bindings);
+		sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
+	    sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
+		sg_draw(0, cast(s32) trilegfx.vertex_count, 1);
+	}
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
