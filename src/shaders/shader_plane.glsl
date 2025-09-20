@@ -49,15 +49,26 @@ layout(binding=1) uniform plane_world_config {
 };
 
 void main() {
+    
     if(planeType == 1) {
         frag_color = vec4(0.0, 0.0, 1.0, 1.0);
     } else {
-        vec2 approxPos = vec2(int(pos.x * 50000.0), int(pos.z * 50000.0));
-        float height = random(approxPos);
-        if(height < float(idx) * 0.1) {
-            discard;
+        float density = 10.0;
+    
+        vec2 uv = pos.xy * density;
+        vec2 localUV = vec2(fract(uv.x) * 2.0 - 1.0, fract(uv.y) * 2.0 - 1.0);
+
+        float localDistanceFromCenter = length(localUV);
+
+        float rand = random(uv);
+        
+
+        bool outsideThickness = localDistanceFromCenter > (0.1 * (rand - pos.y));
+
+        if(outsideThickness) {
+            // discard;
         }
-        frag_color = vec4(0.0, random(approxPos) + 0.1, 0.0, 1.0);
+        frag_color = vec4(vec3(localDistanceFromCenter) * 0.1, 1.0);
     }
 }
 @end
