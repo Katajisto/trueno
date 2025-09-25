@@ -293,8 +293,6 @@ draw_level_editor :: () {
 	        size = size_of(type_of(positions)),
 	    }));
 
-		print("Offset for trile: % is %\n", it.trileName, offset);
-	
 		bindings : sg_bindings;
 		bindings.vertex_buffers[0]         = trilegfx.vertex_buffer;
 		bindings.vertex_buffers[1]         = trilegfx.normal_buffer;

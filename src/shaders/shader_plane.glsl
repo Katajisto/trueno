@@ -12,7 +12,7 @@ out flat int idx;
 
 void main() {
     vec3 multisize = vec3(position.xyz * 1000.0);
-    gl_Position = mvp * (vec4(multisize.x, multisize.y + 0.1 + float(gl_InstanceIndex) * 0.005, multisize.z, 1.0));
+    gl_Position = mvp * (vec4(multisize.x, 0.0 + float(gl_InstanceIndex) * 0.01, multisize.z, 1.0));
     pos = position;
     idx = gl_InstanceIndex;
 }
@@ -24,8 +24,18 @@ in vec4 pos;
 in flat int idx;
 out vec4 frag_color;
 
-float random (vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898,767.233)))* 43758.5453123);
+uint murmurHash12(uvec2 src) {
+    const uint M = 0x5bd1e995u;
+    uint h = 1190494759u;
+    src *= M; src ^= src>>24u; src *= M;
+    h *= M; h ^= src.x; h *= M; h ^= src.y;
+    h ^= h>>13u; h *= M; h ^= h>>15u;
+    return h;
+}
+
+float hash12(vec2 src) {
+    uint h = murmurHash12(floatBitsToUint(src));
+    return uintBitsToFloat(h & 0x007fffffu | 0x3f800000u) - 1.0;
 }
 
 layout(binding=1) uniform plane_world_config {
@@ -53,22 +63,20 @@ void main() {
     if(planeType == 1) {
         frag_color = vec4(0.0, 0.0, 1.0, 1.0);
     } else {
-        float density = 10.0;
-    
-        vec2 uv = pos.xy * density;
-        vec2 localUV = vec2(fract(uv.x) * 2.0 - 1.0, fract(uv.y) * 2.0 - 1.0);
-
-        float localDistanceFromCenter = length(localUV);
-
-        float rand = random(uv);
+        float density = 100000.0;
+        vec2 uv = round(pos.xz * density);
+        float distanceFromCenter = length(uv - (pos.xz * density));
         
+        float rand = hash12(uv);
+        float h = (1.0 / 16.0) * idx;
 
-        bool outsideThickness = localDistanceFromCenter > (0.1 * (rand - pos.y));
-
-        if(outsideThickness) {
-            // discard;
+        float thickness = 0.5;
+        
+        if((rand - h) * thickness < distanceFromCenter) {
+            discard;   
         }
-        frag_color = vec4(vec3(localDistanceFromCenter) * 0.1, 1.0);
+
+        frag_color = vec4(0.0, rand, 0.0, 1.0);
     }
 }
 @end
