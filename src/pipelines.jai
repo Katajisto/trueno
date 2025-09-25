@@ -168,7 +168,7 @@ create_trile_pipeline :: () {
 
     pipeline.layout.buffers[3].step_func = .PER_INSTANCE;
 
-    instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 4096 * 4 * 4};
+    instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 16 * 4096 * 4 * 4};
     
     pipeline.layout.attrs[ATTR_trile_position] = .{ format = .FLOAT3, buffer_index = 0 };
     pipeline.layout.attrs[ATTR_trile_normal]   = .{ format = .FLOAT3, buffer_index = 1 };

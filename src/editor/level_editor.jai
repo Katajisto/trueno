@@ -276,6 +276,10 @@ draw_level_editor :: () {
     world_config_to_shader_type(*world.conf, *world_conf);
 		
 	for world.positions {
+		// @ToDo: This fucking sucks. We are appending 4096 Vector4s to the
+		// instance buffer per trile type in level even if there is only one
+		// trile of that type. Should be an easy fix, fix at the latest when
+		// making a reusable version of trile rendering.
 		positions : [4096]Vector4;
 		trilegfx := get_trile_gfx(it.trileName);
 		idx : s32 = 0;
@@ -284,18 +288,21 @@ draw_level_editor :: () {
 			idx += 1;
 		}
 
-	    sg_update_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
+	    offset := sg_append_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
 	        ptr = positions.data,
 	        size = size_of(type_of(positions)),
 	    }));
+
+		print("Offset for trile: % is %\n", it.trileName, offset);
 	
 		bindings : sg_bindings;
-		bindings.vertex_buffers[0] = trilegfx.vertex_buffer;
-		bindings.vertex_buffers[1] = trilegfx.normal_buffer;
-		bindings.vertex_buffers[2] = trilegfx.centre_buffer;
-		bindings.vertex_buffers[3] = gPipelines.trile.bind.vertex_buffers[3];
-	    bindings.samplers[0]       = gPipelines.trile.bind.samplers[0];
-		bindings.images[0]         = trilegfx.trixel_colors;
+		bindings.vertex_buffers[0]         = trilegfx.vertex_buffer;
+		bindings.vertex_buffers[1]         = trilegfx.normal_buffer;
+		bindings.vertex_buffers[2]         = trilegfx.centre_buffer;
+		bindings.vertex_buffers[3]         = gPipelines.trile.bind.vertex_buffers[3];
+		bindings.vertex_buffer_offsets[3]  = offset;
+	    bindings.samplers[0]               = gPipelines.trile.bind.samplers[0];
+		bindings.images[0]                 = trilegfx.trixel_colors;
 		
 		sg_apply_bindings(*bindings);
 		sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
@@ -307,16 +314,18 @@ draw_level_editor :: () {
 		positions : [1]Vector4;
 		trilegfx := get_trile_gfx(editor_current_trile.name);
 		positions[0] = .{xx trile_preview_x, xx trile_preview_y, xx trile_preview_z, 0.0};
-	    sg_update_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
+	    offset := sg_append_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
 	        ptr = positions.data,
 	        size = size_of(type_of(positions)),
 	    }));
 	
 		bindings : sg_bindings;
-		bindings.vertex_buffers[0] = trilegfx.vertex_buffer;
-		bindings.vertex_buffers[1] = trilegfx.normal_buffer;
-		bindings.vertex_buffers[2] = trilegfx.centre_buffer;
-		bindings.vertex_buffers[3] = gPipelines.trile.bind.vertex_buffers[3];
+		bindings.vertex_buffers[0] =        trilegfx.vertex_buffer;
+		bindings.vertex_buffers[1] =        trilegfx.normal_buffer;
+		bindings.vertex_buffers[2] =        trilegfx.centre_buffer;
+		bindings.vertex_buffers[3] =        gPipelines.trile.bind.vertex_buffers[3];
+		bindings.vertex_buffer_offsets[3] = offset;
+
 	    bindings.samplers[0]       = gPipelines.trile.bind.samplers[0];
 		bindings.images[0]         = trilegfx.trixel_colors;
 		
