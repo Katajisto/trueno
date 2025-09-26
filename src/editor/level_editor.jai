@@ -1,7 +1,7 @@
 #scope_file
 
 // @ToDo do a config tweak file thing like jblow has and add this there.
-CAMERA_INACTIVE_TIME_TO_ORBIT :: 20.0;
+CAMERA_INACTIVE_TIME_TO_ORBIT :: 200000000.0;
 MAX_CAMERA_DIST               :: 25.0;
 MIN_CAMERA_DIST               :: 2.0;
 DIST_SCROLL_SPEED             :: 0.8;
