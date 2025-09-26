@@ -10,6 +10,8 @@ game_init :: () {
 }
 
 game_tick :: () {
+	cam.position += Vector3.{0.01, 0.0, 0.0};
+	cam.target += Vector3.{0.01, 0.0, 0.0};
 }
 
 game_draw :: () {

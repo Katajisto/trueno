@@ -63,6 +63,10 @@ add :: (a: int, b: int) -> int {
     return a + b;
 } @Command
 
+add2 :: (a: int) -> int {
+    return a + 2;
+} @Command
+
 console_command_procs : [..]([]string) -> string;
 console_command_names : [..]string;
 
