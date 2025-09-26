@@ -13,5 +13,5 @@ draw_ground_plane :: (cam: *Camera, worldConfig: *World_Config = null) {
     sg_apply_bindings(*gPipelines.plane.bind);
     sg_apply_uniforms(UB_plane_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
     sg_apply_uniforms(UB_plane_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
-    sg_draw(0, 6, 64);    
+    sg_draw(0, 6, 128);    
 }

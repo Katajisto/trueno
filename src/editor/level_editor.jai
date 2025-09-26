@@ -18,6 +18,20 @@ oldCameraRotation : float;
 oldCameraTilt     : float;
 cameraCenter      : Vector2;
 
+trile_preview_disabled : bool = false;
+
+#scope_export
+
+toggle_preview :: () {
+	trile_preview_disabled = !trile_preview_disabled;
+} @Command
+
+set_dist :: (dist: float) {
+	cameraDist = dist;
+} @Command
+
+#scope_file
+
 tacomaSamples    : s32   = 100;
 tacomaResolution : s32   = 500;
 tacomaExposure   : float = 1.0;
@@ -83,7 +97,7 @@ tick_level_editor_camera :: () {
 	rotate(*left, qrotation_left);
 	left2d := Vector2.{left.x, left.z};
 	
-	cameraDist = clamp(cameraDist - mouse_delta_z * DIST_SCROLL_SPEED, MIN_CAMERA_DIST, MAX_CAMERA_DIST);
+	cameraDist = clamp(cameraDist - mouse_delta_z * DIST_SCROLL_SPEED, 0.0, MAX_CAMERA_DIST);
 
 	distRange : float = MAX_CAMERA_DIST - MIN_CAMERA_DIST;
 	zoomCameraMovementMultiplier := 0.03 + ((cameraDist - MIN_CAMERA_DIST) / distRange) * 0.15; 
@@ -308,7 +322,7 @@ draw_level_editor :: () {
 		sg_draw(0, cast(s32) trilegfx.vertex_count, idx);
 	}
 	
-	if show_trile_preview {
+	if show_trile_preview && !trile_preview_disabled {
 		positions : [1]Vector4;
 		trilegfx := get_trile_gfx(editor_current_trile.name);
 		positions[0] = .{xx trile_preview_x, xx trile_preview_y, xx trile_preview_z, 0.0};

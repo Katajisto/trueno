@@ -13,7 +13,7 @@ out flat int idx;
 
 void main() {
     vec3 multisize = vec3(position.xyz * 1000.0);
-    gl_Position = mvp * (vec4(multisize.x, 0.0 + float(gl_InstanceIndex) * 0.002, multisize.z, 1.0));
+    gl_Position = mvp * (vec4(multisize.x, 0.0 + float(gl_InstanceIndex) * 0.001, multisize.z, 1.0));
     pos = position;
     idx = gl_InstanceIndex;
 }
@@ -79,15 +79,19 @@ void main() {
         densifiedCoordinate.x += sin(densifiedCoordinate.y);
         densifiedCoordinate.y += sin(densifiedCoordinate.x);
         vec2 ruohokeskus = round(densifiedCoordinate);
+        
+        float h = (1.0 / 128.0) * idx;
+        float rand = B(ruohokeskus) + sin(pos.x) * 0.4;
+
+        ruohokeskus.x += sin(time * 1.2) * 0.6 * h;
+        
         float distanceFromCenter = length(ruohokeskus - (densifiedCoordinate));
         
         
-        float rand = B(ruohokeskus) + sin(pos.x) * 0.4;
         if(idx > 0 && rand < 0.2) {
             discard;   
         }
         
-        float h = (1.0 / 64.0) * idx;
 
         float thickness = 0.5;
 
@@ -95,7 +99,7 @@ void main() {
         if(idx > 0 && (rand - h) * thickness < distanceFromCenter) {
             discard;   
         } else {
-            frag_color = vec4(0.0, min(1.0, h + 0.1), 0.0, 1.0);
+            frag_color = vec4(0.0, min(1.0, h + 0.2), 0.0, 1.0);
         }
 
     }
