@@ -73,6 +73,12 @@ get_level_editor_camera :: () -> Camera {
 
 	camera.position  = camera.target;
 	camera.position += cameraDir * cameraDist;
+
+	if is_in_reflection_pass {
+		camera.position.y *= -1;
+		camera.target.y *= -1;
+	}
+	
     return camera;
 }
 
@@ -275,11 +281,8 @@ tick_level_editor :: () {
 	}
 }
 
-draw_level_editor :: () {
-	draw_sky(*get_level_editor_camera(), *world.conf);
-	draw_ground_plane(*get_level_editor_camera(), *world.conf);
-	cam := get_level_editor_camera();
-	mvp := create_viewproj(*cam);
+draw_world_triles :: (cam: *Camera, world: *World) {
+	mvp := create_viewproj(cam);
 
 	vs_params : Trile_Vs_Params;
 	vs_params.mvp = mvp.floats;
@@ -321,31 +324,14 @@ draw_level_editor :: () {
 	    sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
 		sg_draw(0, cast(s32) trilegfx.vertex_count, idx);
 	}
-	
-	if show_trile_preview && !trile_preview_disabled {
-		positions : [1]Vector4;
-		trilegfx := get_trile_gfx(editor_current_trile.name);
-		positions[0] = .{xx trile_preview_x, xx trile_preview_y, xx trile_preview_z, 0.0};
-	    offset := sg_append_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
-	        ptr = positions.data,
-	        size = size_of(type_of(positions)),
-	    }));
-	
-		bindings : sg_bindings;
-		bindings.vertex_buffers[0] =        trilegfx.vertex_buffer;
-		bindings.vertex_buffers[1] =        trilegfx.normal_buffer;
-		bindings.vertex_buffers[2] =        trilegfx.centre_buffer;
-		bindings.vertex_buffers[3] =        gPipelines.trile.bind.vertex_buffers[3];
-		bindings.vertex_buffer_offsets[3] = offset;
+}
 
-	    bindings.samplers[0]       = gPipelines.trile.bind.samplers[0];
-		bindings.images[0]         = trilegfx.trixel_colors;
-		
-		sg_apply_bindings(*bindings);
-		sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
-	    sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
-		sg_draw(0, cast(s32) trilegfx.vertex_count, 1);
-	}
+draw_level_editor :: () {
+	cam := get_level_editor_camera();
+	update_image_from_ground(*world, *gPipelines.plane.bind.images[2]);
+	draw_sky(*get_level_editor_camera(), *world.conf);
+	if !is_in_reflection_pass then draw_ground_plane(*get_level_editor_camera(), *world.conf);
+	draw_world_triles(*cam, *world);
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {

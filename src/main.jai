@@ -116,6 +116,8 @@ init_after_asset_pack :: () {
     game_init();
 }
 
+is_in_reflection_pass : bool = false;
+
 frame :: () {
     delta_time = get_time() - last_frame_time;
     last_frame_time = get_time();
@@ -143,9 +145,22 @@ frame :: () {
     sgl_matrix_mode_projection();
     sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
 
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     tick_ui();
+
+	sg_begin_pass(*(sg_pass.{ action = gPipelines.plane.pass_action, attachments = gPipelines.plane.attachments}));
+    is_in_reflection_pass = true;
     draw_editor();
+    if !in_editor_view then game_draw();
+    is_in_reflection_pass = false;
+	sg_end_pass();
+
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
+    draw_editor();
+    uiTex := Ui_Texture.{*gPipelines.plane.bind.images[2]};
+    set_shader_for_images(*uiTex);
+    r := GR.get_rect(500,500,300,300);
+    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h});
+    set_shader_for_color();
     if !in_editor_view then game_draw();
     ui_pass();
     sg_end_pass();

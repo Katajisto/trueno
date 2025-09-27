@@ -1,6 +1,8 @@
 Pipeline_Binding :: struct {
-    pipeline : sg_pipeline;
-    bind     : sg_bindings;
+    pipeline    : sg_pipeline;
+    bind        : sg_bindings;
+    attachments : sg_attachments;
+    pass_action : sg_pass_action;
 }
 
 g_specular_lut : sg_image;
@@ -281,27 +283,19 @@ create_sky_pipeline :: () {
     gPipelines.sky.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
 }
 
+// @ToDo: This needs to be redone when the window is resized;
 create_plane_pipeline_reflection_image :: (binding: *sg_bindings) {
     reflection_img := sg_alloc_image();
     w, h := get_window_size();
-    sg_init_image(*reflection_img, *(sg_image_desc.{
+    img_desc := sg_image_desc.{
         width = w,
         height = h,
-        pixel_format = sg_pixel_format.RGBA8,
-        render_target = true
-    }));
-    binding.images[0] = reflection_img;
-    
-    depth_img_desc := sg_image_desc.{
+        pixel_format = .RGBA8,
         render_target = true,
-        width = w,
-        height = h,
-        pixel_format = sg_pixel_format.DEPTH_STENCIL,
-        label = "depth-target-image"
+        sample_count = 1,
     };
-
-    offscreen_depth_image := sg_make_image(*depth_img_desc);
-    
+    binding.images[0] = sg_make_image(*img_desc);
+    binding.images[1] = sg_make_image(*img_desc);
 }
 
 create_plane_pipeline :: () {
@@ -350,6 +344,40 @@ create_plane_pipeline :: () {
     gPipelines.plane.bind.index_buffer      = sg_make_buffer(*ibuffer);
     gPipelines.plane.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
     create_plane_pipeline_reflection_image(*gPipelines.plane.bind);
+
+	attachmentsDesc := sg_attachments_desc.{
+	    colors[0].image = gPipelines.plane.bind.images[0],
+	   	depth_stencil.image = gPipelines.plane.bind.images[1],
+	};
+
+    gPipelines.plane.attachments = sg_make_attachments(*attachmentsDesc);
+
+    
+    gPipelines.plane.pass_action = .{
+        colors[0] = .{ load_action = .CLEAR, clear_value = .{ 0.25, 0.25, 0.25, 1.0 } },
+    };
+
+    gPipelines.plane.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+
+    materialdata : [1000*1000*4]u8;
+    imgdata : sg_image_data;
+    imgdata.subimage[0][0] = .{materialdata.data, materialdata.count};
+
+    ground_img_desc := sg_image_desc.{
+        width = 1000,
+        height = 1000,
+        pixel_format = .RGBA8,
+        render_target = false,
+        sample_count = 1,
+        data = imgdata
+    };
+
+    gPipelines.plane.bind.images[2] = sg_make_image(*ground_img_desc);
 }
 
 create_arbtri_pipeline :: () {

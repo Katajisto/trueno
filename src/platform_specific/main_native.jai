@@ -14,5 +14,5 @@ log_content :: (format_string: string, args: .. Any, loc := #caller_location, fl
 } @PrintLike
 
 logger :: (message: string, data: *void, info: Log_Info) {
-    print("%\n", message);
+    print("% % %\n", message, data, info);
 }

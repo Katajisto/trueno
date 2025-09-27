@@ -14,9 +14,9 @@ World_Config :: struct {
 
     hasPlane      : s32  = 0; @Slider,0,1,1
     planeHeight   : float = 0.0; @Slider,-100,100,1
-    planeType     : s32   = 1; @Slider,0,1,1
+    planeType     : s32   = 0; @Slider,0,1,1
 
-    grassDensity  : float = 40000; @Slider,10000,100000,1000
+    grassDensity  : float = 30; @Slider,10,100,1
 }
 
 // Copies over all the fields of our world config into a given shader type.
@@ -40,8 +40,42 @@ TrilePositions :: struct {
     positions: [..]Vector4;
 }
 
+Ground_Tile :: enum {
+    WATER;
+    GRASS;
+}
+
 World :: struct {
     // @ToDo: Add a pool into here so we allocate all of the world stuff in it's own pool.
     conf      : World_Config;
     positions : [..]TrilePositions;
+    ground    : [1000][1000]Ground_Tile;
+}
+
+update_image_from_ground :: (world: *World, img: *sg_image) {
+    materialdata : [1000*1000*4]u8;
+    counter      : int = 0;
+    for x: 0..1000 {
+        for y: 0..1000 {
+            if world.ground[x][y] == .GRASS {
+                materialdata[counter + 0] = 0;
+                materialdata[counter + 1] = 255;
+                materialdata[counter + 2] = 0;
+                materialdata[counter + 3] = 255;
+                
+            }
+            if world.ground[x][y] == .WATER {
+                materialdata[counter + 0] = 0;
+                materialdata[counter + 1] = 0;
+                materialdata[counter + 2] = 255;
+                materialdata[counter + 3] = 255;
+                
+            }
+            counter += 4;
+        } 
+    }
+    imgdata : sg_image_data;
+    imgdata.subimage[0][0] = .{materialdata.data, materialdata.count};
+
+    sg_update_image(img, *imgdata);
 }
