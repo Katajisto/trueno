@@ -55,8 +55,8 @@ World :: struct {
 update_image_from_ground :: (world: *World, img: *sg_image) {
     materialdata : [1000*1000*4]u8;
     counter      : int = 0;
-    for x: 0..1000 {
-        for y: 0..1000 {
+    for x: 0..999 {
+        for y: 0..999 {
             if world.ground[x][y] == .GRASS {
                 materialdata[counter + 0] = 0;
                 materialdata[counter + 1] = 255;
