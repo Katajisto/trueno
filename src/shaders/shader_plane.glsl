@@ -13,7 +13,7 @@ out flat int idx;
 
 void main() {
     vec3 multisize = vec3(position.xyz * 1000.0);
-    gl_Position = mvp * (vec4(multisize.x, 0.0 + float(gl_InstanceIndex) * 0.003, multisize.z, 1.0));
+    gl_Position = mvp * (vec4(multisize.x, 0.0 + float(gl_InstanceIndex) * 0.006, multisize.z, 1.0));
     pos = position;
     idx = gl_InstanceIndex;
 }
@@ -57,6 +57,8 @@ layout(binding=1) uniform plane_world_config {
     int planeType;
 
     float time;
+
+    float grassDensity;
 };
 
 #define hash(p)  fract(sin(dot(p, vec2(11.9898, 78.233))) * 43758.5453)
@@ -101,7 +103,7 @@ void main() {
     if(planeType == 1) {
         frag_color = vec4(0.0, 0.0, 1.0, 1.0);
     } else {
-        float density = 80000.0;
+        float density = grassDensity;
         vec2 densifiedCoordinate = pos.xz * density;
         densifiedCoordinate.x += sin(densifiedCoordinate.y);
         densifiedCoordinate.y += sin(densifiedCoordinate.x);
@@ -109,12 +111,18 @@ void main() {
         
         float noiseval_fine = noise(densifiedCoordinate / 50.0);
         float noiseval_coarse = noise(densifiedCoordinate / 500.0);
+        float noiseval_plantti = noise(densifiedCoordinate / 500.0);
+        if(noiseval_plantti < 0.9) {
+            noiseval_plantti = 0.0;
+        } else {
+            noiseval_plantti = (noiseval_plantti - 0.9) * 10.0;
+        }
 
         float h = (1.0 / 128.0) * idx;
         float rand = (B(ruohokeskus) + sin(pos.x) * 0.4) * 0.5;
         rand += noiseval_coarse * 0.4 + noiseval_fine * 0.1;
 
-        ruohokeskus.x += sin(time * 1.2) * 0.6 * h;
+        ruohokeskus.x += sin(time * 1.2) * 0.5 * h;
         
         float distanceFromCenter = length(ruohokeskus - (densifiedCoordinate));
         
@@ -130,11 +138,10 @@ void main() {
          if(idx > 0 && (rand - h) * thickness < distanceFromCenter) {
              discard;   
          } else {
-             frag_color = vec4(noiseval_coarse * 0.5, min(1.0, h + 0.2) + noiseval_fine * 0.2, 0.0, 1.0);
+             vec4 grass_color = vec4(noiseval_coarse * 0.5, min(1.0, h + 0.2) + noiseval_fine * 0.2, 0.1, 1.0);
+             vec4 plantti_color = vec4(h, h * 0.3, 0.0, 1.0);
+             frag_color = mix(grass_color, plantti_color, noiseval_plantti);
          }
-        
-        
-        
     }
 }
 @end

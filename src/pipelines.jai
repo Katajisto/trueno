@@ -281,11 +281,35 @@ create_sky_pipeline :: () {
     gPipelines.sky.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
 }
 
+create_plane_pipeline_reflection_image :: (binding: *sg_bindings) {
+    reflection_img := sg_alloc_image();
+    w, h := get_window_size();
+    sg_init_image(*reflection_img, *(sg_image_desc.{
+        width = w,
+        height = h,
+        pixel_format = sg_pixel_format.RGBA8,
+        render_target = true
+    }));
+    binding.images[0] = reflection_img;
+    
+    depth_img_desc := sg_image_desc.{
+        render_target = true,
+        width = w,
+        height = h,
+        pixel_format = sg_pixel_format.DEPTH_STENCIL,
+        label = "depth-target-image"
+    };
+
+    offscreen_depth_image := sg_make_image(*depth_img_desc);
+    
+}
+
 create_plane_pipeline :: () {
     pipeline: sg_pipeline_desc;
     shader_desc := plane_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
+
     
     pipeline.layout.attrs[ATTR_plane_position] = .{ format = .FLOAT3, buffer_index = 0 };
     pipeline.index_type = .UINT16;
@@ -325,6 +349,7 @@ create_plane_pipeline :: () {
 
     gPipelines.plane.bind.index_buffer      = sg_make_buffer(*ibuffer);
     gPipelines.plane.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    create_plane_pipeline_reflection_image(*gPipelines.plane.bind);
 }
 
 create_arbtri_pipeline :: () {
@@ -358,4 +383,5 @@ create_arbtri_pipeline :: () {
         min_filter = .NEAREST,
         mag_filter = .NEAREST,
     }));
+
 }

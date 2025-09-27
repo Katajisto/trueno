@@ -17,6 +17,7 @@ void main() {
 @end
 
 @fs fs_sky
+
 layout(binding=1) uniform sky_world_config {
     vec3 skyBase;
     vec3 skyTop;
@@ -35,6 +36,8 @@ layout(binding=1) uniform sky_world_config {
     int planeType;
 
     float time;
+
+    float grassDensity;
 };
 
 in vec4 pos;

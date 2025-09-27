@@ -45,6 +45,8 @@ layout(binding=1) uniform trixel_world_config {
     int planeType;
 
     float time;
+
+    float grassDensity;
 };
 
 in vec4 color;

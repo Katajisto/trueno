@@ -46,6 +46,8 @@ layout(binding=1) uniform trile_world_config {
     int planeType;
 
     float time;
+
+    float grassDensity;
 };
 
 in vec3 cam;

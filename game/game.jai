@@ -2,7 +2,9 @@
 
 cam : Camera = .{
 	far = 2000.0,
-	near = 1.0
+	near = 1.0,
+	target = .{0.0, 0.0, 0.0},
+	position = .{10.0, 10.0, 10.0}
 };
 
 #scope_export

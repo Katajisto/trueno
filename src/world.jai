@@ -14,7 +14,9 @@ World_Config :: struct {
 
     hasPlane      : s32  = 0; @Slider,0,1,1
     planeHeight   : float = 0.0; @Slider,-100,100,1
-    planeType     : s32   = 0; @Slider,0,2,1
+    planeType     : s32   = 1; @Slider,0,1,1
+
+    grassDensity  : float = 40000; @Slider,10000,100000,1000
 }
 
 // Copies over all the fields of our world config into a given shader type.
