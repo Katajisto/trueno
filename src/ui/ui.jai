@@ -141,6 +141,7 @@ set_shader_for_color :: (enable_blend := false) {
 
 
 set_shader_for_images :: (texture: *Ui_Texture) {
+    print("Setting shader for images!!!\n");
     arb_tri_command_add(.{
         type = .SET_TEXTURE,
         texture = texture
@@ -370,7 +371,6 @@ render_ui :: () {
     my_theme := proc();
     GR.set_default_theme(my_theme);
     draw_editor_ui(*my_theme);
-    r := GR.get_rect(100, 100, 200, 50);
 }
 
 ui_pass :: () {

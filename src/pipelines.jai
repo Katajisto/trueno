@@ -376,7 +376,7 @@ create_plane_pipeline :: () {
         sample_count = 1,
         data = imgdata
     };
-
+    
     gPipelines.plane.bind.images[2] = sg_make_image(*ground_img_desc);
 }
 

@@ -2,6 +2,7 @@
 #load "trile_editor.jai";
 #load "level_editor.jai";
 #load "iprof.jai";
+#load "textureDebugger.jai";
 
 #if HAS_TACOMA {
     #load "tacoma.jai";
@@ -58,6 +59,9 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
     }
     draw_console(theme);
     draw_profiler();
+    draw_texture_debugger(theme);
+    GR.draw_popups();
+    immediate_flush();
 }
 
 draw_editor :: () {

@@ -156,12 +156,10 @@ frame :: () {
 
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     draw_editor();
-    // uiTex := Ui_Texture.{*gPipelines.plane.bind.images[2]};
-    // set_shader_for_images(*uiTex);
-    // r := GR.get_rect(500,500,300,300);
-    // immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h});
-    // set_shader_for_color();
     if !in_editor_view then game_draw();
+
+    draw_texture_debug();
+
     ui_pass();
     sg_end_pass();
     sg_commit();
