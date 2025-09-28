@@ -26,10 +26,6 @@ draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *
 #scope_export
 
 draw_texture_debug :: () {
-	uiTex := Ui_Texture.{gPipelines.plane.bind.images[0]};
-	set_shader_for_images(*uiTex);
-    immediate_quad(.{0, 0}, .{0 + 500, 0}, .{0 + 500, 0 + 500}, .{0, 0 + 500});
-	set_shader_for_color();
 }
 
 toggle_texdebug :: () {

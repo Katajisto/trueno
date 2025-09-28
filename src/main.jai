@@ -158,7 +158,12 @@ frame :: () {
     draw_editor();
     if !in_editor_view then game_draw();
 
-    draw_texture_debug();
+
+	uiTex := Ui_Texture.{gPipelines.plane.bind.images[0]};
+	set_shader_for_images(*uiTex);
+    r := GR.Rect.{0,0,500,500};
+    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h});
+	set_shader_for_color();
 
     ui_pass();
     sg_end_pass();

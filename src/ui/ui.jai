@@ -141,7 +141,6 @@ set_shader_for_color :: (enable_blend := false) {
 
 
 set_shader_for_images :: (texture: *Ui_Texture) {
-    print("Setting shader for images!!!\n");
     arb_tri_command_add(.{
         type = .SET_TEXTURE,
         texture = texture

@@ -292,10 +292,15 @@ create_plane_pipeline_reflection_image :: (binding: *sg_bindings) {
         height = h,
         pixel_format = .RGBA8,
         render_target = true,
-        sample_count = 1,
+    };
+    depth_desc := sg_image_desc.{
+        width = w,
+        height = h,
+        pixel_format = .DEPTH,
+        render_target = true,
     };
     binding.images[0] = sg_make_image(*img_desc);
-    binding.images[1] = sg_make_image(*img_desc);
+    binding.images[1] = sg_make_image(*depth_desc);
 }
 
 create_plane_pipeline :: () {
@@ -310,6 +315,7 @@ create_plane_pipeline :: () {
     pipeline.depth = .{
             write_enabled = true,
             compare = .LESS_EQUAL,
+            pixel_format = .DEPTH,
     };
 
     color_state := sg_color_target_state.{
