@@ -1,12 +1,12 @@
-#import,dir "../../modules/sokol-jai/sokol/app";
-#import,dir "../../modules/sokol-jai/sokol/gfx";
-#import,dir "../../modules/sokol-jai/sokol/gl";
-#import,dir "../../modules/sokol-jai/sokol/glue";
-#import,dir "../../modules/sokol-jai/sokol/shape";
+#import,dir "../../modules/sokol-jai/sokol/app"(DEBUG = true);
+#import,dir "../../modules/sokol-jai/sokol/gfx"(DEBUG = true);
+#import,dir "../../modules/sokol-jai/sokol/gl"(DEBUG = true);
+#import,dir "../../modules/sokol-jai/sokol/glue"(DEBUG = true);
+#import,dir "../../modules/sokol-jai/sokol/shape"(DEBUG = true);
 #import,dir "../../modules/sokol-jai/sokol/fontstash";
-#import,dir "../../modules/sokol-jai/sokol/log";
-#import,dir "../../modules/sokol-jai/sokol/time";
-#import,dir "../../modules/sokol-jai/sokol/fetch";
+#import,dir "../../modules/sokol-jai/sokol/log"(DEBUG = true);
+#import,dir "../../modules/sokol-jai/sokol/time"(DEBUG = true);
+#import,dir "../../modules/sokol-jai/sokol/fetch"(DEBUG = true);
 
 #load "../main.jai";
 
