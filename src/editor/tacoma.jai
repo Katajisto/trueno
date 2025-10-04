@@ -54,6 +54,7 @@ gen_reference :: (w: s32, h: s32, postprocess: Post_Process, conf: Tacoma.Gen_Co
     world_triles.allocator = temp;
 
     for world.positions {
+        print("World positions for: %\n", it.trileName);
         trile := get_trile(it.trileName);
         ttrile : Tacoma.Trile_Data;
         for x: 0..15 {
@@ -72,7 +73,7 @@ gen_reference :: (w: s32, h: s32, postprocess: Post_Process, conf: Tacoma.Gen_Co
         ttrile.vertexCount = cast(s32) (gfx.vertices.count / 3);
         array_add(*trile_list, ttrile);
 
-        for pos: it.positions {
+        for pos, posi: it.positions {
             array_add(*world_triles, Tacoma.World_Trile.{cast(s32)it_index, pos.xyz});
         }
     }
@@ -91,6 +92,9 @@ gen_reference :: (w: s32, h: s32, postprocess: Post_Process, conf: Tacoma.Gen_Co
     sky.skyIntensity = world.conf.skyIntensity;
 
     blases : Tacoma.Trile_Set = .{trile_list.data, cast(s32)trile_list.count};
+    for world_triles {
+        print("World trile %\n", it);
+    }
     tlas : Tacoma.World = .{world_triles.data, cast(s32)world_triles.count};
 
     ptr := Tacoma.do_gen("./modules/Tacoma/", w, h, sky, blases, tlas, conf);
