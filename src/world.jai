@@ -14,9 +14,9 @@ World_Config :: struct {
 
     hasPlane      : s32  = 0; @Slider,0,1,1
     planeHeight   : float = 0.0; @Slider,-100,100,1
-    planeType     : s32   = 0; @Slider,0,1,1
+    planeType     : s32   = 1; @Slider,0,1,1
 
-    grassDensity  : float = 30; @Slider,10,100,1
+    grassDensity  : float = 200; @Slider,10,300,1
 }
 
 // Copies over all the fields of our world config into a given shader type.
@@ -43,6 +43,7 @@ TrilePositions :: struct {
 Ground_Tile :: enum {
     WATER;
     GRASS;
+    SAND;
 }
 
 World :: struct {
@@ -68,6 +69,13 @@ update_image_from_ground :: (world: *World, img: *sg_image) {
                 materialdata[counter + 0] = 0;
                 materialdata[counter + 1] = 0;
                 materialdata[counter + 2] = 255;
+                materialdata[counter + 3] = 255;
+                
+            }
+            if world.ground[x][y] == .SAND {
+                materialdata[counter + 0] = 255;
+                materialdata[counter + 1] = 0;
+                materialdata[counter + 2] = 0;
                 materialdata[counter + 3] = 255;
                 
             }

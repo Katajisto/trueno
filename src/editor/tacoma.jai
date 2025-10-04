@@ -45,58 +45,55 @@ post_process_pipeline :: (color: Vector3, post_process: Post_Process) -> Vector3
     return lerp(vec3(grayscale), sdr, post_process.saturation);
 }
 
-test_gen :: (w: s32, h: s32, postprocess: Post_Process, conf: Tacoma.Gen_Config, worldConf: World_Config) {
-    trile := get_trile("test");
+gen_reference :: (w: s32, h: s32, postprocess: Post_Process, conf: Tacoma.Gen_Config, world: World) {
+    // Trile BLASes.
+    trile_list : [..]Tacoma.Trile_Data;
+    trile_list.allocator = temp;
+    // BLAS instances to create TLAS.
+    world_triles : [..]Tacoma.World_Trile;
+    world_triles.allocator = temp;
 
-    ttrile : Tacoma.Trile_Data;
-    for x: 0..15 {
-        for y: 0..15 {
-            for z: 0..15 {
-                ttrile.trixels[x][y][z] = .{
-                    trile.trixels[x][y][z].empty,
-                    trile.trixels[x][y][z].material.color,
-                    material_encode_to_float(trile.trixels[x][y][z].material)
-                };
+    for world.positions {
+        trile := get_trile(it.trileName);
+        ttrile : Tacoma.Trile_Data;
+        for x: 0..15 {
+            for y: 0..15 {
+                for z: 0..15 {
+                    ttrile.trixels[x][y][z] = .{
+                        trile.trixels[x][y][z].empty,
+                        trile.trixels[x][y][z].material.color,
+                        material_encode_to_float(trile.trixels[x][y][z].material)
+                    };
+                }
             }
+        }
+        gfx := get_trile_gfx(it.trileName);
+        ttrile.vertices = gfx.vertices.data;
+        ttrile.vertexCount = cast(s32) (gfx.vertices.count / 3);
+        array_add(*trile_list, ttrile);
+
+        for pos: it.positions {
+            array_add(*world_triles, Tacoma.World_Trile.{cast(s32)it_index, pos.xyz});
         }
     }
 
-    gfx := get_trile_gfx("test");
-    ttrile.vertices = gfx.vertices.data;
-    ttrile.vertexCount = cast(s32) (gfx.vertices.count / 3);
-
-    trile_list : [1]Tacoma.Trile_Data;
-    trile_list[0] = ttrile;
 
     sky : Tacoma.Sky_Config;
 
-    sky.skyBase = worldConf.skyBase;
-    sky.skyTop = worldConf.skyTop;
-    sky.sunDisk = worldConf.sunDisk;
-    sky.horizonHalo = worldConf.horizonHalo;
-    sky.sunHalo = worldConf.sunHalo;
-    sky.sunLightColor = worldConf.sunLightColor;
-    sky.sunPosition = worldConf.sunPosition;
-    sky.sunIntensity = worldConf.sunIntensity;
-    sky.skyIntensity = worldConf.skyIntensity;
+    sky.skyBase = world.conf.skyBase;
+    sky.skyTop = world.conf.skyTop;
+    sky.sunDisk = world.conf.sunDisk;
+    sky.horizonHalo = world.conf.horizonHalo;
+    sky.sunHalo = world.conf.sunHalo;
+    sky.sunLightColor = world.conf.sunLightColor;
+    sky.sunPosition = world.conf.sunPosition;
+    sky.sunIntensity = world.conf.sunIntensity;
+    sky.skyIntensity = world.conf.skyIntensity;
 
-    ts : Tacoma.Trile_Set = .{trile_list.data, trile_list.count};
+    blases : Tacoma.Trile_Set = .{trile_list.data, cast(s32)trile_list.count};
+    tlas : Tacoma.World = .{world_triles.data, cast(s32)world_triles.count};
 
-    wTrile : Tacoma.World_Trile = .{
-        0,
-        .{1.0, 0.0, 0.0}
-    };
-    
-    wTrile2 : Tacoma.World_Trile = .{
-        0,
-        .{0.0, 1.0, 1.0}
-    };
-
-    triles : [2]Tacoma.World_Trile = .[wTrile, wTrile2];
-
-    world : Tacoma.World = .{triles.data, 2};
-
-    ptr := Tacoma.do_gen("./modules/Tacoma/", w, h, sky, ts, world, conf);
+    ptr := Tacoma.do_gen("./modules/Tacoma/", w, h, sky, blases, tlas, conf);
     data := cast(*float) talloc(w*h*4*size_of(float));
     memcpy(data, ptr, w*h*4*4);
     for 0..(w*h) {

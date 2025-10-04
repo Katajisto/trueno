@@ -86,6 +86,34 @@ defaultFont: Font;
 
 ui_texture_counter : u32 = 0;
 
+#scope_file
+
+ui_mouse_occluders : [..]GR.Rect;
+
+#scope_export
+
+ui_add_mouse_occluder :: (r: GR.Rect) {
+    array_add(*ui_mouse_occluders, r);
+}
+
+ui_clear_mouse_occluders :: () {
+    array_reset_keeping_memory(*ui_mouse_occluders);
+}
+
+ui_is_mouse_in_occluder :: (mpos: Vector2) -> bool {
+    for ui_mouse_occluders {
+        if (mpos.x >= it.x && mpos.x <= it.x + it.w && mpos.y >= it.y && mpos.y <= it.y + it.h) {
+            return true;   
+        };
+    }
+    return false;
+}
+
+get_mouse_state :: (kc: Key_Code) -> Key_Current_State {
+    if ui_is_mouse_in_occluder(.{input_mouse_x, input_mouse_y}) then return .NONE;
+    return input_button_states[kc];
+}
+
 texture_load_from_memory :: (texture: *Ui_Texture, memory: []u8, srgb: bool, build_mipmaps: bool) -> bool {
     x : s32;
     y : s32;
@@ -158,14 +186,17 @@ prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_I
         gPreppedTextWidth = 0;
         return 0;
     }
+    // print("Font: %\n", font);
     fonsSetFont(state.fons, state.font_default.fons_font);
     fonsSetSize(state.fons, xx font.character_height);
     w := fonsTextBounds(state.fons, 0.0, 0.0, text.data, text.data + text.count, null);
     gPreppedText = text;
     gPreppedTextWidth = cast(s32) w;
 
-    array_reset(*font.temporary_glyphs);
-    array_reset(*font.temporary_glyphs_byte_offsets);
+    // @Memory: there is a bug if we actually free these during subwindow popup draw.
+    // I'm not completely sure why, but it should be fine/better if we just reset keeping memory.
+    array_reset_keeping_memory(*font.temporary_glyphs);
+    array_reset_keeping_memory(*font.temporary_glyphs_byte_offsets);
 
     font.temporary_glyphs_width_in_pixels = 0;
 

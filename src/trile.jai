@@ -197,6 +197,7 @@ material_from_rgba :: (r: u8, g: u8, b: u8, a: u8) -> Material {
 
 draw_trile_picker :: (theme: *GR.Overall_Theme) {
     r := GR.get_rect(ui_w(85,85), ui_h(5,0), ui_w(15, 15), ui_h(95, 0));
+	ui_add_mouse_occluder(r);
     draw_bg_rectangle(r, theme);
 	tpt := get_trile_table_ptr();
 	r.h = ui_h(4,4);

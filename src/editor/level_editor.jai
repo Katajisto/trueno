@@ -86,6 +86,8 @@ get_level_editor_camera :: () -> Camera {
 tick_level_editor_camera :: () {
     if console_open_ignore_input then return;
 
+	world.ground[500][500] = .GRASS;
+
 	if get_time() - lastInputTime > CAMERA_INACTIVE_TIME_TO_ORBIT { // idle rotating camera
 		cameraRotation += cast(float) delta_time;
 	}
@@ -136,7 +138,7 @@ tick_level_editor_camera :: () {
 		editY = max(editY - 1, 0);
 	}
 	
-	if input_button_states[Key_Code.MOUSE_BUTTON_RIGHT] & .DOWN {
+	if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .DOWN {
 		if mouse2Active {
 			lastInputTime = get_time();
 			diff := mouse2ActivationPosition - Vector2.{input_mouse_x, input_mouse_y};
@@ -156,7 +158,7 @@ tick_level_editor_camera :: () {
 	}
 
 
-	if input_button_states[Key_Code.MOUSE_BUTTON_MIDDLE] & .DOWN {
+	if get_mouse_state(Key_Code.MOUSE_BUTTON_MIDDLE) & .DOWN {
 		if mouse3Active {
 			lastInputTime = get_time();
 			diff := mouse3ActivationPosition - Vector2.{input_mouse_x, input_mouse_y};
@@ -179,15 +181,16 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	#if HAS_TACOMA {
 		if GR.button(r, "Render with Tacoma", *theme.button_theme) {
 			cam := get_level_editor_camera();
-			test_gen(tacomaResolution, tacomaResolution, .{tacomaExposure, tacomaContrast, tacomaSaturation}, .{cam.target, cam.position, tacomaSamples, true}, world.conf);
+			gen_reference(tacomaResolution, tacomaResolution, .{tacomaExposure, tacomaContrast, tacomaSaturation}, .{cam.target, cam.position, tacomaSamples, true}, world);
 		}
 		r.y += r.h;
 		if current_screenshot.valid {
 			aspect := cast(float)current_screenshot.width / cast(float)current_screenshot.height;
 			
 			r.h = r.w / aspect;
-			uiTex := Ui_Texture.{*current_screenshot.image};
-			set_shader_for_images(*uiTex);
+			uiTex := New(Ui_Texture,, temp);
+			uiTex.tex = *current_screenshot.image;
+			set_shader_for_images(uiTex);
 		    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h});
 			set_shader_for_color();
 			r.y += r.h;
@@ -221,11 +224,64 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	}
 }
 
-handle_tool_click :: (x: int, y: int, z: int) {
-	if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
-} 
+#scope_file
+
+Edit_Mode :: enum {
+	TRILES;
+	GROUND;
+}
+
+groundType : Ground_Tile;
+editMode : Edit_Mode;
 
 #scope_export
+
+draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
+	r := total_r;
+	r.h = ui_h(3,0);
+	r.w = r.w/2.0;
+    if GR.button(r, "Edit triles", *t_button_selectable(theme, editMode == .TRILES)) {
+        editMode = .TRILES;
+    }
+	r.x += r.w;
+    if GR.button(r, "Edit ground", *t_button_selectable(theme, editMode == .GROUND)) {
+        editMode = .GROUND;
+    }
+	r.x -= r.w;
+	r.w *= 2.0;
+	r.y += r.h * 1.5;
+	if editMode == .GROUND {
+	    if GR.button(r, "Grass", *t_button_selectable(theme, groundType == .GRASS)) {
+	        groundType = .GRASS;
+	    }
+		r.y += r.h;
+	    if GR.button(r, "Water", *t_button_selectable(theme, groundType == .WATER)) {
+	        groundType = .WATER;
+	    }
+		r.y += r.h;
+	    if GR.button(r, "Sand", *t_button_selectable(theme, groundType == .WATER)) {
+	        groundType = .SAND;
+	    }
+	}
+}
+
+handle_tool_click :: (x: int, y: int, z: int) {
+	if editMode == {
+		case .TRILES;
+			if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
+		case .GROUND;
+
+			
+		
+			ray := get_mouse_ray(*get_level_editor_camera());
+			hit, point := ray_plane_collision_point(ray, 0, 100);
+			print("ground point: %\n");
+			if hit {
+				world.ground[floor(point.y).(int) + 500][floor(point.x).(int) + 500] = groundType;
+			}
+	}
+
+} 
 
 add_trile :: (name: string, x: float, y: float, z: float) {
 
@@ -275,7 +331,7 @@ tick_level_editor :: () {
 		trile_preview_y = editY;
 		trile_preview_z = xx floor(point.y);
 
-		if input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
+		if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
 			handle_tool_click(xx floor(point.x), xx editY, xx floor(point.y));
 		}
 	}
@@ -328,7 +384,7 @@ draw_world_triles :: (cam: *Camera, world: *World) {
 
 draw_level_editor :: () {
 	cam := get_level_editor_camera();
-	update_image_from_ground(*world, *gPipelines.plane.bind.images[2]);
+	if !is_in_reflection_pass then update_image_from_ground(*world, *gPipelines.plane.bind.images[1]);
 	draw_sky(*get_level_editor_camera(), *world.conf);
 	if !is_in_reflection_pass then draw_ground_plane(*get_level_editor_camera(), *world.conf);
 	draw_world_triles(*cam, *world);
@@ -336,6 +392,7 @@ draw_level_editor :: () {
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
     r := GR.get_rect(0, ui_h(5,0), ui_w(20, 20), ui_h(95, 0));
+	ui_add_mouse_occluder(r);
     draw_bg_rectangle(r, theme);
     tab_r := r;
     tab_r.h = ui_h(3,0);
@@ -355,6 +412,8 @@ draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
     r.y += tab_r.h;
 
     if current_tab == {
+		case .TOOLS;
+			draw_tools_tab(theme, r);
         case .TACOMA;
 			draw_tacoma_tab(theme, r);
 		case .INFO;

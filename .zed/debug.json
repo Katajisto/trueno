@@ -1,0 +1,14 @@
+[
+  {
+    "label": "Debug Jai",
+    "adapter": "CodeLLDB",
+    // Request:
+    "request": "launch",
+    "program": "first",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "build": {
+      "command": "jai",
+      "args": ["first.jai"]
+    }
+  }
+]

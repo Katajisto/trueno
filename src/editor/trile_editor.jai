@@ -259,6 +259,8 @@ draw_trile_editor :: () {
 }
 
 draw_trile :: () {
+    if is_in_reflection_pass then return; // We don't want to double update the buffer.
+
     if editor_current_trile == null then return;
     cam := get_trile_editor_camera();
     
@@ -372,6 +374,7 @@ trile_editor_shortcuts :: () {
 
 draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
     r := GR.get_rect(0, ui_h(5,0), ui_w(20, 20), ui_h(95, 0));
+	ui_add_mouse_occluder(r);
     draw_bg_rectangle(r, theme);
     tab_r := r;
     tab_r.h = ui_h(3,0);

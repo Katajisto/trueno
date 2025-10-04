@@ -12,7 +12,7 @@ gPipelines : struct {
     // Arbitrary triangle rendering for rendering 2D things on the screen.
     // Used for UI rendering.
     arbtri : Pipeline_Binding;
-    
+
     // Trixel rendering. Used for Trile editor rendering, in-game triles are rendered from
     // generated meshes.
     trixel : Pipeline_Binding;
@@ -47,13 +47,15 @@ Position_Color :: struct {
 }
 
 create_trixel_pipeline :: () {
+    platconf := get_plat_conf();
+
     pipeline: sg_pipeline_desc;
     shader_desc := trixel_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
     pipeline.layout.buffers[1].stride = 4*3;
     pipeline.layout.buffers[2].step_func = .PER_INSTANCE;
-    
+
     pipeline.layout.attrs[ATTR_trixel_position] = .{ format = .FLOAT3, buffer_index = 0 };
     pipeline.layout.attrs[ATTR_trixel_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
     pipeline.layout.attrs[ATTR_trixel_inst]     = .{ format = .FLOAT4, buffer_index = 2 };
@@ -72,6 +74,8 @@ create_trixel_pipeline :: () {
             dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
         }
     };
+
+    pipeline.sample_count = platconf.sample_count;
 
 
     vertices : [24]Vector3 = .[
@@ -132,7 +136,7 @@ create_trixel_pipeline :: () {
     i : u16 = 0;
 
     indices : [36]u16;
-    
+
     while i < 36 {
         indices[i] = 4*k;
         indices[i + 1] = 4*k + 1;
@@ -144,12 +148,12 @@ create_trixel_pipeline :: () {
         i += 6;
     }
 
-    
+
     pipeline.color_count = 1;
     pipeline.colors[0]   = color_state;
 
     gPipelines.trixel.pipeline = sg_make_pipeline(*pipeline);
-    
+
     ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 36 * 2 } };
     vbuffer         := sg_buffer_desc.{ data = .{ ptr = vertices.data, size = 24 * 3 * 4 } };
     nbuffer         := sg_buffer_desc.{ data = .{ ptr = normals.data, size = 24 * 3 * 4 } };
@@ -162,6 +166,7 @@ create_trixel_pipeline :: () {
 }
 
 create_trile_pipeline :: () {
+    platconf := get_plat_conf();
     pipeline: sg_pipeline_desc;
     shader_desc := trile_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
@@ -171,7 +176,7 @@ create_trile_pipeline :: () {
     pipeline.layout.buffers[3].step_func = .PER_INSTANCE;
 
     instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 16 * 4096 * 4 * 4};
-    
+
     pipeline.layout.attrs[ATTR_trile_position] = .{ format = .FLOAT3, buffer_index = 0 };
     pipeline.layout.attrs[ATTR_trile_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
     pipeline.layout.attrs[ATTR_trile_centre]   = .{ format = .FLOAT3, buffer_index = 2 };
@@ -180,6 +185,7 @@ create_trile_pipeline :: () {
             write_enabled = true,
             compare = .LESS_EQUAL,
     };
+    pipeline.sample_count = platconf.sample_count;
 
     color_state := sg_color_target_state.{
         pixel_format = .RGBA8,
@@ -205,11 +211,13 @@ create_trile_pipeline :: () {
 }
 
 create_sky_pipeline :: () {
+    platconf := get_plat_conf();
     pipeline: sg_pipeline_desc;
     shader_desc := sky_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
-    
+    pipeline.sample_count = platconf.sample_count;
+
     pipeline.layout.attrs[ATTR_sky_position] = .{ format = .FLOAT3, buffer_index = 0 };
     pipeline.index_type = .UINT16;
     pipeline.depth = .{
@@ -258,7 +266,7 @@ create_sky_pipeline :: () {
     i : u16 = 0;
 
     indices : [36]u16;
-    
+
     while i < 36 {
         indices[i] = 4*k;
         indices[i + 1] = 4*k + 1;
@@ -270,12 +278,12 @@ create_sky_pipeline :: () {
         i += 6;
     }
 
-    
+
     pipeline.color_count = 1;
     pipeline.colors[0]   = color_state;
 
     gPipelines.sky.pipeline = sg_make_pipeline(*pipeline);
-    
+
     ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 36 * 2 } };
     vbuffer         := sg_buffer_desc.{ data = .{ ptr = vertices.data, size = 24 * 3 * 4 } };
 
@@ -284,8 +292,13 @@ create_sky_pipeline :: () {
 }
 
 // @ToDo: This needs to be redone when the window is resized;
-create_plane_pipeline_reflection_image :: (binding: *sg_bindings) {
-    reflection_img := sg_alloc_image();
+create_plane_pipeline_reflection_images :: () {
+    platconf := get_plat_conf();
+    binding := *gPipelines.plane.bind;
+    if binding.images[4].id != INVALID_ID then sg_destroy_image(binding.images[4]);
+    if binding.images[5].id != INVALID_ID then sg_destroy_image(binding.images[5]);
+    if binding.images[0].id != INVALID_ID then sg_destroy_image(binding.images[0]);
+
     w, h := get_window_size();
     img_desc := sg_image_desc.{
         width = w,
@@ -296,26 +309,45 @@ create_plane_pipeline_reflection_image :: (binding: *sg_bindings) {
     depth_desc := sg_image_desc.{
         width = w,
         height = h,
-        pixel_format = .DEPTH,
+        pixel_format = .DEPTH_STENCIL,
         render_target = true,
     };
+    binding.images[4] = sg_make_image(*img_desc);
+    img_desc.sample_count = 1;
     binding.images[0] = sg_make_image(*img_desc);
-    binding.images[1] = sg_make_image(*depth_desc);
+    binding.images[5] = sg_make_image(*depth_desc);
+    attachmentsDesc : sg_attachments_desc;
+    if platconf.sample_count > 1 {
+    	attachmentsDesc = .{
+    	    colors[0].image = gPipelines.plane.bind.images[4],
+            resolves[0].image = gPipelines.plane.bind.images[0],
+    	   	depth_stencil.image = gPipelines.plane.bind.images[5],
+    	};
+    } else {
+    	attachmentsDesc = .{
+    	    colors[0].image = gPipelines.plane.bind.images[0],
+    	   	depth_stencil.image = gPipelines.plane.bind.images[5],
+    	};
+    }
+
+    sg_destroy_attachments(gPipelines.plane.attachments);
+    gPipelines.plane.attachments = sg_make_attachments(*attachmentsDesc);
 }
 
 create_plane_pipeline :: () {
+    platconf := get_plat_conf();
     pipeline: sg_pipeline_desc;
     shader_desc := plane_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
     pipeline.layout.buffers[0].stride = 4*3;
 
-    
+
     pipeline.layout.attrs[ATTR_plane_position] = .{ format = .FLOAT3, buffer_index = 0 };
     pipeline.index_type = .UINT16;
     pipeline.depth = .{
             write_enabled = true,
             compare = .LESS_EQUAL,
-            pixel_format = .DEPTH,
+            pixel_format = .DEPTH_STENCIL
     };
 
     color_state := sg_color_target_state.{
@@ -338,27 +370,23 @@ create_plane_pipeline :: () {
         0, 1, 2,
         0, 2, 3,
     ];
-    
+
+    pipeline.sample_count = platconf.sample_count;
+
     pipeline.color_count = 1;
     pipeline.colors[0]   = color_state;
 
     gPipelines.plane.pipeline = sg_make_pipeline(*pipeline);
-    
+
     ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 6 * 2 } };
     vbuffer         := sg_buffer_desc.{ data = .{ ptr = vertices.data, size = 4 * 3 * 4 } };
 
     gPipelines.plane.bind.index_buffer      = sg_make_buffer(*ibuffer);
     gPipelines.plane.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
-    create_plane_pipeline_reflection_image(*gPipelines.plane.bind);
+    create_plane_pipeline_reflection_images();
 
-	attachmentsDesc := sg_attachments_desc.{
-	    colors[0].image = gPipelines.plane.bind.images[0],
-	   	depth_stencil.image = gPipelines.plane.bind.images[1],
-	};
 
-    gPipelines.plane.attachments = sg_make_attachments(*attachmentsDesc);
 
-    
     gPipelines.plane.pass_action = .{
         colors[0] = .{ load_action = .CLEAR, clear_value = .{ 0.25, 0.25, 0.25, 1.0 } },
     };
@@ -369,31 +397,37 @@ create_plane_pipeline :: () {
         min_filter = .NEAREST,
         mag_filter = .NEAREST,
     }));
+    
+    gPipelines.plane.bind.samplers[1] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
 
-    materialdata : [1000*1000*4]u8;
-    imgdata : sg_image_data;
-    imgdata.subimage[0][0] = .{materialdata.data, materialdata.count};
 
     ground_img_desc := sg_image_desc.{
-        width = 1000,
-        height = 1000,
-        pixel_format = .RGBA8,
+        width         = 1000,
+        height        = 1000,
+        pixel_format  = .RGBA8,
         render_target = false,
-        sample_count = 1,
-        data = imgdata
+        sample_count  = 1,
+        usage         = .DYNAMIC,
     };
-    
-    gPipelines.plane.bind.images[2] = sg_make_image(*ground_img_desc);
+
+    gPipelines.plane.bind.images[1] = sg_make_image(*ground_img_desc);
 }
 
 create_arbtri_pipeline :: () {
+    platconf := get_plat_conf();
     pipeline: sg_pipeline_desc;
     shader_desc := triangle_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
-    
+
     pipeline.layout.attrs[ATTR_triangle_position] = .{ format = .FLOAT3 };
     pipeline.layout.attrs[ATTR_triangle_color0]   = .{ format = .FLOAT4 };
     pipeline.layout.attrs[ATTR_triangle_uv]       = .{ format = .FLOAT2 };
+    pipeline.sample_count = platconf.sample_count;
 
     color_state := sg_color_target_state.{
         pixel_format = .RGBA8,
@@ -408,7 +442,7 @@ create_arbtri_pipeline :: () {
     pipeline.colors[0] = color_state;
 
     gPipelines.arbtri.pipeline = sg_make_pipeline(*pipeline);
-    
+
     buffer := sg_buffer_desc.{ usage = .DYNAMIC, size = size_of(type_of(gArbtriMem)) };
     gPipelines.arbtri.bind.vertex_buffers[0] = sg_make_buffer(*buffer);
     gPipelines.arbtri.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{

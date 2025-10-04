@@ -21,9 +21,5 @@ draw_ground_plane :: (cam: *Camera, worldConfig: *World_Config = null) {
     sg_apply_uniforms(UB_plane_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
     sg_apply_uniforms(UB_plane_data, *(sg_range.{ptr = *plane_data, size = size_of(type_of(plane_data))}));
     
-    if wc.planeType == 1 {
-        sg_draw(0, 6, 1);    
-    } else {
-        sg_draw(0, 6, 128);    
-    }
+    sg_draw(0, 6, 1);    
 }

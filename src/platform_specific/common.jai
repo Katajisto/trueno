@@ -16,6 +16,7 @@ temporary_storage: Temporary_Storage;
 temporary_storage_data: [TEMPORARY_STORAGE_SIZE] u8 #align 64;
 
 sapp_init :: () {
+    platconf := get_plat_conf();
     default_context.temporary_storage = *temporary_storage;
     temporary_storage.data = temporary_storage_data.data;
     temporary_storage.size = temporary_storage_data.count;
@@ -37,7 +38,7 @@ sapp_init :: () {
         window_title = wi.title,
         // icon = .{ sokol_default = true },
         logger = .{ func = slog_func },
-        sample_count = 4,
+        sample_count = platconf.sample_count,
     }));
     }
 }
@@ -62,3 +63,24 @@ cleanup_plat :: () #c_call {
     cleanup();
 }
 
+Platform_Conf :: struct {
+    sample_count: s32;
+}
+
+get_plat_conf :: () -> Platform_Conf {
+    #if OS == .WASM {
+        return .{
+            sample_count = 1,  
+        };
+    }
+    #if OS == .LINUX {
+        return .{
+            sample_count = 4,  
+        };
+    }
+    #if OS == .MACOS {
+        return .{
+            sample_count = 4,  
+        };
+    }
+}
