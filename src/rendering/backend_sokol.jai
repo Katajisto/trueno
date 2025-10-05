@@ -72,7 +72,17 @@ backend_process_command_buckets :: () {
     for render_command_buckets.main {
         backend_handle_command(it);
     }
+    // 3.2 Draw the UI. @ToDo: This should probably happen after post processing once we have that.
+    // Also, it's kind of stupid that this has it's own command system. It should be moved to using the
+    // same backend commands we are using for other rendering.
+    sgl_defaults();
+    sgl_matrix_mode_projection();
+    sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
+    arb_tri_flush();
+
+    // End the main pass
 	sg_end_pass();
+
 
     sg_commit();
 

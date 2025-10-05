@@ -138,30 +138,16 @@ frame :: () {
         GR.getrect_handle_event(event);
     }
 
-    sgl_defaults();
-    sgl_matrix_mode_projection();
-    sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
 
     tick_ui();
 
     // This populates our render task queue.
     if !in_editor_view then game_draw();
 
+    ui_clear_mouse_occluders();
+    ui_pass();
+    draw_editor();
     render();
-	// sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = gPipelines.plane.attachments}));
- //    is_in_reflection_pass = true;
- //    draw_editor();
- //    is_in_reflection_pass = false;
-	// sg_end_pass();
-
- //    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
- //    draw_editor();
- //    if !in_editor_view then game_draw();
- //    ui_clear_mouse_occluders();
- //    ui_pass();
- //    sg_end_pass();
- //    sg_commit();
-
     input_per_frame_event_and_flag_update();
     #if MEM_DEBUG {
         memory_visualizer_per_frame_update();

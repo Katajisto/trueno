@@ -379,9 +379,13 @@ draw_world_triles :: (cam: *Camera, world: *World) {
 }
 
 draw_level_editor :: () {
-	cam := get_level_editor_camera();
-	draw_sky(*get_level_editor_camera(), *world.conf);
-	draw_world_triles(*cam, *world);
+	camtask := Rendering_Task_Set_Camera.{type = .SET_CAMERA, camera = get_level_editor_camera()};
+	add_rendering_task(camtask);
+	skytask := Rendering_Task_Sky.{type = .SKY, worldConfig = *world.conf};
+	add_rendering_task(skytask);
+	groundtask := Rendering_Task_Ground.{type = .GROUND, world = *world};
+	add_rendering_task(groundtask);
+	// draw_world_triles(*cam, *world);
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {

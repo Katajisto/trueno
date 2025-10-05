@@ -405,5 +405,4 @@ render_ui :: () {
 
 ui_pass :: () {
     render_ui(); // Generates commands that are handled in arb_tri_flush
-    arb_tri_flush();
 }

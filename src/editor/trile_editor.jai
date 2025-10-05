@@ -254,11 +254,12 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
 
 
 draw_trile_editor :: () {
-    draw_sky(*get_trile_editor_camera());
+
     draw_trile();
 }
 
 draw_trile :: () {
+    return; // @ToDo: Implement this using the new drawing commands.
     if is_in_reflection_pass then return; // We don't want to double update the buffer.
 
     if editor_current_trile == null then return;
