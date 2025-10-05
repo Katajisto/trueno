@@ -1,5 +1,3 @@
-#load "meshgen.jai";
-
 #scope_file
 
 trile_gfx_table : Table(string, Trile_GFX);

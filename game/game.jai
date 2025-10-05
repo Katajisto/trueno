@@ -6,7 +6,7 @@ rotation : float   = 0.0;
 cam : Camera = .{
 	far = 2000.0,
 	near = 1.0,
-	target = .{0.0, 0.0, 0.0},
+	target = .{0.0, 4.0, 0.0},
 	position = .{3.0, 5.0, 3.0}
 };
 
@@ -22,19 +22,19 @@ game_init :: () {
 	world.ground[501][500] = .GRASS;
 }
 
+game_ui :: () {
+	
+}
+
 game_tick :: () {
+
 }
 
 game_draw :: () {
-	if !is_in_reflection_pass then update_image_from_ground(*world, *gPipelines.plane.bind.images[1]);
-	if is_in_reflection_pass {
-		cam.position.y *= -1;
-		cam.target.y *= -1;
-	}
-	draw_sky(*cam);
-	if !is_in_reflection_pass then draw_ground_plane(*cam, *world.conf);
-	if is_in_reflection_pass {
-		cam.position.y *= -1;
-		cam.target.y *= -1;
-	}
+	camtask := Rendering_Task_Set_Camera.{type = .SET_CAMERA, camera = cam};
+	add_rendering_task(camtask);
+	skytask := Rendering_Task_Sky.{type = .SKY, worldConfig = *world.conf};
+	add_rendering_task(skytask);
+	groundtask := Rendering_Task_Ground.{type = .GROUND, world = *world};
+	add_rendering_task(groundtask);
 }

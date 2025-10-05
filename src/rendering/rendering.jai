@@ -1,5 +1,20 @@
+/*
+
+    The rendering pipeline.
+
+    @ToDo: Write something smart about our rendering
+           architecture. 
+
+*/
+
 #load "groundplane.jai";
+#load "tasks.jai";
 #load "sky.jai";
+#load "core.jai";
+#load "camera.jai";
+#load "pipelines.jai";
+#load "meshgen.jai";
+#load "arbtri.jai";
 
 #scope_file
 

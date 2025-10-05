@@ -270,13 +270,9 @@ handle_tool_click :: (x: int, y: int, z: int) {
 		case .TRILES;
 			if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
 		case .GROUND;
-
-			
-		
 			ray := get_mouse_ray(*get_level_editor_camera());
 			hit, point := ray_plane_collision_point(ray, 0, 100);
-			print("ground point: %\n");
-			if hit {
+		if hit {
 				world.ground[floor(point.y).(int) + 500][floor(point.x).(int) + 500] = groundType;
 			}
 	}
@@ -384,9 +380,7 @@ draw_world_triles :: (cam: *Camera, world: *World) {
 
 draw_level_editor :: () {
 	cam := get_level_editor_camera();
-	if !is_in_reflection_pass then update_image_from_ground(*world, *gPipelines.plane.bind.images[1]);
 	draw_sky(*get_level_editor_camera(), *world.conf);
-	if !is_in_reflection_pass then draw_ground_plane(*get_level_editor_camera(), *world.conf);
 	draw_world_triles(*cam, *world);
 }
 

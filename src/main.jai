@@ -17,12 +17,9 @@ stbi  :: #import "stb_image";
 #load "input/hotkeys.jai";
 #load "ui/ui.jai";
 #load "editor/editor.jai";
-#load "pipelines.jai";
 #load "time.jai";
-#load "arbtri.jai";
 #load "events.jai";
 #load "load.jai";
-#load "camera.jai";
 #load "ray.jai";
 #load "world.jai";
 
@@ -96,7 +93,6 @@ init :: () {
 }
 
 init_after_asset_pack :: () {
-    
     add_font_from_pack("./resources/DroidSerif-Regular.ttf");
     ui_init_font_fields(*state.font_default);
 
@@ -148,20 +144,23 @@ frame :: () {
 
     tick_ui();
 
-	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = gPipelines.plane.attachments}));
-    is_in_reflection_pass = true;
-    draw_editor();
+    // This populates our render task queue.
     if !in_editor_view then game_draw();
-    is_in_reflection_pass = false;
-	sg_end_pass();
 
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
-    draw_editor();
-    if !in_editor_view then game_draw();
-    ui_clear_mouse_occluders();
-    ui_pass();
-    sg_end_pass();
-    sg_commit();
+    render();
+	// sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = gPipelines.plane.attachments}));
+ //    is_in_reflection_pass = true;
+ //    draw_editor();
+ //    is_in_reflection_pass = false;
+	// sg_end_pass();
+
+ //    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
+ //    draw_editor();
+ //    if !in_editor_view then game_draw();
+ //    ui_clear_mouse_occluders();
+ //    ui_pass();
+ //    sg_end_pass();
+ //    sg_commit();
 
     input_per_frame_event_and_flag_update();
     #if MEM_DEBUG {
