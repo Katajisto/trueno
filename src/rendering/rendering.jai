@@ -15,6 +15,7 @@
 #load "pipelines.jai";
 #load "meshgen.jai";
 #load "arbtri.jai";
+#load "helpers.jai";
 
 #scope_file
 
