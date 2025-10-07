@@ -7,7 +7,6 @@
 
 */
 
-#load "groundplane.jai";
 #load "tasks.jai";
 #load "sky.jai";
 #load "core.jai";

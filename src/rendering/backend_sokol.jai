@@ -160,7 +160,14 @@ backend_process_command_buckets :: () {
         backend_handle_command(it);
     } 
 
+    // 2. Shadow pass
+	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_shadowmap_attachments}));
+    for render_command_buckets.shadow {
+        backend_handle_command(it);
+    }    
+	sg_end_pass();
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
+    
     // 2. Reflection pass
 	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = gPipelines.plane.attachments}));
     for render_command_buckets.reflection {

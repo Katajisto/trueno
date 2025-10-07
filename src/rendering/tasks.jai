@@ -76,6 +76,7 @@ tasks_to_commands :: () {
                 // Currently no need to draw trixels anywhere but the editor so no
                 // need for drawing them in the planar reflection pass...
                 // array_add(*render_command_buckets.reflection, drawCommand);
+
             case .TRILE;
                 trileTask := (cast(*Rendering_Task_Trile)it);
                 addPositionsCmd := New(Render_Command_Add_Trile_Positions,, temp);
@@ -87,6 +88,7 @@ tasks_to_commands :: () {
                 drawPositionsCmd.conf = trileTask.worldConf;
                 array_add(*render_command_buckets.reflection, drawPositionsCmd);
                 array_add(*render_command_buckets.main, drawPositionsCmd);
+                array_add(*render_command_buckets.shadow, drawPositionsCmd);
             case .SKY;
                 command := New(Render_Command_Sky,, temp);
                 command.worldConfig = (cast(*Rendering_Task_Sky)it).worldConfig;

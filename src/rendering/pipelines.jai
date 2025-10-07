@@ -1,3 +1,5 @@
+SHADOWMAP_SIZE :: 2000;
+
 Pipeline_Binding :: struct {
     pipeline    : sg_pipeline;
     bind        : sg_bindings;
@@ -5,7 +7,10 @@ Pipeline_Binding :: struct {
     pass_action : sg_pass_action;
 }
 
-g_specular_lut : sg_image;
+g_specular_lut  : sg_image;
+g_shadowmap     : sg_image;
+g_shadowmap_img : sg_image; // Apparently we are requried to have one of these, sigh... we don't use this.
+g_shadowmap_attachments : sg_attachments;
 
 gPipelines : struct {
 
@@ -28,12 +33,42 @@ gPipelines : struct {
 
 }
 
+create_shadowmap_image :: () {
+    w : s32 = SHADOWMAP_SIZE;
+    h : s32 = SHADOWMAP_SIZE;
+
+    if g_shadowmap.id != INVALID_ID then sg_destroy_image(g_shadowmap);
+
+    depth_desc := sg_image_desc.{
+        width = w,
+        height = h,
+        pixel_format = .DEPTH_STENCIL,
+        render_target = true,
+    };
+    img_desc := sg_image_desc.{
+        width = w,
+        height = h,
+        pixel_format = .RGBA8,
+        render_target = true,
+    };
+    g_shadowmap = sg_make_image(*depth_desc);
+    g_shadowmap_img = sg_make_image(*img_desc);
+    attachmentsDesc : sg_attachments_desc;
+	attachmentsDesc = .{
+	    colors[0].image = g_shadowmap_img,
+	   	depth_stencil.image = g_shadowmap,
+	};
+    sg_destroy_attachments(g_shadowmap_attachments);
+    g_shadowmap_attachments = sg_make_attachments(*attachmentsDesc);
+}
+
 create_pipelines :: () {
     create_arbtri_pipeline();
     create_trixel_pipeline();
     create_trile_pipeline();
     create_sky_pipeline();
     create_plane_pipeline();
+    create_shadowmap_image();
 }
 
 TRIXEL_SIZE_HALF : float : 1.0/32.0;

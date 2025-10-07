@@ -36,10 +36,7 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
     set_build_options_dc(.{do_output = false});
 
     make_directory_if_it_does_not_exist("dist", recursive = true);
-
-
     {
-
         process_result, output, error := run_command("cp", "-r", "./resources", "./dist/", working_directory=tprint("%", #filepath));
         
     
