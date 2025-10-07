@@ -259,7 +259,7 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	        groundType = .WATER;
 	    }
 		r.y += r.h;
-	    if GR.button(r, "Sand", *t_button_selectable(theme, groundType == .WATER)) {
+	    if GR.button(r, "Sand", *t_button_selectable(theme, groundType == .SAND)) {
 	        groundType = .SAND;
 	    }
 	}
