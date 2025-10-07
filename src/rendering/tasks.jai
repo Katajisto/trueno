@@ -6,6 +6,7 @@ Rendering_Task_Type :: enum {
     SKY;
     SET_CAMERA;
     TRILE;     // not implemented yet
+    TRIXELS;
     SPRITE;    // not implemented yet
     PARTICLES; // not implemented yet
 };
@@ -39,6 +40,12 @@ Rendering_Task_Trile :: struct {
     worldConf   : *World_Config;
 }
 
+Rendering_Task_Trixels :: struct {
+    #as using t : Rendering_Task;
+    t.type      = .TRIXELS;
+    trile       : *Trile;
+}
+
 Rendering_Task_Set_Camera :: struct {
     #as using t : Rendering_Task;
     camera      : Camera;
@@ -59,6 +66,16 @@ rendering_tasklist : [..]*Rendering_Task;
 tasks_to_commands :: () {
     for rendering_tasklist {
         if it.type == {
+            case .TRIXELS;
+                trixelsTask := (cast(*Rendering_Task_Trixels)it);
+                updateCommand := New(Render_Command_Update_Trixels,, temp);
+                updateCommand.trile = trixelsTask.trile;
+                array_add(*render_command_buckets.setup, updateCommand);
+                drawCommand := New(Render_Command_Draw_Trixels,, temp);
+                array_add(*render_command_buckets.main, drawCommand);
+                // Currently no need to draw trixels anywhere but the editor so no
+                // need for drawing them in the planar reflection pass...
+                // array_add(*render_command_buckets.reflection, drawCommand);
             case .TRILE;
                 trileTask := (cast(*Rendering_Task_Trile)it);
                 addPositionsCmd := New(Render_Command_Add_Trile_Positions,, temp);

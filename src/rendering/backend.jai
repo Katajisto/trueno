@@ -18,6 +18,8 @@ Render_Command_Type :: enum {
     GENERATE_GROUND;
     ADD_TRILE_POSITIONS;
     DRAW_TRILE_POSITIONS;
+    UPDATE_TRIXELS;
+    DRAW_TRIXELS;
 }
 
 Render_Command :: struct {
@@ -42,6 +44,17 @@ Render_Command_Draw_Trile_Positions :: struct {
     trile       : string;
     amount      : s32;
     conf        : *World_Config;
+}
+
+Render_Command_Update_Trixels :: struct {
+    #as using c : Render_Command;
+    c.type      = .UPDATE_TRIXELS;
+    trile       : *Trile;
+}
+
+Render_Command_Draw_Trixels :: struct {
+    #as using c : Render_Command;
+    c.type      = .DRAW_TRIXELS;
 }
 
 Render_Command_Draw_Ground :: struct {

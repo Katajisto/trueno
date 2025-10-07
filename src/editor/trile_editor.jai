@@ -254,87 +254,10 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
 
 
 draw_trile_editor :: () {
-
-    draw_trile();
-}
-
-draw_trile :: () {
-    return; // @ToDo: Implement this using the new drawing commands.
-    if is_in_reflection_pass then return; // We don't want to double update the buffer.
-
-    if editor_current_trile == null then return;
-    cam := get_trile_editor_camera();
-    
-    mvp := create_viewproj(*cam);
-    vs_params : Vs_Params;
-    vs_params.mvp = mvp.floats;
-    vs_params.camera = cam.position.component;
-
-    world_conf : Trixel_World_Config;
-    wc : *World_Config = *(World_Config.{});
-    world_config_to_shader_type(wc, *world_conf);
-    
-    trixels : [4096]Position_Color;
-
-    min_distance     : float = 999.0;
-
-
-    ray := get_mouse_ray(*cam);
-
-    hovered_trixel_x = -1;
-    hovered_trixel_y = -1;
-    hovered_trixel_z = -1;
-
-    for x: 0..15 {
-        for y: 0..15 {
-            for z: 0..15 {
-                if editor_current_trile.trixels[x][y][z].empty then continue;
-                hit := does_ray_hit_cube(ray, .{ .{x * TRIXEL_SIZE, y * TRIXEL_SIZE, z * TRIXEL_SIZE}, .{TRIXEL_SIZE, TRIXEL_SIZE, TRIXEL_SIZE}});
-                if hit.hit && hit.distance < min_distance {
-                    hovered_trixel_x = x;
-                    hovered_trixel_y = y;
-                    hovered_trixel_z = z;
-                    min_distance = hit.distance;
-                }
-            }
-        }
-    }
-
-    trixel_count : s32 = 0;
-
-    for x: 0..15 {
-        for y: 0..15 {
-            for z: 0..15 {
-                if editor_current_trile.trixels[x][y][z].empty then continue;
-
-                trixels[trixel_count].pos.x = x * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                trixels[trixel_count].pos.y = y * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                trixels[trixel_count].pos.z = z * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                trixels[trixel_count].pos.w = 1.0;
-                trixel_color := editor_current_trile.trixels[x][y][z].material.color;
-
-                if  hovered_trixel_x == x &&
-                    hovered_trixel_y == y &&
-                    hovered_trixel_z == z {
-                    trixel_color = .{1.0, 0.0, 0.0};        
-                }
-                
-                trixels[trixel_count].col = .{trixel_color.x, trixel_color.y, trixel_color.z, material_encode_to_float(editor_current_trile.trixels[x][y][z].material)};
-                trixel_count += 1;
-            }
-        }
-    }
-
-    sg_update_buffer(gPipelines.trixel.bind.vertex_buffers[2], *(sg_range.{
-        ptr = trixels.data,
-        size = size_of(type_of(trixels)),
-    }));
-
-    sg_apply_pipeline(gPipelines.trixel.pipeline);
-    sg_apply_bindings(*gPipelines.trixel.bind);
-    sg_apply_uniforms(UB_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
-    sg_apply_uniforms(UB_trixel_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
-    sg_draw(0, 36, trixel_count);
+    create_set_cam_rendering_task(get_trile_editor_camera());
+    w :=  New(World,, temp);
+    create_sky_rendering_task(*w.conf);
+    create_trixel_rendering_task(editor_current_trile);
 }
 
 trile_editor_shortcuts :: () {

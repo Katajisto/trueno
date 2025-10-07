@@ -1,5 +1,7 @@
 camera: Camera;
 
+trixel_count : s32 = 0;
+
 trile_offsets : [..]s32;
 current_trile_offset_index : s32 = 0;
 
@@ -23,8 +25,60 @@ backend_handle_command :: (cmd: *Render_Command) {
         case .DRAW_GROUND;
             ground_command := cast(*Render_Command_Draw_Ground)cmd;
             backend_draw_ground(ground_command.worldConfig);
-
+        case .UPDATE_TRIXELS;
+            trixel_update_command := cast(*Render_Command_Update_Trixels)cmd;
+            backend_update_trixels(trixel_update_command.trile);
+        case .DRAW_TRIXELS;
+            backend_draw_trixels();
     }
+}
+
+backend_update_trixels :: (trile: *Trile) {
+    if trile == null then return;
+    
+    trixels : [4096]Position_Color;
+    trixel_count = 0;
+
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                if trile.trixels[x][y][z].empty then continue;
+
+                trixels[trixel_count].pos.x = x * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[trixel_count].pos.y = y * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[trixel_count].pos.z = z * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[trixel_count].pos.w = 1.0;
+                trixel_color := trile.trixels[x][y][z].material.color;
+                
+                trixels[trixel_count].col = .{trixel_color.x, trixel_color.y, trixel_color.z, material_encode_to_float(trile.trixels[x][y][z].material)};
+                trixel_count += 1;
+            }
+        }
+    }
+
+    sg_update_buffer(gPipelines.trixel.bind.vertex_buffers[2], *(sg_range.{
+        ptr = trixels.data,
+        size = size_of(type_of(trixels)),
+    }));
+}
+
+backend_draw_trixels :: () {
+    if trixel_count == 0 then return;
+
+    mvp := create_viewproj(*camera);
+    vs_params : Vs_Params;
+    vs_params.mvp = mvp.floats;
+    vs_params.camera = camera.position.component;
+
+    world_conf : Trixel_World_Config;
+    wc : *World_Config = *(World_Config.{});
+    world_config_to_shader_type(wc, *world_conf);
+    
+    sg_apply_pipeline(gPipelines.trixel.pipeline);
+    sg_apply_bindings(*gPipelines.trixel.bind);
+    sg_apply_uniforms(UB_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
+    sg_apply_uniforms(UB_trixel_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
+    sg_draw(0, 36, trixel_count);
 }
 
 backend_add_trile_positions :: (positions : []Vector4) {
