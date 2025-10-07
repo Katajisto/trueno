@@ -16,6 +16,8 @@ Render_Command_Type :: enum {
     SET_CAMERA;
     DRAW_GROUND;
     GENERATE_GROUND;
+    ADD_TRILE_POSITIONS;
+    DRAW_TRILE_POSITIONS;
 }
 
 Render_Command :: struct {
@@ -24,21 +26,39 @@ Render_Command :: struct {
 
 Render_Command_Sky :: struct {
     #as using c : Render_Command;
+    c.type      = .DRAW_SKY;
     worldConfig : *World_Config;
+}
+
+Render_Command_Add_Trile_Positions :: struct {
+    #as using c : Render_Command;
+    c.type      = .ADD_TRILE_POSITIONS;
+    positions   : []Vector4;
+}
+
+Render_Command_Draw_Trile_Positions :: struct {
+    #as using c : Render_Command;
+    c.type      = .DRAW_TRILE_POSITIONS;
+    trile       : string;
+    amount      : s32;
+    conf        : *World_Config;
 }
 
 Render_Command_Draw_Ground :: struct {
     #as using c : Render_Command;
+    c.type      = .DRAW_GROUND;
     worldConfig : *World_Config;
 }
 
 Render_Command_Generate_Ground_Texture :: struct {
     #as using c : Render_Command;
+    c.type      = .GENERATE_GROUND;
     world : *World;
 }
 
 Render_Command_Set_Camera :: struct {
     #as using c : Render_Command;
+    c.type      = .SET_CAMERA;
     camera: Camera;
 }
 

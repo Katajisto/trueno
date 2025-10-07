@@ -333,48 +333,13 @@ tick_level_editor :: () {
 	}
 }
 
-draw_world_triles :: (cam: *Camera, world: *World) {
-	mvp := create_viewproj(cam);
-
-	vs_params : Trile_Vs_Params;
-	vs_params.mvp = mvp.floats;
-    vs_params.camera = cam.position.component;
-
-	sg_apply_pipeline(gPipelines.trile.pipeline);
-    world_conf : Trile_World_Config;
-    world_config_to_shader_type(*world.conf, *world_conf);
-		
+draw_world_triles :: (world: *World) {
 	for world.positions {
-		// @ToDo: This fucking sucks. We are appending 4096 Vector4s to the
-		// instance buffer per trile type in level even if there is only one
-		// trile of that type. Should be an easy fix, fix at the latest when
-		// making a reusable version of trile rendering.
-		positions : [4096]Vector4;
-		trilegfx := get_trile_gfx(it.trileName);
-		idx : s32 = 0;
-		for pos : it.positions {
-			positions[idx] = pos;
-			idx += 1;
-		}
-
-	    offset := sg_append_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
-	        ptr = positions.data,
-	        size = size_of(type_of(positions)),
-	    }));
-
-		bindings : sg_bindings;
-		bindings.vertex_buffers[0]         = trilegfx.vertex_buffer;
-		bindings.vertex_buffers[1]         = trilegfx.normal_buffer;
-		bindings.vertex_buffers[2]         = trilegfx.centre_buffer;
-		bindings.vertex_buffers[3]         = gPipelines.trile.bind.vertex_buffers[3];
-		bindings.vertex_buffer_offsets[3]  = offset;
-	    bindings.samplers[0]               = gPipelines.trile.bind.samplers[0];
-		bindings.images[0]                 = trilegfx.trixel_colors;
-		
-		sg_apply_bindings(*bindings);
-		sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
-	    sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
-		sg_draw(0, cast(s32) trilegfx.vertex_count, idx);
+		triletask := Rendering_Task_Trile.{};
+		triletask.trile = it.trileName;
+		triletask.positions = it.positions;
+		triletask.worldConf = *world.conf;
+		add_rendering_task(triletask);
 	}
 }
 
@@ -385,7 +350,7 @@ draw_level_editor :: () {
 	add_rendering_task(skytask);
 	groundtask := Rendering_Task_Ground.{type = .GROUND, world = *world};
 	add_rendering_task(groundtask);
-	// draw_world_triles(*cam, *world);
+	draw_world_triles(*world);
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
