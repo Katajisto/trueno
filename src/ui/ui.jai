@@ -145,10 +145,6 @@ texture_load_from_memory :: (texture: *Ui_Texture, memory: []u8, srgb: bool, bui
 gScissor : Ui_Rect;
 gScissorActive : bool = false;
 
-get_render_size :: () -> (s32, s32) {
-    return 700, 700;
-}
-
 set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32)  {
     arb_tri_command_add(.{ type = .SET_SCISSOR, scissor = .{x0, y0, x1 - x0, y1 - y0}});
 }

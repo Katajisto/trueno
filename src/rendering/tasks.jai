@@ -2,13 +2,13 @@
 
 Rendering_Task_Type :: enum {
     INVALID;
-    GROUND;
+    GROUND;    // We need to add an ability to invalidate buffer here too.
     SKY;
     SET_CAMERA;
-    TRILE;     // not implemented yet
+    TRILE;     // We need to add an ability to invalidate buffer instead of updating it constantly. Also probably have a buffer for static world triles and one for moving ones.
     TRIXELS;
-    SPRITE;    // not implemented yet
-    PARTICLES; // not implemented yet
+    SPRITE;    
+    PARTICLES; 
 };
 
 Rendering_Task :: struct {

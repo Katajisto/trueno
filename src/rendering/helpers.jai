@@ -30,3 +30,27 @@ create_set_cam_rendering_task :: (cam: Camera) {
     camtask := Rendering_Task_Set_Camera.{type = .SET_CAMERA, camera = cam};
     add_rendering_task(camtask);
 }
+
+get_low_res :: (width: s32, height: s32, max_dimension: s32 = 720) -> (s32, s32) {
+    if width == 0 || height == 0 {
+        return 0, 0;
+    }
+    aspect_ratio := cast(float)width / cast(float)height;
+    w: s32;
+    h: s32;
+    if width > height {
+        w = max_dimension;
+        h = cast(s32)floor(cast(float)w / aspect_ratio);
+    } else {
+        h = max_dimension;
+        w = cast(s32)floor(cast(float)h * aspect_ratio);
+    }
+       
+    return w, h;
+}
+
+get_render_size :: () -> (s32, s32) {
+	w,h := get_window_size();
+	wl, hl := get_low_res(w,h, 360);
+	return wl, hl;
+}

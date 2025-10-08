@@ -139,7 +139,7 @@ backend_draw_ground :: (wc: *World_Config) {
     vs_params : Plane_Vs_Params;
     world_conf : Plane_World_Config;
     plane_data : Plane_Data;
-    w, h := get_window_size();
+    w, h := get_render_size();
     plane_data.screen_w = w;
     plane_data.screen_h = h;
 
@@ -147,6 +147,8 @@ backend_draw_ground :: (wc: *World_Config) {
 
     vs_params.mvp = mvp.floats;
     sg_apply_pipeline(gPipelines.plane.pipeline);
+    gPipelines.plane.bind.samplers[2] = g_shadowmap_sampler;
+    gPipelines.plane.bind.images[2] = g_shadowmap;
     sg_apply_bindings(*gPipelines.plane.bind);
     sg_apply_uniforms(UB_plane_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
     sg_apply_uniforms(UB_plane_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
@@ -177,22 +179,30 @@ backend_process_command_buckets :: () {
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
 
     // 3. Main pass
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
+	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_rendertex_attachments}));
     for render_command_buckets.main {
         backend_handle_command(it);
     }
+	sg_end_pass();
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
-    // 3.2 Draw the UI. @ToDo: This should probably happen after post processing once we have that.
-    // Also, it's kind of stupid that this has it's own command system. It should be moved to using the
-    // same backend commands we are using for other rendering.
+   
+    // Begin main pass
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
+    
+    // Draw the render texture and do post processing:
+    sg_apply_pipeline(gPipelines.postprocess.pipeline);
+    gPipelines.postprocess.bind.images[0] = g_rendertex;
+    sg_apply_bindings(*gPipelines.postprocess.bind);
+    sg_draw(0, 6, 1);    
+
     sgl_defaults();
     sgl_matrix_mode_projection();
     sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
     arb_tri_flush();
 
     // End the main pass
-	sg_end_pass();
 
+	sg_end_pass();
 
     sg_commit();
 

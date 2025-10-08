@@ -69,8 +69,10 @@ layout(binding=2) uniform plane_data {
 
 layout(binding = 0) uniform texture2D reftex;
 layout(binding = 1) uniform texture2D groundtex;
+layout(binding = 2) uniform texture2D shadow;
 layout(binding = 0) uniform sampler refsmp;
 layout(binding = 1) uniform sampler groundsmp;
+layout(binding = 2) uniform sampler shadowsmp;
 
 float random (vec2 st) {
     return fract(sin(dot(st.xy,
@@ -139,6 +141,7 @@ void main() {
     vec3 c1 = get_ground_sample(npos, sign2(toCenter.x), 0.0);
     vec3 c2 = get_ground_sample(npos, 0.0, sign2(toCenter.y));
     vec3 c3 = get_ground_sample(npos, sign2(toCenter.x), sign2(toCenter.y));
+    float shadowp = texture(sampler2DShadow(shadow, shadowsmp), vec3(0,0,0));
 
     // @ToDo: Consider using cool Inigo Quilez trick here to make it even smoother.
     vec3 b01 = mix(c0, c1, u);
@@ -148,7 +151,7 @@ void main() {
     if(planeType == 1) {
         frag_color = vec4(bf, 1.0);
     } else {
-        frag_color = vec4(b23, 1.0);
+        frag_color = vec4(vec3(shadowp), 1.0);
     }
 }
 @end
