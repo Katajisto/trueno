@@ -24,6 +24,7 @@ old_h : int;
 
 on_window_resize :: () {
     create_plane_pipeline_reflection_images();
+    create_final_image();
 }
 
 #scope_export

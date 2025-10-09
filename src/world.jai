@@ -1,3 +1,43 @@
+#scope_file
+
+Pool :: #import "Pool";
+
+current_world : struct {
+    world : World;
+    pool  : Pool.Pool; // A memory pool to allocate stuff for the lifetime of this level being active.
+    valid : bool = false;
+};
+
+world_table :: Table(string, World);
+
+
+
+#scope_export 
+
+sworlds :: () {
+    Jaison :: #import "Jaison";
+    worlds : [..]World;
+    worlds.allocator = temp;
+    for v : world_table {
+        array_add(*worlds, v);
+    }
+    #if OS != .WASM {
+        file :: #import "File";
+        json := Jaison.json_write_string(worlds, " ");
+        file.write_entire_file("./game/resources/worlds.json", json); // @ToDo: it's quite likely that at some point having all of the worlds in one file will not be ok.
+    }
+} @Command
+
+lworlds :: () {
+    Jaison :: #import "Jaison";
+    s := load_string_from_pack("./game/resources/worlds.json");
+    success, worlds := Jaison.json_parse_string(s, [..]World,, temp);
+    for worlds {
+        set_trile(sprint("%",it.name), trile_from_serialize_form(it));
+        print("Loaded %\n", it.name);
+    }
+} @Command
+
 World_Config :: struct {
     // All of the @Notes are for the autoedit functionality.
     skyBase       : Vector3 = .{0.38, 0.81, 0.95}; @Color
@@ -41,13 +81,12 @@ TrilePositions :: struct {
 }
 
 Ground_Tile :: enum {
-    WATER;
-    GRASS;
-    SAND;
+    WATER = 0;
+    GRASS = 1;
+    SAND  = 2;
 }
 
 World :: struct {
-    // @ToDo: Add a pool into here so we allocate all of the world stuff in it's own pool.
     conf      : World_Config;
     positions : [..]TrilePositions;
     ground    : [1000][1000]Ground_Tile;

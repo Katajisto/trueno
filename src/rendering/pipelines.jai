@@ -66,7 +66,7 @@ create_final_image :: () {
 	    colors[0].image = g_rendertex,
 	   	depth_stencil.image = g_rendertex_depth,
 	};
-    // sg_destroy_attachments(g_rendertex_attachments);
+    sg_destroy_attachments(g_rendertex_attachments);
     g_rendertex_attachments = sg_make_attachments(*attachmentsDesc);
 }
 

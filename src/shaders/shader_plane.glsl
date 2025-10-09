@@ -112,7 +112,7 @@ vec3 get_ground_sample(vec4 pos, float dirX, float dirY) {
     vec4 groundSample = texelFetch(sampler2D(groundtex, groundsmp), plane_coord, 0);
     
     // Calculate all materials so we can blend them.
-    vec3 water = reflection.xyz * vec3(0.0, 0.8, 0.8);
+    vec3 water = reflection.xyz * vec3(0.95, 1.0, 0.95);
     vec3 sand  = vec3(mix(0.8, 1.0, hash12(pos.xz)) * vec3(0.8, 0.7, 0.5));
     vec3 grass = vec3(mix(0.8, 1.0, hash12(pos.xz)) * vec3(0.4, 0.8, 0.3));
 

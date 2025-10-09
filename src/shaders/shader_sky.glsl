@@ -75,21 +75,6 @@ float fbm(vec3 p)
     return f;
 }
 
-vec3 filmic_aces(vec3 v)
-{
-    v = v * mat3(
-        0.59719f, 0.35458f, 0.04823f,
-        0.07600f, 0.90834f, 0.01566f,
-        0.02840f, 0.13383f, 0.83777f
-    );
-    return (v * (v + 0.0245786f) - 9.0537e-5f) /
-        (v * (0.983729f * v + 0.4329510f) + 0.238081f) * mat3(
-        1.60475f, -0.53108f, -0.07367f,
-        -0.10208f,  1.10813f, -0.00605f,
-        -0.00327f, -0.07276f,  1.07602f
-    );
-}
-
 vec3 sky(vec3 skypos, vec3 sunpos) {
 
     vec3 sunCol = sunDisk.xyz;
@@ -104,10 +89,10 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
     vec3 skyGradient = mix(baseSky, topSky, clamp(skypos.y * 2.0, 0.0, 0.7));
 
     vec3 final = skyGradient;
-    final += sunHalo.xyz * clamp((sDist - 0.95) * 10.0, 0.0, 0.8) * 0.2;
+    final += sunHalo.xyz * clamp((sDist - 0.97) * 10.0, 0.0, 0.8) * 1.0;
 
     // Sun disk
-    if(sDist > 0.9999) {
+    if(sDist > 0.999) {
         final = sunDisk.xyz;
     }
 
