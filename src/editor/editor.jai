@@ -1,4 +1,5 @@
 #load "console.jai";
+#load "postprocess.jai";
 #load "trile_editor.jai";
 #load "level_editor.jai";
 #load "iprof.jai";
@@ -15,6 +16,7 @@ Editor_View :: enum {
     Closed_Editor;
     Trile_Editor;
     Level_Editor; 
+    Post_Process_Editor;
 };
 
 current_editor_view : Editor_View = .Trile_Editor;
@@ -48,6 +50,10 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
         r.x -= r.w;
         if GR.button(r, "Trile editor", *t_button_selectable(theme, current_editor_view == .Trile_Editor)) 
             then current_editor_view = .Trile_Editor;
+        
+        r.x -= r.w;
+        if GR.button(r, "Post-process", *t_button_selectable(theme, current_editor_view == .Post_Process_Editor)) 
+            then current_editor_view = .Post_Process_Editor;
     
 
         if current_editor_view == {
@@ -55,6 +61,8 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
                 draw_trile_editor_ui(theme);
             case .Level_Editor;
                 draw_level_editor_ui(theme);
+            case .Post_Process_Editor;
+                draw_post_process_editor_ui(theme);
         }
     }
     draw_console(theme);
@@ -72,6 +80,8 @@ draw_editor :: () {
             draw_trile_editor();
         case .Level_Editor;
             draw_level_editor();
+        case .Post_Process_Editor;
+            draw_post_process_editor();
     }
     
 }
@@ -87,6 +97,8 @@ tick_editor_ui :: () {
                 tick_trile_editor();
             case .Level_Editor;
                 tick_level_editor();
+            case .Post_Process_Editor;
+                tick_post_process_editor();
         }
     }
 

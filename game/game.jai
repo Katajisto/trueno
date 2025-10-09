@@ -31,10 +31,6 @@ game_tick :: () {
 }
 
 game_draw :: () {
-	camtask := Rendering_Task_Set_Camera.{type = .SET_CAMERA, camera = cam};
-	add_rendering_task(camtask);
-	skytask := Rendering_Task_Sky.{type = .SKY, worldConfig = *world.conf};
-	add_rendering_task(skytask);
-	groundtask := Rendering_Task_Ground.{type = .GROUND, world = *world};
-	add_rendering_task(groundtask);
+	create_set_cam_rendering_task(cam);
+	create_world_rendering_tasks(*world);
 }

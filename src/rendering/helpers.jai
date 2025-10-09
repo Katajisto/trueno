@@ -51,6 +51,6 @@ get_low_res :: (width: s32, height: s32, max_dimension: s32 = 720) -> (s32, s32)
 
 get_render_size :: () -> (s32, s32) {
 	w,h := get_window_size();
-	wl, hl := get_low_res(w,h, 360);
-	return wl, hl;
+	// wl, hl := get_low_res(w,h, 360);
+	return w, h;
 }
