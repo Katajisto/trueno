@@ -497,7 +497,6 @@ create_arbtri_pipeline :: () {
     pipeline.layout.attrs[ATTR_triangle_uv]       = .{ format = .FLOAT2 };
 
     color_state := sg_color_target_state.{
-        pixel_format = .RGBA8,
         blend = .{
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
@@ -532,7 +531,6 @@ create_postprocess_pipeline :: () {
     pipeline.index_type = .UINT16;
 
     color_state := sg_color_target_state.{
-        pixel_format = .RGBA8,
         blend = .{
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
