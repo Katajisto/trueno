@@ -46,8 +46,6 @@ pointerHit : bool;
 pointerX   : s32;
 pointerY   : s32;
 
-world : World;
-
 show_trile_preview : bool = true;
 trile_preview_x    : int  = 0;
 trile_preview_y    : int  = 0;
@@ -85,8 +83,6 @@ get_level_editor_camera :: () -> Camera {
 
 tick_level_editor_camera :: () {
     if console_open_ignore_input then return;
-
-	world.ground[500][500] = .GRASS;
 
 	if get_time() - lastInputTime > CAMERA_INACTIVE_TIME_TO_ORBIT { // idle rotating camera
 		cameraRotation += cast(float) delta_time;
@@ -176,12 +172,13 @@ tick_level_editor_camera :: () {
 }
 
 draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
+	curworld := get_current_world();
 	r := total_r;
 	r.h = ui_h(3,0);
 	#if HAS_TACOMA {
 		if GR.button(r, "Render with Tacoma", *theme.button_theme) {
 			cam := get_level_editor_camera();
-			gen_reference(tacomaResolution, tacomaResolution, .{tacomaExposure, tacomaContrast, tacomaSaturation}, .{cam.target, cam.position, tacomaSamples, true}, world);
+			gen_reference(tacomaResolution, tacomaResolution, .{tacomaExposure, tacomaContrast, tacomaSaturation}, .{cam.target, cam.position, tacomaSamples, true}, curworld.world.*);
 		}
 		r.y += r.h;
 		if current_screenshot.valid {
@@ -266,6 +263,7 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 }
 
 handle_tool_click :: (x: int, y: int, z: int) {
+	curworld := get_current_world();
 	if editMode == {
 		case .TRILES;
 			if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
@@ -273,13 +271,14 @@ handle_tool_click :: (x: int, y: int, z: int) {
 			ray := get_mouse_ray(*get_level_editor_camera());
 			hit, point := ray_plane_collision_point(ray, 0, 100);
 		if hit {
-				world.ground[floor(point.y).(int) + 500][floor(point.x).(int) + 500] = groundType;
+				curworld.world.ground[floor(point.y).(int) + 500][floor(point.x).(int) + 500] = groundType;
 			}
 	}
 
 } 
 
 add_trile :: (name: string, x: float, y: float, z: float) {
+	curworld := get_current_world();
 
 	loose_float_comp :: (a: float, b: float) -> bool {
 		return abs(a-b) < 0.001;
@@ -288,7 +287,7 @@ add_trile :: (name: string, x: float, y: float, z: float) {
 	// Check if the position is already occupied. @ToDo: we would probably like to
 	// have some acceleration structure like a hashmap to speed up this check when
 	// we are checking for collisions.
-	for world.positions {
+	for curworld.world.positions {
 		for v, idx: it.positions {
 			if loose_float_comp(v.x, x)
 			&& loose_float_comp(v.y, y)
@@ -299,7 +298,7 @@ add_trile :: (name: string, x: float, y: float, z: float) {
 		}
 	}
 	
-	for world.positions {
+	for curworld.world.positions {
 		if it.trileName == name {
 			array_add(*it.positions, Vector4.{x,y,z,1});
 			return;
@@ -310,7 +309,7 @@ add_trile :: (name: string, x: float, y: float, z: float) {
 	};
 	
 	array_add(*poses.positions, Vector4.{x,y,z,1});
-	array_add(*world.positions, poses);
+	array_add(*curworld.world.positions, poses);
 } @Command
 
 
@@ -334,8 +333,10 @@ tick_level_editor :: () {
 }
 
 draw_level_editor :: () {
+	curworld := get_current_world();
+	if !curworld.valid then return;
 	create_set_cam_rendering_task(get_level_editor_camera());
-	create_world_rendering_tasks(*world);
+	create_world_rendering_tasks(curworld.world);
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
@@ -359,13 +360,14 @@ draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
     }
     r.y += tab_r.h;
 
+	curworld := get_current_world();
     if current_tab == {
 		case .TOOLS;
 			draw_tools_tab(theme, r);
         case .TACOMA;
 			draw_tacoma_tab(theme, r);
 		case .INFO;
-			autoedit(r, *world.conf, theme);
+			if curworld.valid then autoedit(r, *curworld.world.conf, theme);
     }
 	draw_trile_picker(theme);
 }

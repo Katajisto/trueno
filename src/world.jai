@@ -2,17 +2,37 @@
 
 Pool :: #import "Pool";
 
-current_world : struct {
-    world : World;
+Current_World :: struct {
+    world : *World;
     pool  : Pool.Pool; // A memory pool to allocate stuff for the lifetime of this level being active.
     valid : bool = false;
 };
 
-world_table : Table(string, World);
-
-
+current_world : Current_World;
+world_table   : Table(string, World);
 
 #scope_export 
+
+nworld :: (name: string) {
+    w : World;
+    table_set(*world_table, name, w);
+} @Command;
+
+lworld :: (name: string) {
+    if current_world.valid {
+        Pool.reset(*current_world.pool);
+    } else {
+        Pool.set_allocators(*current_world.pool);
+    }
+
+    worldptr := table_find_pointer(*world_table, name);
+    current_world.world = worldptr;
+    current_world.valid = true;
+} @Command;
+
+get_current_world :: () -> *Current_World {
+    return *current_world;
+}
 
 sworlds :: () {
     Jaison :: #import "Jaison";
@@ -87,6 +107,7 @@ Ground_Tile :: enum {
 }
 
 World :: struct {
+    name      : string;
     conf      : World_Config;
     positions : [..]TrilePositions;
     ground    : [1000][1000]Ground_Tile;

@@ -10,16 +10,8 @@ cam : Camera = .{
 	position = .{3.0, 5.0, 3.0}
 };
 
-world : World;
-
 #scope_export
 game_init :: () {
-	world.ground[500][500] = .GRASS;
-	world.ground[500][501] = .GRASS;
-	world.ground[500][499] = .GRASS;
-	world.ground[499][500] = .GRASS;
-	world.ground[500][500] = .GRASS;
-	world.ground[501][500] = .GRASS;
 }
 
 game_ui :: () {
@@ -32,5 +24,6 @@ game_tick :: () {
 
 game_draw :: () {
 	create_set_cam_rendering_task(cam);
-	create_world_rendering_tasks(*world);
+	curworld := get_current_world();
+	if curworld.valid then create_world_rendering_tasks(curworld.world);
 }
