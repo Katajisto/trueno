@@ -8,7 +8,7 @@ current_world : struct {
     valid : bool = false;
 };
 
-world_table :: Table(string, World);
+world_table : Table(string, World);
 
 
 
@@ -33,8 +33,8 @@ lworlds :: () {
     s := load_string_from_pack("./game/resources/worlds.json");
     success, worlds := Jaison.json_parse_string(s, [..]World,, temp);
     for worlds {
-        set_trile(sprint("%",it.name), trile_from_serialize_form(it));
-        print("Loaded %\n", it.name);
+        // set_trile(sprint("%",it.name), trile_from_serialize_form(it));
+        // print("Loaded %\n", it.name);
     }
 } @Command
 
@@ -81,9 +81,9 @@ TrilePositions :: struct {
 }
 
 Ground_Tile :: enum {
-    WATER = 0;
-    GRASS = 1;
-    SAND  = 2;
+    WATER;
+    GRASS;
+    SAND;
 }
 
 World :: struct {

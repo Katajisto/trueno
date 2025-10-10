@@ -544,10 +544,10 @@ create_postprocess_pipeline :: () {
     gPipelines.postprocess.pipeline = sg_make_pipeline(*pipeline);
 
     quad_vertices : [16]float = .[
-        -1.0,  1.0, 0.0, 1.0, // top-let
-        -1.0, -1.0, 0.0, 0.0, // bottom-let
-         1.0, -1.0, 1.0, 0.0, // bottom-right
-         1.0,  1.0, 1.0, 1.0, // top-right
+        -1.0,  1.0, 0.0, flip_if_plat(1.0), // top-let
+        -1.0, -1.0, 0.0, flip_if_plat(0.0), // bottom-let
+         1.0, -1.0, 1.0, flip_if_plat(0.0), // bottom-right
+         1.0,  1.0, 1.0, flip_if_plat(1.0), // top-right
     ];
     quad_indices  : [6]u16 = .[
         0, 1, 2, 0, 2, 3

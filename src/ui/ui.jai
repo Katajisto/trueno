@@ -253,9 +253,9 @@ immediate_triangle :: (p0: Vector3, p1: Vector3, p2: Vector3, c0 := Vector4.{1,1
         tri.uv[1] = nullUV;
         tri.uv[2] = nullUV;
     } else {
-        tri.uv[0] = uv0;
-        tri.uv[1] = uv1;
-        tri.uv[2] = uv2;
+        tri.uv[0] = flip_y_if_plat(uv0);
+        tri.uv[1] = flip_y_if_plat(uv1);
+        tri.uv[2] = flip_y_if_plat(uv2);
     }
 
     arb_tri_add(tri);

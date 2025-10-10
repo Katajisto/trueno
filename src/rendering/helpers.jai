@@ -54,3 +54,18 @@ get_render_size :: () -> (s32, s32) {
 	// wl, hl := get_low_res(w,h, 360);
 	return w, h;
 }
+
+flip_y_if_plat :: inline (v: Vector2) -> Vector2 {
+    return .{v.x, flip_if_plat(v.y)};
+}
+
+// Some platforms draw UVs in weird reverse way
+// so this function here does the flip on those platforms
+// so we don't need to do the platform check in many places.
+flip_if_plat :: inline (n: float) -> float {
+    #if OS == .MACOS {
+        return 1 - n;
+    } else {
+        return n; 
+    }
+}
