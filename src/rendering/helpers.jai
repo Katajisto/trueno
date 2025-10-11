@@ -16,6 +16,7 @@ create_world_rendering_tasks :: (world: *World) {
     create_sky_rendering_task(*world.conf);
     create_ground_rendering_task(world);
     for world.positions {
+        if it.positions.count < 1 then continue;
 		triletask := Rendering_Task_Trile.{};
 		triletask.trile = it.trileName;
 		triletask.positions = it.positions;

@@ -36,11 +36,10 @@ get_current_world :: () -> *Current_World {
 }
 
 sworlds :: () {
-    Jaison :: #import "Jaison";
-    worlds : [..]World;
+    worlds : [..]World_Serialized;
     worlds.allocator = temp;
     for v : world_table {
-        array_add(*worlds, v);
+        array_add(*worlds, serialize_world(*v,, temp));
     }
     #if OS != .WASM {
         file :: #import "File";
@@ -50,12 +49,13 @@ sworlds :: () {
 } @Command
 
 lworlds :: () {
-    Jaison :: #import "Jaison";
     s := load_string_from_pack("./game/resources/worlds.json");
-    success, worlds := Jaison.json_parse_string(s, [..]World,, temp);
+    success, worlds := Jaison.json_parse_string(s, [..]World_Serialized,, temp);
     for worlds {
-        // set_trile(sprint("%",it.name), trile_from_serialize_form(it));
-        // print("Loaded %\n", it.name);
+        w : World;
+        deserialize_world(*it, *w);
+        table_set(*world_table, w.name, w);
+        print("Loaded world: %\n", w.name);
     }
 } @Command
 
@@ -101,10 +101,10 @@ TrilePositions :: struct {
     positions: [..]Vector4;
 }
 
-Ground_Tile :: enum {
-    WATER;
-    GRASS;
-    SAND;
+Ground_Tile :: enum u8 {
+    WATER :: 0;
+    GRASS :: 1;
+    SAND  :: 2;
 }
 
 World :: struct {
@@ -112,6 +112,69 @@ World :: struct {
     conf      : World_Config;
     positions : [..]TrilePositions;
     ground    : [1000][1000]Ground_Tile;
+}
+
+Trile_Positions_Serialized :: struct {
+    trileName : string;
+    positions : [..]float;
+}
+
+World_Serialized :: struct {
+    name      : string;
+    conf      : World_Config;
+    positions : [..]Trile_Positions_Serialized;
+    ground    : string;
+}
+
+// You should call this function with the temp allocator as context allocator.
+serialize_world :: (world: *World) -> World_Serialized {
+    ws : World_Serialized;
+    ws.name = world.name;
+    ws.conf = world.conf;
+    for world.positions {
+        tsp : Trile_Positions_Serialized;
+        tsp.trileName = it.trileName;
+        for v: it.positions {
+            array_add(*tsp.positions, v.x);
+            array_add(*tsp.positions, v.y);
+            array_add(*tsp.positions, v.z);
+            array_add(*tsp.positions, v.w);
+        }
+        array_add(*ws.positions, tsp);
+    }
+
+    groundstring : [..]u8;
+    for i: 0..999 {
+        for j: 0..999 {
+            array_add(*groundstring, (cast(u8) world.ground[i][j]) + #char "a");
+        }
+    }
+    ws.ground.data = groundstring.data;
+    ws.ground.count = groundstring.count;
+    return ws;
+}
+
+deserialize_world :: (ws: *World_Serialized, world: *World) {
+    world.name = sprint("%", ws.name); // It's important that we re-store everything since the serialization is going to temp and gets freed.
+    world.conf = ws.conf;
+
+    for ws.positions {
+        tp : TrilePositions;
+        tp.trileName = sprint("%", it.trileName);
+        for i : 0..it.positions.count/4-1 {
+            v: Vector4;
+            v.x = it.positions[i*4+0];
+            v.y = it.positions[i*4+1];
+            v.z = it.positions[i*4+2];
+            v.w = it.positions[i*4+3];
+            array_add(*tp.positions, v);
+        }
+        array_add(*world.positions, tp);
+    }
+
+    for c, ci : ws.ground {
+        world.ground[ci/1000][ci%1000] = cast(Ground_Tile)((cast(u8)c)-#char "a");
+    }
 }
 
 update_image_from_ground :: (world: *World, img: *sg_image) {

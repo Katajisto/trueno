@@ -262,11 +262,15 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	}
 }
 
-handle_tool_click :: (x: int, y: int, z: int) {
+handle_tool_click :: (x: int, y: int, z: int, delete: bool = false) {
 	curworld := get_current_world();
 	if editMode == {
 		case .TRILES;
-			if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
+			if delete {
+				remove_trile(cast(float)x, cast(float)y, cast(float)z);
+			} else {
+				if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
+			}
 		case .GROUND;
 			ray := get_mouse_ray(*get_level_editor_camera());
 			hit, point := ray_plane_collision_point(ray, 0, 100);
@@ -312,6 +316,25 @@ add_trile :: (name: string, x: float, y: float, z: float) {
 	array_add(*curworld.world.positions, poses);
 } @Command
 
+remove_trile :: (x: float, y: float, z: float) {
+	curworld := get_current_world();
+
+	loose_float_comp :: (a: float, b: float) -> bool {
+		return abs(a-b) < 0.001;
+	}
+
+	for curworld.world.positions {
+		for v, idx: it.positions {
+			if loose_float_comp(v.x, x)
+			&& loose_float_comp(v.y, y)
+			&& loose_float_comp(v.z, z) {
+				array_unordered_remove_by_index(*it.positions, idx);
+				break;
+			}
+		}
+	}
+} @Command
+
 
 
 tick_level_editor :: () {
@@ -328,6 +351,9 @@ tick_level_editor :: () {
 
 		if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
 			handle_tool_click(xx floor(point.x), xx editY, xx floor(point.y));
+		}
+		if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .START {
+			handle_tool_click(xx floor(point.x), xx editY, xx floor(point.y), true);
 		}
 	}
 }

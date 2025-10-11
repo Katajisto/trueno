@@ -50,6 +50,15 @@ ntrile :: (name: string) {
     editor_current_trile = get_trile(newt.name);
 } @Command
 
+cpytrile :: (trile: string, destination: string) {
+    set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
+    newt : Trile;
+    newt.name = sprint("%", destination);
+    newt.trixels = get_trile(trile).trixels;
+    set_trile(newt.name, newt);
+    editor_current_trile = get_trile(newt.name);
+} @Command
+
 ltrile :: (name: string) {
     set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
     nt := get_trile(name);

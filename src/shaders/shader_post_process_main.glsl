@@ -44,6 +44,8 @@ void main() {
     }
     // tonemapped *= pow(2.0, exposure);
     vec3 gammaCorrected = pow(tonemapped, vec3(1.0/gamma));
+    gammaCorrected.rgb = ((gammaCorrected.rgb - 0.5f) * max(contrast, 0)) + 0.5f;
+    gammaCorrected.rgb += exposure;
     
     frag_color = vec4(gammaCorrected, 1.0);
 }

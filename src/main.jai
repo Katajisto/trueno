@@ -10,7 +10,9 @@ MEM_DEBUG :: false;
 #import "Hash_Table";
 #import "Hash";
 #import "Simple_Package_Reader";
-stbi  :: #import "stb_image";
+
+Jaison :: #import "Jaison";
+stbi   :: #import "stb_image";
 
 #load "trile.jai";
 #load "rendering/rendering.jai";
@@ -110,6 +112,8 @@ init_after_asset_pack :: () {
     }
     init_editor();
     game_init();
+    lworlds();
+    load_post_process_from_pack();
 }
 
 is_in_reflection_pass : bool = false;

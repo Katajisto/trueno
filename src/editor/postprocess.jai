@@ -27,5 +27,18 @@ draw_post_process_editor_ui :: (theme: *GR.Overall_Theme) {
     r := GR.get_rect(0, ui_h(5,0), ui_w(20, 20), ui_h(95, 0));
 	ui_add_mouse_occluder(r);
     draw_bg_rectangle(r, theme);
+    
+    r2 := r;
+    r2.h =  ui_h(5,0);
+    r.h -= r2.h;
+    r.y += r2.h;
+    if GR.button(r2, "Save postprocessing", *theme.button_theme) {
+        #if OS != .WASM {
+            file :: #import "File";
+            json := Jaison.json_write_string(current_post_process, " ");
+            file.write_entire_file("./game/resources/postprocess.json", json);
+        }
+    }
+
     autoedit(r, *current_post_process, theme);
 }
