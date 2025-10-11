@@ -14,12 +14,6 @@ Tacoma_Screenshot :: struct {
 
 current_screenshot : Tacoma_Screenshot;
 
-Post_Process :: struct {
-    exposure   : float;
-    contrast   : float;
-    saturation : float;
-}
-
 post_process_pipeline :: (color: Vector3, post_process: Post_Process) -> Vector3 {
     vec3 :: (f: float) -> Vector3 {
         return .{f,f,f};

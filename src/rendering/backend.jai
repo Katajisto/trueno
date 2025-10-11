@@ -47,9 +47,10 @@ Render_Command_Draw_Trile_Positions :: struct {
 }
 
 Render_Command_Update_Trixels :: struct {
-    #as using c : Render_Command;
-    c.type      = .UPDATE_TRIXELS;
-    trile       : *Trile;
+    #as using c    : Render_Command;
+    c.type         = .UPDATE_TRIXELS;
+    trile          : *Trile;
+    colMultipliers : *[16][16][16]Vector3;
 }
 
 Render_Command_Draw_Trixels :: struct {

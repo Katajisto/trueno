@@ -1,3 +1,17 @@
+fill_uniform_with_engine_data :: (uniform: *$A, enginedata: *$B) {
+    generate_copy_code :: () -> string {
+        builder : String_Builder;
+        ti := type_info(A);
+        for ti.members {
+            if it.name == "_" then continue; // skip padding
+            if it.type == type_info(Vector3) then print_to_builder(*builder, "uniform.% = enginedata.%.component;\n", it.name, it.name);
+            else print_to_builder(*builder, "uniform.% = enginedata.%;\n", it.name, it.name);
+        }
+        return builder_to_string(*builder);
+    }
+    #insert #run,stallable generate_copy_code();
+}
+
 create_world_rendering_tasks :: (world: *World) {
     create_sky_rendering_task(*world.conf);
     create_ground_rendering_task(world);
@@ -15,8 +29,8 @@ create_sky_rendering_task :: (conf: *World_Config) {
 	add_rendering_task(skytask);
 }
 
-create_trixel_rendering_task :: (trile: *Trile) {
-	trixeltask := Rendering_Task_Trixels.{type = .TRIXELS, trile = trile};
+create_trixel_rendering_task :: (trile: *Trile, muls: *[16][16][16]Vector3) {
+	trixeltask := Rendering_Task_Trixels.{type = .TRIXELS, trile = trile, colMultipliers = muls};
 	add_rendering_task(trixeltask);
     
 }

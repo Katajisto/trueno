@@ -27,14 +27,14 @@ backend_handle_command :: (cmd: *Render_Command) {
             backend_draw_ground(ground_command.worldConfig);
         case .UPDATE_TRIXELS;
             trixel_update_command := cast(*Render_Command_Update_Trixels)cmd;
-            backend_update_trixels(trixel_update_command.trile);
+            backend_update_trixels(trixel_update_command);
         case .DRAW_TRIXELS;
             backend_draw_trixels();
     }
 }
 
-backend_update_trixels :: (trile: *Trile) {
-    if trile == null then return;
+backend_update_trixels :: (cmd: Render_Command_Update_Trixels) {
+    if cmd.trile == null then return;
     
     trixels : [4096]Position_Color;
     trixel_count = 0;
@@ -42,15 +42,15 @@ backend_update_trixels :: (trile: *Trile) {
     for x: 0..15 {
         for y: 0..15 {
             for z: 0..15 {
-                if trile.trixels[x][y][z].empty then continue;
+                if cmd.trile.trixels[x][y][z].empty then continue;
 
                 trixels[trixel_count].pos.x = x * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
                 trixels[trixel_count].pos.y = y * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
                 trixels[trixel_count].pos.z = z * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
                 trixels[trixel_count].pos.w = 1.0;
-                trixel_color := trile.trixels[x][y][z].material.color;
+                trixel_color := cmd.trile.trixels[x][y][z].material.color * (cmd.colMultipliers.*)[x][y][z];
                 
-                trixels[trixel_count].col = .{trixel_color.x, trixel_color.y, trixel_color.z, material_encode_to_float(trile.trixels[x][y][z].material)};
+                trixels[trixel_count].col = .{trixel_color.x, trixel_color.y, trixel_color.z, material_encode_to_float(cmd.trile.trixels[x][y][z].material)};
                 trixel_count += 1;
             }
         }
@@ -193,6 +193,9 @@ backend_process_command_buckets :: () {
     sg_apply_pipeline(gPipelines.postprocess.pipeline);
     gPipelines.postprocess.bind.images[0] = g_rendertex;
     sg_apply_bindings(*gPipelines.postprocess.bind);
+    post_process_config_uniform : Post_Process_Config;
+    fill_uniform_with_engine_data(*post_process_config_uniform , *current_post_process);
+    sg_apply_uniforms(UB_post_process_config, *(sg_range.{ ptr = *post_process_config_uniform, size = size_of(type_of(post_process_config_uniform)) }));
     sg_draw(0, 6, 1);    
 
     sgl_defaults();

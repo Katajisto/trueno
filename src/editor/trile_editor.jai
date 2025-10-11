@@ -38,6 +38,8 @@ current_tab  : Trile_Editor_Tab       = .TOOLSET;
 current_tool : Trile_Editor_Tool      = .PAINT;
 current_mode : Trile_Editor_Tool_Mode = .AREA;
 
+colorMuls : [16][16][16]Vector3;
+    
 #scope_export
 
 ntrile :: (name: string) {
@@ -141,6 +143,45 @@ tick_trile_editor :: () {
         handle_tool_click();
     }
     
+    mindist : float = 999999;
+    hovered_trixel_x = -1;
+    hovered_trixel_y = -1;
+    hovered_trixel_z = -1;
+
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                t := editor_current_trile.trixels[x][y][z];
+                if t.empty then continue;
+
+                cube : Collision_Cube;
+                cube.position = Vector3.{cast(float) x, cast(float) y, cast(float) z} * TRIXEL_SIZE;
+                cube.size     = Vector3.{1,1,1} * TRIXEL_SIZE;
+
+                ray := get_mouse_ray(*get_trile_editor_camera());
+                collision := does_ray_hit_cube(ray, cube);
+                if collision.hit && collision.distance < mindist {
+                    mindist = collision.distance;
+                    hovered_trixel_x = x;
+                    hovered_trixel_y = y;
+                    hovered_trixel_z = z;
+                }
+            }
+        }
+    }
+
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                if x == hovered_trixel_x && y == hovered_trixel_y && z == hovered_trixel_z {
+                    colorMuls[x][y][z] = .{0.6, 0.0, 0.0};
+                } else {
+                    colorMuls[x][y][z] = .{1.0, 1.0, 1.0};
+                }
+            }
+        }
+    }
+
     if !input_button_states[Key_Code.CTRL] & .DOWN {
         if input_button_states[#char "D"] & .DOWN {
             rotation += TRILE_ROTATION_SPEED * cast(float) delta_time;
@@ -257,7 +298,7 @@ draw_trile_editor :: () {
     create_set_cam_rendering_task(get_trile_editor_camera());
     w :=  New(World,, temp);
     create_sky_rendering_task(*w.conf);
-    create_trixel_rendering_task(editor_current_trile);
+    create_trixel_rendering_task(editor_current_trile, *colorMuls);
 }
 
 trile_editor_shortcuts :: () {
@@ -325,5 +366,5 @@ draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
             draw_tool_tab(theme, r);
     }
 
-    draw_trile_picker(theme);
+    draw_picker(theme);
 }

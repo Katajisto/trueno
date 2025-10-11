@@ -7,14 +7,15 @@
 
 */
 
-#load "tasks.jai";
 #load "sky.jai";
 #load "core.jai";
+#load "tasks.jai";
 #load "camera.jai";
-#load "pipelines.jai";
-#load "meshgen.jai";
 #load "arbtri.jai";
+#load "meshgen.jai";
 #load "helpers.jai";
+#load "pipelines.jai";
+#load "post_processing.jai";
 
 #scope_file
 
@@ -23,6 +24,7 @@ old_w : int;
 old_h : int;
 
 on_window_resize :: () {
+    // Recreate textures that are rendering targets and dependent on window size.
     create_plane_pipeline_reflection_images();
     create_final_image();
 }

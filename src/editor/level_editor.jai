@@ -369,5 +369,5 @@ draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
 		case .INFO;
 			if curworld.valid then autoedit(r, *curworld.world.conf, theme);
     }
-	draw_trile_picker(theme);
+	draw_picker(theme);
 }

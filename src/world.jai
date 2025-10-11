@@ -4,18 +4,19 @@ Pool :: #import "Pool";
 
 Current_World :: struct {
     world : *World;
-    pool  : Pool.Pool; // A memory pool to allocate stuff for the lifetime of this level being active.
+    pool  : Pool.Pool; // A memory pool to allocate stuff for the lifetime of this level being active. For example RDMs.
     valid : bool = false;
 };
 
 current_world : Current_World;
 world_table   : Table(string, World);
 
-#scope_export 
+#scope_export
 
 nworld :: (name: string) {
     w : World;
-    table_set(*world_table, name, w);
+    w.name = sprint("%", name);
+    table_set(*world_table, w.name, w);
 } @Command;
 
 lworld :: (name: string) {
@@ -146,4 +147,17 @@ update_image_from_ground :: (world: *World, img: *sg_image) {
     imgdata.subimage[0][0] = .{materialdata.data, materialdata.count};
 
     sg_update_image(img, *imgdata);
+}
+
+draw_world_picker :: (r_in: GR.Rect, theme: *GR.Overall_Theme) {
+    r   := r_in;
+	r.h = ui_h(4,4);
+	count := 0;
+	for v : world_table {
+		if GR.button(r, v.name, *t_button_selectable(theme, current_world.valid && current_world.world.name == v.name), count) {
+			lworld(v.name);
+		}
+		count += 1;
+		r.y += r.h;
+	}
 }

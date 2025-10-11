@@ -1,16 +1,13 @@
+#load "iprof.jai";
+#load "picker.jai";
 #load "console.jai";
 #load "postprocess.jai";
 #load "trile_editor.jai";
 #load "level_editor.jai";
-#load "iprof.jai";
 #load "textureDebugger.jai";
-
-#if HAS_TACOMA {
-    #load "tacoma.jai";
-}
+#if HAS_TACOMA { #load "tacoma.jai"; }
 
 #scope_file
-
 
 Editor_View :: enum {
     Closed_Editor;

@@ -41,9 +41,10 @@ Rendering_Task_Trile :: struct {
 }
 
 Rendering_Task_Trixels :: struct {
-    #as using t : Rendering_Task;
-    t.type      = .TRIXELS;
-    trile       : *Trile;
+    #as using t    : Rendering_Task;
+    t.type         = .TRIXELS;
+    colMultipliers : *[16][16][16]Vector3;
+    trile          : *Trile;
 }
 
 Rendering_Task_Set_Camera :: struct {
@@ -70,6 +71,7 @@ tasks_to_commands :: () {
                 trixelsTask := (cast(*Rendering_Task_Trixels)it);
                 updateCommand := New(Render_Command_Update_Trixels,, temp);
                 updateCommand.trile = trixelsTask.trile;
+                updateCommand.colMultipliers = trixelsTask.colMultipliers;
                 array_add(*render_command_buckets.setup, updateCommand);
                 drawCommand := New(Render_Command_Draw_Trixels,, temp);
                 array_add(*render_command_buckets.main, drawCommand);

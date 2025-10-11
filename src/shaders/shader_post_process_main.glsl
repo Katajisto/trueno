@@ -17,9 +17,35 @@ out vec4 frag_color;
 layout(binding = 0) uniform texture2D pptex;
 layout(binding = 0) uniform sampler ppsmp;
 
+layout(binding=0) uniform post_process_config {
+    float exposure;
+    float contrast;
+    float saturation;
+    float gamma;
+    float tonemap;
+};
+
+vec3 aces(vec3 x) {
+  const float a = 2.51;
+  const float b = 0.03;
+  const float c = 2.43;
+  const float d = 0.59;
+  const float e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
 void main() {
     vec4 sampled = texture(sampler2D(pptex, ppsmp), texcoord.xy);
-    frag_color = sampled;
+    vec3 tonemapped = aces(sampled.xyz);
+    if(tonemap > 0.5) {
+        tonemapped = aces(sampled.xyz);
+    } else {
+        tonemapped = sampled.xyz;
+    }
+    // tonemapped *= pow(2.0, exposure);
+    vec3 gammaCorrected = pow(tonemapped, vec3(1.0/gamma));
+    
+    frag_color = vec4(gammaCorrected, 1.0);
 }
 @end
 

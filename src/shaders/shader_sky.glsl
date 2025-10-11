@@ -114,7 +114,7 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
 
 void main() {
     vec3 dir = normalize(pos.xyz);
-    vec3 color = sky(dir, sunPosition);
+    vec3 color = skyIntensity * sky(dir, sunPosition);
     frag_color = vec4(color, 1.0);
 }
 @end
