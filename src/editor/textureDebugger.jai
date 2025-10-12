@@ -7,17 +7,13 @@ theme_ptr         : GR.Overall_Theme;
 
 current_pipeline : s32 = 0;
 current_slot     : s32 = 0;
-pipeline_names   : []string = .["arbtri", "trixel", "sky", "trile", "plane"];
-slot_names       : []string = .["Slot 1","Slot 2","Slot 3","Slot 4","Slot 5","Slot 6","Slot 7","Slot 8"];
+pipeline_names   : []string = .["shadowmap", "reflection", "main"];
 
 draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *void) {
     r2 := r;
     r2.h = ui_h(5,0);
-    r2.w = r.w * 0.75;
+    r2.w = r.w;
     GR.dropdown(r2, pipeline_names, *current_pipeline, *theme_ptr.dropdown_theme);
-    r2.x += r2.w;
-    r2.w = r.w * 0.25;
-    GR.dropdown(r2, slot_names, *current_slot, *theme_ptr.dropdown_theme);
 
     r2.y = r.y + r2.h;
     r2.h = r.h - r2.h;
@@ -26,16 +22,14 @@ draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *
 
     uiTex := New(Ui_Texture ,,temp);
 
-    bind : sg_bindings; 
+    image : sg_image; 
     if current_pipeline == {
-        case 0; bind = gPipelines.arbtri.bind;
-        case 1; bind = gPipelines.trixel.bind;
-        case 2; bind = gPipelines.sky.bind;
-        case 3; bind = gPipelines.trile.bind;
-        case 4; bind = gPipelines.plane.bind;
+        case 0; image = g_shadowmap_img;
+        case 1; image = gPipelines.plane.bind.images[0];
+        case 2; image = g_rendertex;
     }
     
-    uiTex.tex = bind.images[current_slot]; 
+    uiTex.tex = image; 
     
     if uiTex.tex.id != INVALID_ID {
     	set_shader_for_images(uiTex);

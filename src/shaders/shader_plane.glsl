@@ -15,7 +15,8 @@ out vec4 light_proj_pos;
 void main() {
     vec3 multisize = vec3(position.xyz * 1000.0);
     gl_Position = mvp * vec4(multisize, 1.0);
-    light_proj_pos = mvp_shadow * vec4(multisize, 1.0);
+    vec3 texelMultisize = round(multisize* 16.0) / 16.0;
+    light_proj_pos = mvp_shadow * vec4(texelMultisize, 1.0);
     // #if !SOKOL_GLSL
     //     light_proj_pos.y = -light_proj_pos.y;
     // #endif

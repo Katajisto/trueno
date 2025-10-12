@@ -7,6 +7,7 @@ current_trile_offset_index : s32 = 0;
 
 current_world_config : *World_Config = null;
 in_shadowmap_pass    : bool = false;
+shadow_mvp           : Matrix4;
 
 backend_handle_command :: (cmd: *Render_Command) {
     if cmd.type == {
@@ -101,6 +102,7 @@ backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World
         mvp = create_viewproj(*camera);
     } else {
         mvp = create_shadow_viewproj(*camera, worldConf);
+        shadow_mvp = mvp;
     }
 	vs_params : Trile_Vs_Params;
 	vs_params.mvp = mvp.floats;
@@ -147,8 +149,6 @@ backend_draw_sky :: (wc: *World_Config) {
 
 backend_draw_ground :: (wc: *World_Config) {
     mvp := create_viewproj(*camera);
-    mvp_shadow : Matrix4;
-    if current_world_config != null then mvp_shadow = create_shadow_viewproj(*camera, current_world_config);
     vs_params : Plane_Vs_Params;
     world_conf : Plane_World_Config;
     plane_data : Plane_Data;
@@ -158,7 +158,7 @@ backend_draw_ground :: (wc: *World_Config) {
 
     world_config_to_shader_type(wc, *world_conf);
 
-    vs_params.mvp_shadow = mvp_shadow.floats;
+    vs_params.mvp_shadow = shadow_mvp.floats;
     vs_params.mvp = mvp.floats;
     sg_apply_pipeline(gPipelines.plane.pipeline);
     gPipelines.plane.bind.samplers[2] = g_shadowmap_sampler;
