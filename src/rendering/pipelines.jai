@@ -461,8 +461,8 @@ create_plane_pipeline :: () {
     g_shadowmap_sampler = sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .CLAMP_TO_EDGE,
         wrap_v = .CLAMP_TO_EDGE,
-        min_filter = .NEAREST,
-        mag_filter = .NEAREST,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
         compare    = .LESS,
     }));
     

@@ -71,9 +71,8 @@ create_shadow_viewproj :: (cam: *Camera, conf: *World_Config) -> Matrix4 {
         max_v.y = max(max_v.y, transformed_corner.y);
         max_v.z = max(max_v.z, transformed_corner.z);
     }
-
-	max_v *= 3;
-	min_v *= 3;
+	max_v.xy = avg.xy + Vector2.{50, 50};
+	min_v.xy = avg.xy - Vector2.{50, 50};
 
     proj := matrix_ortho(min_v.x, max_v.x, min_v.y, max_v.y, -max_v.z-100, -min_v.z);
     return view*proj;
