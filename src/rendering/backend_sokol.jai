@@ -5,6 +5,9 @@ trixel_count : s32 = 0;
 trile_offsets : [..]s32;
 current_trile_offset_index : s32 = 0;
 
+current_world_config : *World_Config = null;
+in_shadowmap_pass    : bool = false;
+
 backend_handle_command :: (cmd: *Render_Command) {
     if cmd.type == {
         case .ADD_TRILE_POSITIONS;
@@ -30,6 +33,9 @@ backend_handle_command :: (cmd: *Render_Command) {
             backend_update_trixels(trixel_update_command);
         case .DRAW_TRIXELS;
             backend_draw_trixels();
+        case .SET_LIGHT;
+            set_light_command := cast(*Render_Command_Set_Light)cmd;
+            current_world_config = set_light_command.worldConfig;
     }
 }
 
@@ -90,7 +96,12 @@ backend_add_trile_positions :: (positions : []Vector4) {
 }
 
 backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World_Config) {
-	mvp := create_viewproj(*camera);
+	mvp : Matrix4;
+    if !in_shadowmap_pass {
+        mvp = create_viewproj(*camera);
+    } else {
+        mvp = create_shadow_viewproj(*camera, worldConf);
+    }
 	vs_params : Trile_Vs_Params;
 	vs_params.mvp = mvp.floats;
     vs_params.camera = camera.position.component;
@@ -136,6 +147,8 @@ backend_draw_sky :: (wc: *World_Config) {
 
 backend_draw_ground :: (wc: *World_Config) {
     mvp := create_viewproj(*camera);
+    mvp_shadow : Matrix4;
+    if current_world_config != null then mvp_shadow = create_shadow_viewproj(*camera, current_world_config);
     vs_params : Plane_Vs_Params;
     world_conf : Plane_World_Config;
     plane_data : Plane_Data;
@@ -145,6 +158,7 @@ backend_draw_ground :: (wc: *World_Config) {
 
     world_config_to_shader_type(wc, *world_conf);
 
+    vs_params.mvp_shadow = mvp_shadow.floats;
     vs_params.mvp = mvp.floats;
     sg_apply_pipeline(gPipelines.plane.pipeline);
     gPipelines.plane.bind.samplers[2] = g_shadowmap_sampler;
@@ -163,11 +177,15 @@ backend_process_command_buckets :: () {
     } 
 
     // 2. Shadow pass
-	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_shadowmap_attachments}));
-    for render_command_buckets.shadow {
-        backend_handle_command(it);
-    }    
-	sg_end_pass();
+    if current_world_config != null {
+        in_shadowmap_pass = true;
+    	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_shadowmap_attachments}));
+        for render_command_buckets.shadow {
+            backend_handle_command(it);
+        }
+    	sg_end_pass();
+        in_shadowmap_pass = false;
+    }
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
     
     // 2. Reflection pass
@@ -215,4 +233,5 @@ backend_process_command_buckets :: () {
     array_reset_keeping_memory(*render_command_buckets.main);
     array_reset_keeping_memory(*render_command_buckets.ui);
     array_reset_keeping_memory(*trile_offsets);
+    current_world_config = null;
 }

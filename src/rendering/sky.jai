@@ -16,7 +16,7 @@ draw_sky :: (cam: *Camera, worldConfig: *World_Config = null) {
     sg_draw(0, 36, 1);
 }
 
-sun_shadowmap_viewproj :: (cam: *Camera, conf: *World_Config) -> Matrix4 {
+create_shadow_viewproj :: (cam: *Camera, conf: *World_Config) -> Matrix4 {
 	up: Vector3 = .{0, 1, 0};
 	targetToPos := conf.sunPosition;
 	A := normalize(targetToPos);

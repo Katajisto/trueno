@@ -117,7 +117,7 @@ autoedit :: (rect: GR.Rect, value: *$T, theme: *GR.Overall_Theme, identifier: s3
 	r.h = ui_h(4,0);
 	
 	if !cur_edit_color {
-	    #insert #run generate_autoedit_code();
+	    #insert #run,stallable generate_autoedit_code();
 		color_edit_already_active = false;
 	} else {
 		r.h = ui_h(50,0);

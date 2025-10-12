@@ -5,6 +5,7 @@ Rendering_Task_Type :: enum {
     GROUND;    // We need to add an ability to invalidate buffer here too.
     SKY;
     SET_CAMERA;
+    SET_LIGHT;
     TRILE;     // We need to add an ability to invalidate buffer instead of updating it constantly. Also probably have a buffer for static world triles and one for moving ones.
     TRIXELS;
     SPRITE;    
@@ -23,6 +24,12 @@ Rendering_Task_World :: struct {
 Rendering_Task_Sky :: struct {
     #as using t : Rendering_Task;
     t.type      = .SKY;
+    worldConfig : *World_Config;
+}
+
+Rendering_Task_Set_Light :: struct {
+    #as using t : Rendering_Task;
+    t.type      = .SET_LIGHT;
     worldConfig : *World_Config;
 }
 
@@ -67,6 +74,11 @@ rendering_tasklist : [..]*Rendering_Task;
 tasks_to_commands :: () {
     for rendering_tasklist {
         if it.type == {
+            case .SET_LIGHT;
+                lighttask := (cast(*Rendering_Task_Set_Light)it);
+                lightcmd := New(Render_Command_Set_Light,, temp);
+                lightcmd.worldConfig = lighttask.worldConfig;
+                array_add(*render_command_buckets.setup, lightcmd);
             case .TRIXELS;
                 trixelsTask := (cast(*Rendering_Task_Trixels)it);
                 updateCommand := New(Render_Command_Update_Trixels,, temp);

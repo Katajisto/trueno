@@ -15,6 +15,6 @@ log_content :: (format_string: string, args: .. Any, loc := #caller_location, fl
 } @PrintLike
 
 logger :: (message: string, data: *void, info: Log_Info) {
-    wasm_write_string :: (count: s64, data: *void, log_flag: Log_Flags) #foreign; // You will need to provide this function as JS code in your WASM environment. :JaiWasm:
-    wasm_write_string(message.count, message.data, info.common_flags);
+    // wasm_write_string :: (count: s64, data: *void, log_flag: Log_Flags) #foreign; // You will need to provide this function as JS code in your WASM environment. :JaiWasm:
+    // wasm_write_string(message.count, message.data, info.common_flags);
 }

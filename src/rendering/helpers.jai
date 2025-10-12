@@ -14,6 +14,7 @@ fill_uniform_with_engine_data :: (uniform: *$A, enginedata: *$B) {
 
 create_world_rendering_tasks :: (world: *World) {
     create_sky_rendering_task(*world.conf);
+    create_set_light_rendering_task(*world.conf);
     create_ground_rendering_task(world);
     for world.positions {
         if it.positions.count < 1 then continue;
@@ -28,6 +29,11 @@ create_world_rendering_tasks :: (world: *World) {
 create_sky_rendering_task :: (conf: *World_Config) {
 	skytask := Rendering_Task_Sky.{type = .SKY, worldConfig = conf};
 	add_rendering_task(skytask);
+}
+
+create_set_light_rendering_task :: (conf: *World_Config) {
+	lighttask := Rendering_Task_Set_Light.{type = .SET_LIGHT, worldConfig = conf};
+	add_rendering_task(lighttask);
 }
 
 create_trixel_rendering_task :: (trile: *Trile, muls: *[16][16][16]Vector3) {

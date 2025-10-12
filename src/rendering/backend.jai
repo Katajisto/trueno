@@ -20,6 +20,7 @@ Render_Command_Type :: enum {
     DRAW_TRILE_POSITIONS;
     UPDATE_TRIXELS;
     DRAW_TRIXELS;
+    SET_LIGHT;
 }
 
 Render_Command :: struct {
@@ -29,6 +30,12 @@ Render_Command :: struct {
 Render_Command_Sky :: struct {
     #as using c : Render_Command;
     c.type      = .DRAW_SKY;
+    worldConfig : *World_Config;
+}
+
+Render_Command_Set_Light :: struct {
+    #as using c : Render_Command;
+    c.type      = .SET_LIGHT;
     worldConfig : *World_Config;
 }
 

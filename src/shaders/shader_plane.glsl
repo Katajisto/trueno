@@ -1,19 +1,24 @@
 @vs vs_plane
-
+// @glsl_options fixup_clipspace
 
 in vec4 position;
 
 layout(binding=0) uniform plane_vs_params {
     mat4 mvp;
+    mat4 mvp_shadow;
 };
 
 out vec4 pos;
 out flat int idx;
-
+out vec4 light_proj_pos;
 
 void main() {
     vec3 multisize = vec3(position.xyz * 1000.0);
     gl_Position = mvp * vec4(multisize, 1.0);
+    light_proj_pos = mvp_shadow * vec4(multisize, 1.0);
+    // #if !SOKOL_GLSL
+    //     light_proj_pos.y = -light_proj_pos.y;
+    // #endif
     pos = vec4(multisize, 1.0);
     idx = gl_InstanceIndex;
 }
@@ -23,6 +28,7 @@ void main() {
 
 in vec4 pos;
 in flat int idx;
+in vec4 light_proj_pos;
 out vec4 frag_color;
 
 uint murmurHash12(uvec2 src) {
@@ -141,15 +147,18 @@ void main() {
     vec3 c1 = get_ground_sample(npos, sign2(toCenter.x), 0.0);
     vec3 c2 = get_ground_sample(npos, 0.0, sign2(toCenter.y));
     vec3 c3 = get_ground_sample(npos, sign2(toCenter.x), sign2(toCenter.y));
-    float shadowp = texture(sampler2DShadow(shadow, shadowsmp), vec3(0,0,0));
 
     // @ToDo: Consider using cool Inigo Quilez trick here to make it even smoother.
     vec3 b01 = mix(c0, c1, u);
     vec3 b23 = mix(c2, c3, u);
     vec3 bf  = mix(b01, b23, v);
         
+    vec3 light_pos = light_proj_pos.xyz / light_proj_pos.w;
+    light_pos = light_pos * 0.5 + 0.5;
+    float shadowp = texture(sampler2DShadow(shadow, shadowsmp), light_pos);
+    
     if(planeType == 1) {
-        frag_color = vec4(bf, 1.0);
+        frag_color = vec4(bf * shadowp, 1.0);
     } else {
         frag_color = vec4(vec3(shadowp), 1.0);
     }
