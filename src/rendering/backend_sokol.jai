@@ -158,13 +158,15 @@ backend_draw_ground :: (wc: *World_Config) {
 
     world_config_to_shader_type(wc, *world_conf);
 
-    vs_params.mvp_shadow = shadow_mvp.floats;
+    fs_params : Plane_Fs_Params;
+    fs_params.mvp_shadow = shadow_mvp.floats;
     vs_params.mvp = mvp.floats;
     sg_apply_pipeline(gPipelines.plane.pipeline);
     gPipelines.plane.bind.samplers[2] = g_shadowmap_sampler;
     gPipelines.plane.bind.images[2] = g_shadowmap;
     sg_apply_bindings(*gPipelines.plane.bind);
     sg_apply_uniforms(UB_plane_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
+    sg_apply_uniforms(UB_plane_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_apply_uniforms(UB_plane_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
     sg_apply_uniforms(UB_plane_data, *(sg_range.{ptr = *plane_data, size = size_of(type_of(plane_data))}));
     sg_draw(0, 6, 1);    

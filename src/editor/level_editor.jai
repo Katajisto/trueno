@@ -178,7 +178,7 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	#if HAS_TACOMA {
 		if GR.button(r, "Render with Tacoma", *theme.button_theme) {
 			cam := get_level_editor_camera();
-			gen_reference(tacomaResolution, tacomaResolution, .{tacomaExposure, tacomaContrast, tacomaSaturation}, .{cam.target, cam.position, tacomaSamples, true}, curworld.world.*);
+			gen_reference(tacomaResolution, tacomaResolution, .{tacomaExposure, tacomaContrast, tacomaSaturation, 1.0, 1.0}, .{cam.target, cam.position, tacomaSamples, true}, curworld.world.*);
 		}
 		r.y += r.h;
 		if current_screenshot.valid {
