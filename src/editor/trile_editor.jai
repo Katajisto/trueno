@@ -304,7 +304,7 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
 
 
 draw_trile_editor :: () {
-    create_set_cam_rendering_task(get_trile_editor_camera());
+    create_set_cam_rendering_task(get_trile_editor_camera(), 0.0);
     w :=  New(World,, temp);
     create_sky_rendering_task(*w.conf);
     create_trixel_rendering_task(editor_current_trile, *colorMuls);

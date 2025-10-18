@@ -46,6 +46,10 @@ void main() {
     vec3 gammaCorrected = pow(tonemapped, vec3(1.0/gamma));
     gammaCorrected.rgb = ((gammaCorrected.rgb - 0.5f) * max(contrast, 0)) + 0.5f;
     gammaCorrected.rgb += exposure;
+
+    float lum = (0.2125 * gammaCorrected.r) + (0.7154 * gammaCorrected.g) + (0.0721 * gammaCorrected.b);
+    vec3 brtColor = vec3(lum, lum, lum);
+    gammaCorrected.rgb = mix(brtColor, gammaCorrected.rgb, saturation);
     
     frag_color = vec4(gammaCorrected, 1.0);
 }

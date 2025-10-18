@@ -7,6 +7,7 @@ current_trile_offset_index : s32 = 0;
 
 current_world_config : *World_Config = null;
 in_shadowmap_pass    : bool = false;
+in_reflection_pass   : bool = false;
 shadow_mvp           : Matrix4;
 
 backend_handle_command :: (cmd: *Render_Command) {
@@ -124,7 +125,12 @@ backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World
     bindings.samplers[0]               = gPipelines.trile.bind.samplers[0];
     bindings.images[0]                 = trilegfx.trixel_colors;
 
+    fs_params : Trile_Fs_Params;
+    fs_params.mvp_shadow = shadow_mvp.floats;
+    fs_params.is_reflection = ifx in_reflection_pass then cast(s32)1 else cast(s32)0;
+
     sg_apply_bindings(*bindings);
+    sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
     sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
     sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
@@ -160,7 +166,9 @@ backend_draw_ground :: (wc: *World_Config) {
 
     fs_params : Plane_Fs_Params;
     fs_params.mvp_shadow = shadow_mvp.floats;
+    fs_params.is_reflection = ifx in_reflection_pass then cast(s32)1 else cast(s32)0;
     vs_params.mvp = mvp.floats;
+    vs_params.planeHeight = wc.planeHeight;
     sg_apply_pipeline(gPipelines.plane.pipeline);
     gPipelines.plane.bind.samplers[2] = g_shadowmap_sampler;
     gPipelines.plane.bind.images[2] = g_shadowmap;
@@ -169,7 +177,7 @@ backend_draw_ground :: (wc: *World_Config) {
     sg_apply_uniforms(UB_plane_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_apply_uniforms(UB_plane_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
     sg_apply_uniforms(UB_plane_data, *(sg_range.{ptr = *plane_data, size = size_of(type_of(plane_data))}));
-    sg_draw(0, 6, 1);    
+    sg_draw(0, 6, 2);    
 }
 
 backend_process_command_buckets :: () {
@@ -192,9 +200,11 @@ backend_process_command_buckets :: () {
     
     // 2. Reflection pass
 	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = gPipelines.plane.attachments}));
+    in_reflection_pass = true;
     for render_command_buckets.reflection {
         backend_handle_command(it);
     }    
+    in_reflection_pass = false;
 	sg_end_pass();
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
 

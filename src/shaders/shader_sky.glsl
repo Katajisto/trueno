@@ -31,13 +31,12 @@ layout(binding=1) uniform sky_world_config {
 
     int hasClouds;
 
-    int hasPlane;
     float planeHeight;
     int planeType;
+    vec3 waterColor;
+    vec3 deepColor;
 
     float time;
-
-    float grassDensity;
 };
 
 in vec4 pos;

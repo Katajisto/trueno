@@ -1,0 +1,1225 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXFileReference section */
+		EA317AB42E9FE29D00D1563E /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = ../build.sh; sourceTree = SOURCE_ROOT; };
+		EA317AB52E9FE29D00D1563E /* first */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = first; path = ../first; sourceTree = SOURCE_ROOT; };
+		EA317AB62E9FE29D00D1563E /* first.dSYM */ = {isa = PBXFileReference; lastKnownFileType = wrapper.dsym; name = first.dSYM; path = ../first.dSYM; sourceTree = SOURCE_ROOT; };
+		EA317AB72E9FE29D00D1563E /* first.jai */ = {isa = PBXFileReference; lastKnownFileType = text; name = first.jai; path = ../first.jai; sourceTree = SOURCE_ROOT; };
+		EA317AB82E9FE29D00D1563E /* postprocess.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = postprocess.json; sourceTree = "<group>"; };
+		EA317AB92E9FE29D00D1563E /* triles.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = triles.json; sourceTree = "<group>"; };
+		EA317ABA2E9FE29D00D1563E /* worlds.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = worlds.json; sourceTree = "<group>"; };
+		EA317ABC2E9FE29D00D1563E /* game.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = game.jai; sourceTree = "<group>"; };
+		EA317ABE2E9FE29D00D1563E /* libtacoma.so */ = {isa = PBXFileReference; lastKnownFileType = file; name = libtacoma.so; path = ../libtacoma.so; sourceTree = SOURCE_ROOT; };
+		EA317ABF2E9FE29D00D1563E /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; name = LICENSE; path = ../LICENSE; sourceTree = SOURCE_ROOT; };
+		EA317AC02E9FE29D00D1563E /* log_nvprosample.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = log_nvprosample.txt; path = ../log_nvprosample.txt; sourceTree = SOURCE_ROOT; };
+		EA317AC12E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AC22E9FE29D00D1563E /* sokol.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = sokol.jai; sourceTree = "<group>"; };
+		EA317AC42E9FE29D00D1563E /* example.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = example.jai; sourceTree = "<group>"; };
+		EA317AC62E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AC82E9FE29D00D1563E /* .editorconfig */ = {isa = PBXFileReference; lastKnownFileType = text; path = .editorconfig; sourceTree = "<group>"; };
+		EA317AC92E9FE29D00D1563E /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		EA317ACA2E9FE29D00D1563E /* .gitmodules */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitmodules; sourceTree = "<group>"; };
+		EA317ACB2E9FE29D00D1563E /* generic.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = generic.jai; sourceTree = "<group>"; };
+		EA317ACC2E9FE29D00D1563E /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		EA317ACD2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317ACE2E9FE29D00D1563E /* readme.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = readme.md; sourceTree = "<group>"; };
+		EA317ACF2E9FE29D00D1563E /* typed.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = typed.jai; sourceTree = "<group>"; };
+		EA317AD12E9FE29D00D1563E /* example.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = example.jai; sourceTree = "<group>"; };
+		EA317AD32E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AD52E9FE29D00D1563E /* .added_strings_w3.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = .added_strings_w3.jai; sourceTree = "<group>"; };
+		EA317AD62E9FE29D00D1563E /* offscreen_0_w3.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = offscreen_0_w3.o; sourceTree = "<group>"; };
+		EA317AD72E9FE29D00D1563E /* offscreen_1_w3.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = offscreen_1_w3.o; sourceTree = "<group>"; };
+		EA317AD82E9FE29D00D1563E /* offscreen_2_w3.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = offscreen_2_w3.o; sourceTree = "<group>"; };
+		EA317AD92E9FE29D00D1563E /* offscreen_3_w3.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = offscreen_3_w3.o; sourceTree = "<group>"; };
+		EA317ADB2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317ADC2E9FE29D00D1563E /* shader.glsl */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader.glsl; sourceTree = "<group>"; };
+		EA317ADD2E9FE29D00D1563E /* shader.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader.jai; sourceTree = "<group>"; };
+		EA317ADF2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AE12E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AE32E9FE29D00D1563E /* DroidSansJapanese.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = DroidSansJapanese.ttf; sourceTree = "<group>"; };
+		EA317AE42E9FE29D00D1563E /* DroidSerif-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DroidSerif-Bold.ttf"; sourceTree = "<group>"; };
+		EA317AE52E9FE29D00D1563E /* DroidSerif-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DroidSerif-Italic.ttf"; sourceTree = "<group>"; };
+		EA317AE62E9FE29D00D1563E /* DroidSerif-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DroidSerif-Regular.ttf"; sourceTree = "<group>"; };
+		EA317AE72E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AE92E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AEA2E9FE29D00D1563E /* shader.glsl */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader.glsl; sourceTree = "<group>"; };
+		EA317AEB2E9FE29D00D1563E /* shader.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader.jai; sourceTree = "<group>"; };
+		EA317AED2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AEF2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AF12E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AF22E9FE29D00D1563E /* shader.glsl */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader.glsl; sourceTree = "<group>"; };
+		EA317AF32E9FE29D00D1563E /* shader.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader.jai; sourceTree = "<group>"; };
+		EA317AF52E9FE29D00D1563E /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		EA317AF62E9FE29D00D1563E /* first.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = first.jai; sourceTree = "<group>"; };
+		EA317AF72E9FE29D00D1563E /* math.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = math.jai; sourceTree = "<group>"; };
+		EA317AF92E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317AFA2E9FE29D00D1563E /* sokol_app_macos_arm64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_app_macos_arm64_gl_debug.a; sourceTree = "<group>"; };
+		EA317AFB2E9FE29D00D1563E /* sokol_app_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_app_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317AFC2E9FE29D00D1563E /* sokol_app_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_app_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317AFD2E9FE29D00D1563E /* sokol_app_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_app_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317AFE2E9FE29D00D1563E /* sokol_app_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_app_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317AFF2E9FE29D00D1563E /* sokol_app_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_app_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B002E9FE29D00D1563E /* sokol_app_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_app_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B012E9FE29D00D1563E /* sokol_app_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_app_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B032E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B042E9FE29D00D1563E /* sokol_audio_macos_arm64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_audio_macos_arm64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B052E9FE29D00D1563E /* sokol_audio_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_audio_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B062E9FE29D00D1563E /* sokol_audio_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_audio_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B072E9FE29D00D1563E /* sokol_audio_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_audio_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B082E9FE29D00D1563E /* sokol_audio_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_audio_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B092E9FE29D00D1563E /* sokol_audio_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_audio_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B0A2E9FE29D00D1563E /* sokol_audio_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_audio_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B0B2E9FE29D00D1563E /* sokol_audio_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_audio_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B0D2E9FE29D00D1563E /* fontstash.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fontstash.h; sourceTree = "<group>"; };
+		EA317B0E2E9FE29D00D1563E /* sokol.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol.c; sourceTree = "<group>"; };
+		EA317B0F2E9FE29D00D1563E /* sokol_app.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_app.h; sourceTree = "<group>"; };
+		EA317B102E9FE29D00D1563E /* sokol_app.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_app.c; sourceTree = "<group>"; };
+		EA317B112E9FE29D00D1563E /* sokol_audio.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_audio.h; sourceTree = "<group>"; };
+		EA317B122E9FE29D00D1563E /* sokol_audio.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_audio.c; sourceTree = "<group>"; };
+		EA317B132E9FE29D00D1563E /* sokol_debugtext.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_debugtext.h; sourceTree = "<group>"; };
+		EA317B142E9FE29D00D1563E /* sokol_debugtext.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_debugtext.c; sourceTree = "<group>"; };
+		EA317B152E9FE29D00D1563E /* sokol_defines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_defines.h; sourceTree = "<group>"; };
+		EA317B162E9FE29D00D1563E /* sokol_fetch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_fetch.h; sourceTree = "<group>"; };
+		EA317B172E9FE29D00D1563E /* sokol_fetch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_fetch.c; sourceTree = "<group>"; };
+		EA317B182E9FE29D00D1563E /* sokol_fontstash.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_fontstash.h; sourceTree = "<group>"; };
+		EA317B192E9FE29D00D1563E /* sokol_fontstash.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_fontstash.c; sourceTree = "<group>"; };
+		EA317B1A2E9FE29D00D1563E /* sokol_gfx.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_gfx.h; sourceTree = "<group>"; };
+		EA317B1B2E9FE29D00D1563E /* sokol_gfx.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_gfx.c; sourceTree = "<group>"; };
+		EA317B1C2E9FE29D00D1563E /* sokol_gl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_gl.h; sourceTree = "<group>"; };
+		EA317B1D2E9FE29D00D1563E /* sokol_gl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_gl.c; sourceTree = "<group>"; };
+		EA317B1E2E9FE29D00D1563E /* sokol_glue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_glue.h; sourceTree = "<group>"; };
+		EA317B1F2E9FE29D00D1563E /* sokol_glue.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_glue.c; sourceTree = "<group>"; };
+		EA317B202E9FE29D00D1563E /* sokol_log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_log.h; sourceTree = "<group>"; };
+		EA317B212E9FE29D00D1563E /* sokol_log.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_log.c; sourceTree = "<group>"; };
+		EA317B222E9FE29D00D1563E /* sokol_shape.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_shape.h; sourceTree = "<group>"; };
+		EA317B232E9FE29D00D1563E /* sokol_shape.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_shape.c; sourceTree = "<group>"; };
+		EA317B242E9FE29D00D1563E /* sokol_time.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sokol_time.h; sourceTree = "<group>"; };
+		EA317B252E9FE29D00D1563E /* sokol_time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sokol_time.c; sourceTree = "<group>"; };
+		EA317B262E9FE29D00D1563E /* stb_image.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stb_image.h; sourceTree = "<group>"; };
+		EA317B272E9FE29D00D1563E /* stb_image.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stb_image.c; sourceTree = "<group>"; };
+		EA317B282E9FE29D00D1563E /* stb_truetype.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stb_truetype.h; sourceTree = "<group>"; };
+		EA317B2A2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B2B2E9FE29D00D1563E /* sokol_debugtext_macos_arm64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_debugtext_macos_arm64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B2C2E9FE29D00D1563E /* sokol_debugtext_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_debugtext_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B2D2E9FE29D00D1563E /* sokol_debugtext_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_debugtext_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B2E2E9FE29D00D1563E /* sokol_debugtext_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_debugtext_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B2F2E9FE29D00D1563E /* sokol_debugtext_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_debugtext_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B302E9FE29D00D1563E /* sokol_debugtext_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_debugtext_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B312E9FE29D00D1563E /* sokol_debugtext_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_debugtext_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B322E9FE29D00D1563E /* sokol_debugtext_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_debugtext_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B342E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B352E9FE29D00D1563E /* sokol_fetch_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fetch_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B362E9FE29D00D1563E /* sokol_fetch_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fetch_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B372E9FE29D00D1563E /* sokol_fetch_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fetch_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B382E9FE29D00D1563E /* sokol_fetch_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fetch_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B392E9FE29D00D1563E /* sokol_fetch_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fetch_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B3B2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B3C2E9FE29D00D1563E /* sokol_fontstash_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fontstash_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B3D2E9FE29D00D1563E /* sokol_fontstash_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fontstash_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B3E2E9FE29D00D1563E /* sokol_fontstash_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fontstash_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B3F2E9FE29D00D1563E /* sokol_fontstash_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fontstash_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B402E9FE29D00D1563E /* sokol_fontstash_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_fontstash_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B422E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B432E9FE29D00D1563E /* sokol_gfx_macos_arm64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gfx_macos_arm64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B442E9FE29D00D1563E /* sokol_gfx_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gfx_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B452E9FE29D00D1563E /* sokol_gfx_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gfx_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B462E9FE29D00D1563E /* sokol_gfx_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gfx_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B472E9FE29D00D1563E /* sokol_gfx_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gfx_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B482E9FE29D00D1563E /* sokol_gfx_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gfx_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B492E9FE29D00D1563E /* sokol_gfx_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gfx_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B4A2E9FE29D00D1563E /* sokol_gfx_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gfx_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B4C2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B4D2E9FE29D00D1563E /* sokol_gl_macos_arm64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gl_macos_arm64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B4E2E9FE29D00D1563E /* sokol_gl_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gl_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B4F2E9FE29D00D1563E /* sokol_gl_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gl_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B502E9FE29D00D1563E /* sokol_gl_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gl_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B512E9FE29D00D1563E /* sokol_gl_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gl_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B522E9FE29D00D1563E /* sokol_gl_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gl_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B532E9FE29D00D1563E /* sokol_gl_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gl_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B542E9FE29D00D1563E /* sokol_gl_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_gl_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B562E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B572E9FE29D00D1563E /* sokol_glue_macos_arm64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_glue_macos_arm64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B582E9FE29D00D1563E /* sokol_glue_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_glue_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B592E9FE29D00D1563E /* sokol_glue_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_glue_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B5A2E9FE29D00D1563E /* sokol_glue_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_glue_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B5B2E9FE29D00D1563E /* sokol_glue_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_glue_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B5C2E9FE29D00D1563E /* sokol_glue_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_glue_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B5D2E9FE29D00D1563E /* sokol_glue_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_glue_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B5E2E9FE29D00D1563E /* sokol_glue_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_glue_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B602E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B612E9FE29D00D1563E /* sokol_log_macos_arm64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_log_macos_arm64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B622E9FE29D00D1563E /* sokol_log_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_log_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B632E9FE29D00D1563E /* sokol_log_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_log_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B642E9FE29D00D1563E /* sokol_log_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_log_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B652E9FE29D00D1563E /* sokol_log_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_log_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B662E9FE29D00D1563E /* sokol_log_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_log_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B672E9FE29D00D1563E /* sokol_log_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_log_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B682E9FE29D00D1563E /* sokol_log_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_log_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B6A2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B6B2E9FE29D00D1563E /* sokol_shape_macos_arm64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_shape_macos_arm64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B6C2E9FE29D00D1563E /* sokol_shape_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_shape_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B6D2E9FE29D00D1563E /* sokol_shape_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_shape_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B6E2E9FE29D00D1563E /* sokol_shape_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_shape_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B6F2E9FE29D00D1563E /* sokol_shape_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_shape_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B702E9FE29D00D1563E /* sokol_shape_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_shape_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B712E9FE29D00D1563E /* sokol_shape_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_shape_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B722E9FE29D00D1563E /* sokol_shape_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_shape_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B742E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317B752E9FE29D00D1563E /* sokol_time_macos_arm64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_time_macos_arm64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B762E9FE29D00D1563E /* sokol_time_macos_arm64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_time_macos_arm64_gl_release.a; sourceTree = "<group>"; };
+		EA317B772E9FE29D00D1563E /* sokol_time_macos_arm64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_time_macos_arm64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B782E9FE29D00D1563E /* sokol_time_macos_arm64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_time_macos_arm64_metal_release.a; sourceTree = "<group>"; };
+		EA317B792E9FE29D00D1563E /* sokol_time_macos_x64_gl_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_time_macos_x64_gl_debug.a; sourceTree = "<group>"; };
+		EA317B7A2E9FE29D00D1563E /* sokol_time_macos_x64_gl_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_time_macos_x64_gl_release.a; sourceTree = "<group>"; };
+		EA317B7B2E9FE29D00D1563E /* sokol_time_macos_x64_metal_debug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_time_macos_x64_metal_debug.a; sourceTree = "<group>"; };
+		EA317B7C2E9FE29D00D1563E /* sokol_time_macos_x64_metal_release.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = sokol_time_macos_x64_metal_release.a; sourceTree = "<group>"; };
+		EA317B7E2E9FE29D00D1563E /* build_clibs_linux.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_clibs_linux.sh; sourceTree = "<group>"; };
+		EA317B7F2E9FE29D00D1563E /* build_clibs_macos.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_clibs_macos.sh; sourceTree = "<group>"; };
+		EA317B802E9FE29D00D1563E /* build_clibs_macos_dylib.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_clibs_macos_dylib.sh; sourceTree = "<group>"; };
+		EA317B812E9FE29D00D1563E /* build_clibs_wasm.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_clibs_wasm.sh; sourceTree = "<group>"; };
+		EA317B822E9FE29D00D1563E /* build_clibs_windows.cmd */ = {isa = PBXFileReference; lastKnownFileType = text; path = build_clibs_windows.cmd; sourceTree = "<group>"; };
+		EA317B842E9FE29D00D1563E /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		EA317B852E9FE29D00D1563E /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
+		EA317B862E9FE29D00D1563E /* libclang_rt.osx.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libclang_rt.osx.a; sourceTree = "<group>"; };
+		EA317B872E9FE29D00D1563E /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		EA317B892E9FE29D00D1563E /* stb_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = stb_image.a; sourceTree = "<group>"; };
+		EA317B8A2E9FE29D00D1563E /* stb_image.so */ = {isa = PBXFileReference; lastKnownFileType = file; path = stb_image.so; sourceTree = "<group>"; };
+		EA317B8C2E9FE29D00D1563E /* stb_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = stb_image.a; sourceTree = "<group>"; };
+		EA317B8D2E9FE29D00D1563E /* stb_image.so */ = {isa = PBXFileReference; lastKnownFileType = file; path = stb_image.so; sourceTree = "<group>"; };
+		EA317B902E9FE29D00D1563E /* stb_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = stb_image.a; sourceTree = "<group>"; };
+		EA317B912E9FE29D00D1563E /* stb_image.so */ = {isa = PBXFileReference; lastKnownFileType = file; path = stb_image.so; sourceTree = "<group>"; };
+		EA317B932E9FE29D00D1563E /* stb_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = stb_image.a; sourceTree = "<group>"; };
+		EA317B942E9FE29D00D1563E /* stb_image.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = stb_image.dylib; sourceTree = "<group>"; };
+		EA317B962E9FE29D00D1563E /* stb_image.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stb_image.h; sourceTree = "<group>"; };
+		EA317B972E9FE29D00D1563E /* stb_image.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stb_image.c; sourceTree = "<group>"; };
+		EA317B992E9FE29D00D1563E /* stb_image.dll */ = {isa = PBXFileReference; lastKnownFileType = file; path = stb_image.dll; sourceTree = "<group>"; };
+		EA317B9A2E9FE29D00D1563E /* stb_image.lib */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = stb_image.lib; sourceTree = "<group>"; };
+		EA317B9C2E9FE29D00D1563E /* bindings.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = bindings.jai; sourceTree = "<group>"; };
+		EA317B9D2E9FE29D00D1563E /* generate.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = generate.jai; sourceTree = "<group>"; };
+		EA317B9E2E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317BA02E9FE29D00D1563E /* raytrace.comp.glsl.spv */ = {isa = PBXFileReference; lastKnownFileType = file; path = raytrace.comp.glsl.spv; sourceTree = "<group>"; };
+		EA317BA22E9FE29D00D1563E /* libtacoma.so */ = {isa = PBXFileReference; lastKnownFileType = file; path = libtacoma.so; sourceTree = "<group>"; };
+		EA317BA32E9FE29D00D1563E /* module.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = module.jai; sourceTree = "<group>"; };
+		EA317BA42E9FE29D00D1563E /* raytrace.comp.glsl.spv */ = {isa = PBXFileReference; lastKnownFileType = file; path = raytrace.comp.glsl.spv; sourceTree = "<group>"; };
+		EA317BA62E9FE29D00D1563E /* Clipboard.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = Clipboard.jai; sourceTree = "<group>"; };
+		EA317BA72E9FE29D00D1563E /* Walloc.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = Walloc.jai; sourceTree = "<group>"; };
+		EA317BA82E9FE29D00D1563E /* Window_Creation.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = Window_Creation.jai; sourceTree = "<group>"; };
+		EA317BA92E9FE29D00D1563E /* Window_Type.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = Window_Type.jai; sourceTree = "<group>"; };
+		EA317BAB2E9FE29D00D1563E /* assets.pack */ = {isa = PBXFileReference; lastKnownFileType = file; path = assets.pack; sourceTree = "<group>"; };
+		EA317BAD2E9FE29D00D1563E /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = SOURCE_ROOT; };
+		EA317BAE2E9FE29D00D1563E /* lut.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = lut.png; sourceTree = "<group>"; };
+		EA317BB02E9FE29D00D1563E /* DroidSerif-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DroidSerif-Regular.ttf"; sourceTree = "<group>"; };
+		EA317BB22E9FE29D00D1563E /* console.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = console.jai; sourceTree = "<group>"; };
+		EA317BB32E9FE29D00D1563E /* editor.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = editor.jai; sourceTree = "<group>"; };
+		EA317BB42E9FE29D00D1563E /* iprof.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = iprof.jai; sourceTree = "<group>"; };
+		EA317BB52E9FE29D00D1563E /* level_editor.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = level_editor.jai; sourceTree = "<group>"; };
+		EA317BB62E9FE29D00D1563E /* no_tacoma.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = no_tacoma.jai; sourceTree = "<group>"; };
+		EA317BB72E9FE29D00D1563E /* picker.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = picker.jai; sourceTree = "<group>"; };
+		EA317BB82E9FE29D00D1563E /* postprocess.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = postprocess.jai; sourceTree = "<group>"; };
+		EA317BB92E9FE29D00D1563E /* tacoma.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = tacoma.jai; sourceTree = "<group>"; };
+		EA317BBA2E9FE29D00D1563E /* textureDebugger.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = textureDebugger.jai; sourceTree = "<group>"; };
+		EA317BBB2E9FE29D00D1563E /* trile_editor.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = trile_editor.jai; sourceTree = "<group>"; };
+		EA317BBD2E9FE29D00D1563E /* hotkeys.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = hotkeys.jai; sourceTree = "<group>"; };
+		EA317BBF2E9FE29D00D1563E /* ascii.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = ascii.jai; sourceTree = "<group>"; };
+		EA317BC02E9FE29D00D1563E /* console_commands.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = console_commands.jai; sourceTree = "<group>"; };
+		EA317BC12E9FE29D00D1563E /* hacks.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = hacks.jai; sourceTree = "<group>"; };
+		EA317BC22E9FE29D00D1563E /* lint.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = lint.jai; sourceTree = "<group>"; };
+		EA317BC32E9FE29D00D1563E /* meta.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = meta.jai; sourceTree = "<group>"; };
+		EA317BC42E9FE29D00D1563E /* pack.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = pack.jai; sourceTree = "<group>"; };
+		EA317BC52E9FE29D00D1563E /* shaderload.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shaderload.jai; sourceTree = "<group>"; };
+		EA317BC72E9FE29D00D1563E /* common.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = common.jai; sourceTree = "<group>"; };
+		EA317BC82E9FE29D00D1563E /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		EA317BC92E9FE29D00D1563E /* main_native.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = main_native.jai; sourceTree = "<group>"; };
+		EA317BCA2E9FE29D00D1563E /* main_web.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = main_web.jai; sourceTree = "<group>"; };
+		EA317BCB2E9FE29D00D1563E /* runtime.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = runtime.js; sourceTree = "<group>"; };
+		EA317BCC2E9FE29D00D1563E /* shell.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = shell.html; sourceTree = "<group>"; };
+		EA317BCE2E9FE29D00D1563E /* arbtri.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = arbtri.jai; sourceTree = "<group>"; };
+		EA317BCF2E9FE29D00D1563E /* backend.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = backend.jai; sourceTree = "<group>"; };
+		EA317BD02E9FE29D00D1563E /* backend_sokol.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = backend_sokol.jai; sourceTree = "<group>"; };
+		EA317BD12E9FE29D00D1563E /* camera.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = camera.jai; sourceTree = "<group>"; };
+		EA317BD22E9FE29D00D1563E /* core.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = core.jai; sourceTree = "<group>"; };
+		EA317BD32E9FE29D00D1563E /* helpers.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = helpers.jai; sourceTree = "<group>"; };
+		EA317BD42E9FE29D00D1563E /* meshgen.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = meshgen.jai; sourceTree = "<group>"; };
+		EA317BD52E9FE29D00D1563E /* pipelines.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = pipelines.jai; sourceTree = "<group>"; };
+		EA317BD62E9FE29D00D1563E /* post_processing.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = post_processing.jai; sourceTree = "<group>"; };
+		EA317BD72E9FE29D00D1563E /* rendering.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = rendering.jai; sourceTree = "<group>"; };
+		EA317BD82E9FE29D00D1563E /* sky.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = sky.jai; sourceTree = "<group>"; };
+		EA317BD92E9FE29D00D1563E /* tasks.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = tasks.jai; sourceTree = "<group>"; };
+		EA317BDB2E9FE29D00D1563E /* shader_plane.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_plane.jai; sourceTree = "<group>"; };
+		EA317BDC2E9FE29D00D1563E /* shader_post_process_main.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_post_process_main.jai; sourceTree = "<group>"; };
+		EA317BDD2E9FE29D00D1563E /* shader_sky.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_sky.jai; sourceTree = "<group>"; };
+		EA317BDE2E9FE29D00D1563E /* shader_triangle.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_triangle.jai; sourceTree = "<group>"; };
+		EA317BDF2E9FE29D00D1563E /* shader_trile.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_trile.jai; sourceTree = "<group>"; };
+		EA317BE02E9FE29D00D1563E /* shader_trixel.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_trixel.jai; sourceTree = "<group>"; };
+		EA317BE22E9FE29D00D1563E /* compile_shaders.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = compile_shaders.sh; sourceTree = "<group>"; };
+		EA317BE32E9FE29D00D1563E /* compile_shaders_mac.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = compile_shaders_mac.sh; sourceTree = "<group>"; };
+		EA317BE42E9FE29D00D1563E /* shader_plane.glsl */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_plane.glsl; sourceTree = "<group>"; };
+		EA317BE52E9FE29D00D1563E /* shader_post_process_main.glsl */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_post_process_main.glsl; sourceTree = "<group>"; };
+		EA317BE62E9FE29D00D1563E /* shader_sky.glsl */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_sky.glsl; sourceTree = "<group>"; };
+		EA317BE72E9FE29D00D1563E /* shader_triangle.glsl */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_triangle.glsl; sourceTree = "<group>"; };
+		EA317BE82E9FE29D00D1563E /* shader_trile.glsl */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_trile.glsl; sourceTree = "<group>"; };
+		EA317BE92E9FE29D00D1563E /* shader_trixel.glsl */ = {isa = PBXFileReference; lastKnownFileType = text; path = shader_trixel.glsl; sourceTree = "<group>"; };
+		EA317BEA2E9FE29D00D1563E /* sokol-shdc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "sokol-shdc"; sourceTree = "<group>"; };
+		EA317BEB2E9FE29D00D1563E /* sokol-shdc-mac */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = "sokol-shdc-mac"; sourceTree = "<group>"; };
+		EA317BED2E9FE29D00D1563E /* autoedit.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = autoedit.jai; sourceTree = "<group>"; };
+		EA317BEE2E9FE29D00D1563E /* component_themes.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = component_themes.jai; sourceTree = "<group>"; };
+		EA317BEF2E9FE29D00D1563E /* ui.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = ui.jai; sourceTree = "<group>"; };
+		EA317BF12E9FE29D00D1563E /* buffers.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = buffers.jai; sourceTree = "<group>"; };
+		EA317BF22E9FE29D00D1563E /* events.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = events.jai; sourceTree = "<group>"; };
+		EA317BF32E9FE29D00D1563E /* load.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = load.jai; sourceTree = "<group>"; };
+		EA317BF42E9FE29D00D1563E /* main.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = main.jai; sourceTree = "<group>"; };
+		EA317BF52E9FE29D00D1563E /* ray.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = ray.jai; sourceTree = "<group>"; };
+		EA317BF62E9FE29D00D1563E /* shapes.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = shapes.jai; sourceTree = "<group>"; };
+		EA317BF72E9FE29D00D1563E /* time.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = time.jai; sourceTree = "<group>"; };
+		EA317BF82E9FE29D00D1563E /* trile.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = trile.jai; sourceTree = "<group>"; };
+		EA317BF92E9FE29D00D1563E /* world.jai */ = {isa = PBXFileReference; lastKnownFileType = text; path = world.jai; sourceTree = "<group>"; };
+		EA317BFB2E9FE29D00D1563E /* TODO.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = TODO.txt; path = ../TODO.txt; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		EA317AA92E9ED68E00D1563E = {
+			isa = PBXGroup;
+			children = (
+				EA317AB42E9FE29D00D1563E /* build.sh */,
+				EA317AB52E9FE29D00D1563E /* first */,
+				EA317AB62E9FE29D00D1563E /* first.dSYM */,
+				EA317AB72E9FE29D00D1563E /* first.jai */,
+				EA317ABD2E9FE29D00D1563E /* game */,
+				EA317ABE2E9FE29D00D1563E /* libtacoma.so */,
+				EA317ABF2E9FE29D00D1563E /* LICENSE */,
+				EA317AC02E9FE29D00D1563E /* log_nvprosample.txt */,
+				EA317BAA2E9FE29D00D1563E /* modules */,
+				EA317BAC2E9FE29D00D1563E /* packs */,
+				EA317BAD2E9FE29D00D1563E /* README.md */,
+				EA317BB12E9FE29D00D1563E /* resources */,
+				EA317BFA2E9FE29D00D1563E /* src */,
+				EA317BFB2E9FE29D00D1563E /* TODO.txt */,
+			);
+			sourceTree = "<group>";
+		};
+		EA317ABB2E9FE29D00D1563E /* resources */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AB82E9FE29D00D1563E /* postprocess.json */,
+				EA317AB92E9FE29D00D1563E /* triles.json */,
+				EA317ABA2E9FE29D00D1563E /* worlds.json */,
+			);
+			path = resources;
+			sourceTree = "<group>";
+		};
+		EA317ABD2E9FE29D00D1563E /* game */ = {
+			isa = PBXGroup;
+			children = (
+				EA317ABB2E9FE29D00D1563E /* resources */,
+				EA317ABC2E9FE29D00D1563E /* game.jai */,
+			);
+			name = game;
+			path = ../game;
+			sourceTree = SOURCE_ROOT;
+		};
+		EA317AC32E9FE29D00D1563E /* Input */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AC12E9FE29D00D1563E /* module.jai */,
+				EA317AC22E9FE29D00D1563E /* sokol.jai */,
+			);
+			path = Input;
+			sourceTree = "<group>";
+		};
+		EA317AC52E9FE29D00D1563E /* examples */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AC42E9FE29D00D1563E /* example.jai */,
+			);
+			path = examples;
+			sourceTree = "<group>";
+		};
+		EA317AC72E9FE29D00D1563E /* unicode_utils */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AC62E9FE29D00D1563E /* module.jai */,
+			);
+			path = unicode_utils;
+			sourceTree = "<group>";
+		};
+		EA317AD02E9FE29D00D1563E /* Jaison */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AC52E9FE29D00D1563E /* examples */,
+				EA317AC72E9FE29D00D1563E /* unicode_utils */,
+				EA317AC82E9FE29D00D1563E /* .editorconfig */,
+				EA317AC92E9FE29D00D1563E /* .gitignore */,
+				EA317ACA2E9FE29D00D1563E /* .gitmodules */,
+				EA317ACB2E9FE29D00D1563E /* generic.jai */,
+				EA317ACC2E9FE29D00D1563E /* LICENSE */,
+				EA317ACD2E9FE29D00D1563E /* module.jai */,
+				EA317ACE2E9FE29D00D1563E /* readme.md */,
+				EA317ACF2E9FE29D00D1563E /* typed.jai */,
+			);
+			path = Jaison;
+			sourceTree = "<group>";
+		};
+		EA317AD22E9FE29D00D1563E /* examples */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AD12E9FE29D00D1563E /* example.jai */,
+			);
+			path = examples;
+			sourceTree = "<group>";
+		};
+		EA317AD42E9FE29D00D1563E /* Simple_Package_Reader */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AD22E9FE29D00D1563E /* examples */,
+				EA317AD32E9FE29D00D1563E /* module.jai */,
+			);
+			path = Simple_Package_Reader;
+			sourceTree = "<group>";
+		};
+		EA317ADA2E9FE29D00D1563E /* .build */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AD52E9FE29D00D1563E /* .added_strings_w3.jai */,
+				EA317AD62E9FE29D00D1563E /* offscreen_0_w3.o */,
+				EA317AD72E9FE29D00D1563E /* offscreen_1_w3.o */,
+				EA317AD82E9FE29D00D1563E /* offscreen_2_w3.o */,
+				EA317AD92E9FE29D00D1563E /* offscreen_3_w3.o */,
+			);
+			path = .build;
+			sourceTree = "<group>";
+		};
+		EA317ADE2E9FE29D00D1563E /* blend */ = {
+			isa = PBXGroup;
+			children = (
+				EA317ADB2E9FE29D00D1563E /* module.jai */,
+				EA317ADC2E9FE29D00D1563E /* shader.glsl */,
+				EA317ADD2E9FE29D00D1563E /* shader.jai */,
+			);
+			path = blend;
+			sourceTree = "<group>";
+		};
+		EA317AE02E9FE29D00D1563E /* clear */ = {
+			isa = PBXGroup;
+			children = (
+				EA317ADF2E9FE29D00D1563E /* module.jai */,
+			);
+			path = clear;
+			sourceTree = "<group>";
+		};
+		EA317AE22E9FE29D00D1563E /* debugtext-print */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AE12E9FE29D00D1563E /* module.jai */,
+			);
+			path = "debugtext-print";
+			sourceTree = "<group>";
+		};
+		EA317AE82E9FE29D00D1563E /* fontstash-sapp */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AE32E9FE29D00D1563E /* DroidSansJapanese.ttf */,
+				EA317AE42E9FE29D00D1563E /* DroidSerif-Bold.ttf */,
+				EA317AE52E9FE29D00D1563E /* DroidSerif-Italic.ttf */,
+				EA317AE62E9FE29D00D1563E /* DroidSerif-Regular.ttf */,
+				EA317AE72E9FE29D00D1563E /* module.jai */,
+			);
+			path = "fontstash-sapp";
+			sourceTree = "<group>";
+		};
+		EA317AEC2E9FE29D00D1563E /* offscreen */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AE92E9FE29D00D1563E /* module.jai */,
+				EA317AEA2E9FE29D00D1563E /* shader.glsl */,
+				EA317AEB2E9FE29D00D1563E /* shader.jai */,
+			);
+			path = offscreen;
+			sourceTree = "<group>";
+		};
+		EA317AEE2E9FE29D00D1563E /* saudio */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AED2E9FE29D00D1563E /* module.jai */,
+			);
+			path = saudio;
+			sourceTree = "<group>";
+		};
+		EA317AF02E9FE29D00D1563E /* sgl-context-sapp */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AEF2E9FE29D00D1563E /* module.jai */,
+			);
+			path = "sgl-context-sapp";
+			sourceTree = "<group>";
+		};
+		EA317AF42E9FE29D00D1563E /* triangle */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AF12E9FE29D00D1563E /* module.jai */,
+				EA317AF22E9FE29D00D1563E /* shader.glsl */,
+				EA317AF32E9FE29D00D1563E /* shader.jai */,
+			);
+			path = triangle;
+			sourceTree = "<group>";
+		};
+		EA317AF82E9FE29D00D1563E /* examples */ = {
+			isa = PBXGroup;
+			children = (
+				EA317ADA2E9FE29D00D1563E /* .build */,
+				EA317ADE2E9FE29D00D1563E /* blend */,
+				EA317AE02E9FE29D00D1563E /* clear */,
+				EA317AE22E9FE29D00D1563E /* debugtext-print */,
+				EA317AE82E9FE29D00D1563E /* fontstash-sapp */,
+				EA317AEC2E9FE29D00D1563E /* offscreen */,
+				EA317AEE2E9FE29D00D1563E /* saudio */,
+				EA317AF02E9FE29D00D1563E /* sgl-context-sapp */,
+				EA317AF42E9FE29D00D1563E /* triangle */,
+				EA317AF52E9FE29D00D1563E /* .gitignore */,
+				EA317AF62E9FE29D00D1563E /* first.jai */,
+				EA317AF72E9FE29D00D1563E /* math.jai */,
+			);
+			path = examples;
+			sourceTree = "<group>";
+		};
+		EA317B022E9FE29D00D1563E /* app */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AF92E9FE29D00D1563E /* module.jai */,
+				EA317AFA2E9FE29D00D1563E /* sokol_app_macos_arm64_gl_debug.a */,
+				EA317AFB2E9FE29D00D1563E /* sokol_app_macos_arm64_gl_release.a */,
+				EA317AFC2E9FE29D00D1563E /* sokol_app_macos_arm64_metal_debug.a */,
+				EA317AFD2E9FE29D00D1563E /* sokol_app_macos_arm64_metal_release.a */,
+				EA317AFE2E9FE29D00D1563E /* sokol_app_macos_x64_gl_debug.a */,
+				EA317AFF2E9FE29D00D1563E /* sokol_app_macos_x64_gl_release.a */,
+				EA317B002E9FE29D00D1563E /* sokol_app_macos_x64_metal_debug.a */,
+				EA317B012E9FE29D00D1563E /* sokol_app_macos_x64_metal_release.a */,
+			);
+			path = app;
+			sourceTree = "<group>";
+		};
+		EA317B0C2E9FE29D00D1563E /* audio */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B032E9FE29D00D1563E /* module.jai */,
+				EA317B042E9FE29D00D1563E /* sokol_audio_macos_arm64_gl_debug.a */,
+				EA317B052E9FE29D00D1563E /* sokol_audio_macos_arm64_gl_release.a */,
+				EA317B062E9FE29D00D1563E /* sokol_audio_macos_arm64_metal_debug.a */,
+				EA317B072E9FE29D00D1563E /* sokol_audio_macos_arm64_metal_release.a */,
+				EA317B082E9FE29D00D1563E /* sokol_audio_macos_x64_gl_debug.a */,
+				EA317B092E9FE29D00D1563E /* sokol_audio_macos_x64_gl_release.a */,
+				EA317B0A2E9FE29D00D1563E /* sokol_audio_macos_x64_metal_debug.a */,
+				EA317B0B2E9FE29D00D1563E /* sokol_audio_macos_x64_metal_release.a */,
+			);
+			path = audio;
+			sourceTree = "<group>";
+		};
+		EA317B292E9FE29D00D1563E /* c */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B0D2E9FE29D00D1563E /* fontstash.h */,
+				EA317B0E2E9FE29D00D1563E /* sokol.c */,
+				EA317B0F2E9FE29D00D1563E /* sokol_app.h */,
+				EA317B102E9FE29D00D1563E /* sokol_app.c */,
+				EA317B112E9FE29D00D1563E /* sokol_audio.h */,
+				EA317B122E9FE29D00D1563E /* sokol_audio.c */,
+				EA317B132E9FE29D00D1563E /* sokol_debugtext.h */,
+				EA317B142E9FE29D00D1563E /* sokol_debugtext.c */,
+				EA317B152E9FE29D00D1563E /* sokol_defines.h */,
+				EA317B162E9FE29D00D1563E /* sokol_fetch.h */,
+				EA317B172E9FE29D00D1563E /* sokol_fetch.c */,
+				EA317B182E9FE29D00D1563E /* sokol_fontstash.h */,
+				EA317B192E9FE29D00D1563E /* sokol_fontstash.c */,
+				EA317B1A2E9FE29D00D1563E /* sokol_gfx.h */,
+				EA317B1B2E9FE29D00D1563E /* sokol_gfx.c */,
+				EA317B1C2E9FE29D00D1563E /* sokol_gl.h */,
+				EA317B1D2E9FE29D00D1563E /* sokol_gl.c */,
+				EA317B1E2E9FE29D00D1563E /* sokol_glue.h */,
+				EA317B1F2E9FE29D00D1563E /* sokol_glue.c */,
+				EA317B202E9FE29D00D1563E /* sokol_log.h */,
+				EA317B212E9FE29D00D1563E /* sokol_log.c */,
+				EA317B222E9FE29D00D1563E /* sokol_shape.h */,
+				EA317B232E9FE29D00D1563E /* sokol_shape.c */,
+				EA317B242E9FE29D00D1563E /* sokol_time.h */,
+				EA317B252E9FE29D00D1563E /* sokol_time.c */,
+				EA317B262E9FE29D00D1563E /* stb_image.h */,
+				EA317B272E9FE29D00D1563E /* stb_image.c */,
+				EA317B282E9FE29D00D1563E /* stb_truetype.h */,
+			);
+			path = c;
+			sourceTree = "<group>";
+		};
+		EA317B332E9FE29D00D1563E /* debugtext */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B2A2E9FE29D00D1563E /* module.jai */,
+				EA317B2B2E9FE29D00D1563E /* sokol_debugtext_macos_arm64_gl_debug.a */,
+				EA317B2C2E9FE29D00D1563E /* sokol_debugtext_macos_arm64_gl_release.a */,
+				EA317B2D2E9FE29D00D1563E /* sokol_debugtext_macos_arm64_metal_debug.a */,
+				EA317B2E2E9FE29D00D1563E /* sokol_debugtext_macos_arm64_metal_release.a */,
+				EA317B2F2E9FE29D00D1563E /* sokol_debugtext_macos_x64_gl_debug.a */,
+				EA317B302E9FE29D00D1563E /* sokol_debugtext_macos_x64_gl_release.a */,
+				EA317B312E9FE29D00D1563E /* sokol_debugtext_macos_x64_metal_debug.a */,
+				EA317B322E9FE29D00D1563E /* sokol_debugtext_macos_x64_metal_release.a */,
+			);
+			path = debugtext;
+			sourceTree = "<group>";
+		};
+		EA317B3A2E9FE29D00D1563E /* fetch */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B342E9FE29D00D1563E /* module.jai */,
+				EA317B352E9FE29D00D1563E /* sokol_fetch_macos_arm64_gl_release.a */,
+				EA317B362E9FE29D00D1563E /* sokol_fetch_macos_arm64_metal_debug.a */,
+				EA317B372E9FE29D00D1563E /* sokol_fetch_macos_arm64_metal_release.a */,
+				EA317B382E9FE29D00D1563E /* sokol_fetch_macos_x64_metal_debug.a */,
+				EA317B392E9FE29D00D1563E /* sokol_fetch_macos_x64_metal_release.a */,
+			);
+			path = fetch;
+			sourceTree = "<group>";
+		};
+		EA317B412E9FE29D00D1563E /* fontstash */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B3B2E9FE29D00D1563E /* module.jai */,
+				EA317B3C2E9FE29D00D1563E /* sokol_fontstash_macos_arm64_gl_release.a */,
+				EA317B3D2E9FE29D00D1563E /* sokol_fontstash_macos_arm64_metal_release.a */,
+				EA317B3E2E9FE29D00D1563E /* sokol_fontstash_macos_x64_gl_debug.a */,
+				EA317B3F2E9FE29D00D1563E /* sokol_fontstash_macos_x64_gl_release.a */,
+				EA317B402E9FE29D00D1563E /* sokol_fontstash_macos_x64_metal_release.a */,
+			);
+			path = fontstash;
+			sourceTree = "<group>";
+		};
+		EA317B4B2E9FE29D00D1563E /* gfx */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B422E9FE29D00D1563E /* module.jai */,
+				EA317B432E9FE29D00D1563E /* sokol_gfx_macos_arm64_gl_debug.a */,
+				EA317B442E9FE29D00D1563E /* sokol_gfx_macos_arm64_gl_release.a */,
+				EA317B452E9FE29D00D1563E /* sokol_gfx_macos_arm64_metal_debug.a */,
+				EA317B462E9FE29D00D1563E /* sokol_gfx_macos_arm64_metal_release.a */,
+				EA317B472E9FE29D00D1563E /* sokol_gfx_macos_x64_gl_debug.a */,
+				EA317B482E9FE29D00D1563E /* sokol_gfx_macos_x64_gl_release.a */,
+				EA317B492E9FE29D00D1563E /* sokol_gfx_macos_x64_metal_debug.a */,
+				EA317B4A2E9FE29D00D1563E /* sokol_gfx_macos_x64_metal_release.a */,
+			);
+			path = gfx;
+			sourceTree = "<group>";
+		};
+		EA317B552E9FE29D00D1563E /* gl */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B4C2E9FE29D00D1563E /* module.jai */,
+				EA317B4D2E9FE29D00D1563E /* sokol_gl_macos_arm64_gl_debug.a */,
+				EA317B4E2E9FE29D00D1563E /* sokol_gl_macos_arm64_gl_release.a */,
+				EA317B4F2E9FE29D00D1563E /* sokol_gl_macos_arm64_metal_debug.a */,
+				EA317B502E9FE29D00D1563E /* sokol_gl_macos_arm64_metal_release.a */,
+				EA317B512E9FE29D00D1563E /* sokol_gl_macos_x64_gl_debug.a */,
+				EA317B522E9FE29D00D1563E /* sokol_gl_macos_x64_gl_release.a */,
+				EA317B532E9FE29D00D1563E /* sokol_gl_macos_x64_metal_debug.a */,
+				EA317B542E9FE29D00D1563E /* sokol_gl_macos_x64_metal_release.a */,
+			);
+			path = gl;
+			sourceTree = "<group>";
+		};
+		EA317B5F2E9FE29D00D1563E /* glue */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B562E9FE29D00D1563E /* module.jai */,
+				EA317B572E9FE29D00D1563E /* sokol_glue_macos_arm64_gl_debug.a */,
+				EA317B582E9FE29D00D1563E /* sokol_glue_macos_arm64_gl_release.a */,
+				EA317B592E9FE29D00D1563E /* sokol_glue_macos_arm64_metal_debug.a */,
+				EA317B5A2E9FE29D00D1563E /* sokol_glue_macos_arm64_metal_release.a */,
+				EA317B5B2E9FE29D00D1563E /* sokol_glue_macos_x64_gl_debug.a */,
+				EA317B5C2E9FE29D00D1563E /* sokol_glue_macos_x64_gl_release.a */,
+				EA317B5D2E9FE29D00D1563E /* sokol_glue_macos_x64_metal_debug.a */,
+				EA317B5E2E9FE29D00D1563E /* sokol_glue_macos_x64_metal_release.a */,
+			);
+			path = glue;
+			sourceTree = "<group>";
+		};
+		EA317B692E9FE29D00D1563E /* log */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B602E9FE29D00D1563E /* module.jai */,
+				EA317B612E9FE29D00D1563E /* sokol_log_macos_arm64_gl_debug.a */,
+				EA317B622E9FE29D00D1563E /* sokol_log_macos_arm64_gl_release.a */,
+				EA317B632E9FE29D00D1563E /* sokol_log_macos_arm64_metal_debug.a */,
+				EA317B642E9FE29D00D1563E /* sokol_log_macos_arm64_metal_release.a */,
+				EA317B652E9FE29D00D1563E /* sokol_log_macos_x64_gl_debug.a */,
+				EA317B662E9FE29D00D1563E /* sokol_log_macos_x64_gl_release.a */,
+				EA317B672E9FE29D00D1563E /* sokol_log_macos_x64_metal_debug.a */,
+				EA317B682E9FE29D00D1563E /* sokol_log_macos_x64_metal_release.a */,
+			);
+			path = log;
+			sourceTree = "<group>";
+		};
+		EA317B732E9FE29D00D1563E /* shape */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B6A2E9FE29D00D1563E /* module.jai */,
+				EA317B6B2E9FE29D00D1563E /* sokol_shape_macos_arm64_gl_debug.a */,
+				EA317B6C2E9FE29D00D1563E /* sokol_shape_macos_arm64_gl_release.a */,
+				EA317B6D2E9FE29D00D1563E /* sokol_shape_macos_arm64_metal_debug.a */,
+				EA317B6E2E9FE29D00D1563E /* sokol_shape_macos_arm64_metal_release.a */,
+				EA317B6F2E9FE29D00D1563E /* sokol_shape_macos_x64_gl_debug.a */,
+				EA317B702E9FE29D00D1563E /* sokol_shape_macos_x64_gl_release.a */,
+				EA317B712E9FE29D00D1563E /* sokol_shape_macos_x64_metal_debug.a */,
+				EA317B722E9FE29D00D1563E /* sokol_shape_macos_x64_metal_release.a */,
+			);
+			path = shape;
+			sourceTree = "<group>";
+		};
+		EA317B7D2E9FE29D00D1563E /* time */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B742E9FE29D00D1563E /* module.jai */,
+				EA317B752E9FE29D00D1563E /* sokol_time_macos_arm64_gl_debug.a */,
+				EA317B762E9FE29D00D1563E /* sokol_time_macos_arm64_gl_release.a */,
+				EA317B772E9FE29D00D1563E /* sokol_time_macos_arm64_metal_debug.a */,
+				EA317B782E9FE29D00D1563E /* sokol_time_macos_arm64_metal_release.a */,
+				EA317B792E9FE29D00D1563E /* sokol_time_macos_x64_gl_debug.a */,
+				EA317B7A2E9FE29D00D1563E /* sokol_time_macos_x64_gl_release.a */,
+				EA317B7B2E9FE29D00D1563E /* sokol_time_macos_x64_metal_debug.a */,
+				EA317B7C2E9FE29D00D1563E /* sokol_time_macos_x64_metal_release.a */,
+			);
+			path = time;
+			sourceTree = "<group>";
+		};
+		EA317B832E9FE29D00D1563E /* sokol */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B022E9FE29D00D1563E /* app */,
+				EA317B0C2E9FE29D00D1563E /* audio */,
+				EA317B292E9FE29D00D1563E /* c */,
+				EA317B332E9FE29D00D1563E /* debugtext */,
+				EA317B3A2E9FE29D00D1563E /* fetch */,
+				EA317B412E9FE29D00D1563E /* fontstash */,
+				EA317B4B2E9FE29D00D1563E /* gfx */,
+				EA317B552E9FE29D00D1563E /* gl */,
+				EA317B5F2E9FE29D00D1563E /* glue */,
+				EA317B692E9FE29D00D1563E /* log */,
+				EA317B732E9FE29D00D1563E /* shape */,
+				EA317B7D2E9FE29D00D1563E /* time */,
+				EA317B7E2E9FE29D00D1563E /* build_clibs_linux.sh */,
+				EA317B7F2E9FE29D00D1563E /* build_clibs_macos.sh */,
+				EA317B802E9FE29D00D1563E /* build_clibs_macos_dylib.sh */,
+				EA317B812E9FE29D00D1563E /* build_clibs_wasm.sh */,
+				EA317B822E9FE29D00D1563E /* build_clibs_windows.cmd */,
+			);
+			path = sokol;
+			sourceTree = "<group>";
+		};
+		EA317B882E9FE29D00D1563E /* sokol-jai */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AF82E9FE29D00D1563E /* examples */,
+				EA317B832E9FE29D00D1563E /* sokol */,
+				EA317B842E9FE29D00D1563E /* .gitignore */,
+				EA317B852E9FE29D00D1563E /* CHANGELOG.md */,
+				EA317B862E9FE29D00D1563E /* libclang_rt.osx.a */,
+				EA317B872E9FE29D00D1563E /* README.md */,
+			);
+			path = "sokol-jai";
+			sourceTree = "<group>";
+		};
+		EA317B8B2E9FE29D00D1563E /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B892E9FE29D00D1563E /* stb_image.a */,
+				EA317B8A2E9FE29D00D1563E /* stb_image.so */,
+			);
+			path = arm64;
+			sourceTree = "<group>";
+		};
+		EA317B8E2E9FE29D00D1563E /* x64 */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B8C2E9FE29D00D1563E /* stb_image.a */,
+				EA317B8D2E9FE29D00D1563E /* stb_image.so */,
+			);
+			path = x64;
+			sourceTree = "<group>";
+		};
+		EA317B8F2E9FE29D00D1563E /* android */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B8B2E9FE29D00D1563E /* arm64 */,
+				EA317B8E2E9FE29D00D1563E /* x64 */,
+			);
+			path = android;
+			sourceTree = "<group>";
+		};
+		EA317B922E9FE29D00D1563E /* linux */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B902E9FE29D00D1563E /* stb_image.a */,
+				EA317B912E9FE29D00D1563E /* stb_image.so */,
+			);
+			path = linux;
+			sourceTree = "<group>";
+		};
+		EA317B952E9FE29D00D1563E /* macos */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B932E9FE29D00D1563E /* stb_image.a */,
+				EA317B942E9FE29D00D1563E /* stb_image.dylib */,
+			);
+			path = macos;
+			sourceTree = "<group>";
+		};
+		EA317B982E9FE29D00D1563E /* source */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B962E9FE29D00D1563E /* stb_image.h */,
+				EA317B972E9FE29D00D1563E /* stb_image.c */,
+			);
+			path = source;
+			sourceTree = "<group>";
+		};
+		EA317B9B2E9FE29D00D1563E /* windows */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B992E9FE29D00D1563E /* stb_image.dll */,
+				EA317B9A2E9FE29D00D1563E /* stb_image.lib */,
+			);
+			path = windows;
+			sourceTree = "<group>";
+		};
+		EA317B9F2E9FE29D00D1563E /* stb_image */ = {
+			isa = PBXGroup;
+			children = (
+				EA317B8F2E9FE29D00D1563E /* android */,
+				EA317B922E9FE29D00D1563E /* linux */,
+				EA317B952E9FE29D00D1563E /* macos */,
+				EA317B982E9FE29D00D1563E /* source */,
+				EA317B9B2E9FE29D00D1563E /* windows */,
+				EA317B9C2E9FE29D00D1563E /* bindings.jai */,
+				EA317B9D2E9FE29D00D1563E /* generate.jai */,
+				EA317B9E2E9FE29D00D1563E /* module.jai */,
+			);
+			path = stb_image;
+			sourceTree = "<group>";
+		};
+		EA317BA12E9FE29D00D1563E /* shaders */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BA02E9FE29D00D1563E /* raytrace.comp.glsl.spv */,
+			);
+			path = shaders;
+			sourceTree = "<group>";
+		};
+		EA317BA52E9FE29D00D1563E /* Tacoma */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BA12E9FE29D00D1563E /* shaders */,
+				EA317BA22E9FE29D00D1563E /* libtacoma.so */,
+				EA317BA32E9FE29D00D1563E /* module.jai */,
+				EA317BA42E9FE29D00D1563E /* raytrace.comp.glsl.spv */,
+			);
+			path = Tacoma;
+			sourceTree = "<group>";
+		};
+		EA317BAA2E9FE29D00D1563E /* modules */ = {
+			isa = PBXGroup;
+			children = (
+				EA317AC32E9FE29D00D1563E /* Input */,
+				EA317AD02E9FE29D00D1563E /* Jaison */,
+				EA317AD42E9FE29D00D1563E /* Simple_Package_Reader */,
+				EA317B882E9FE29D00D1563E /* sokol-jai */,
+				EA317B9F2E9FE29D00D1563E /* stb_image */,
+				EA317BA52E9FE29D00D1563E /* Tacoma */,
+				EA317BA62E9FE29D00D1563E /* Clipboard.jai */,
+				EA317BA72E9FE29D00D1563E /* Walloc.jai */,
+				EA317BA82E9FE29D00D1563E /* Window_Creation.jai */,
+				EA317BA92E9FE29D00D1563E /* Window_Type.jai */,
+			);
+			name = modules;
+			path = ../modules;
+			sourceTree = SOURCE_ROOT;
+		};
+		EA317BAC2E9FE29D00D1563E /* packs */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BAB2E9FE29D00D1563E /* assets.pack */,
+			);
+			name = packs;
+			path = ../packs;
+			sourceTree = SOURCE_ROOT;
+		};
+		EA317BAF2E9FE29D00D1563E /* utiltex */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BAE2E9FE29D00D1563E /* lut.png */,
+			);
+			path = utiltex;
+			sourceTree = "<group>";
+		};
+		EA317BB12E9FE29D00D1563E /* resources */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BAF2E9FE29D00D1563E /* utiltex */,
+				EA317BB02E9FE29D00D1563E /* DroidSerif-Regular.ttf */,
+			);
+			name = resources;
+			path = ../resources;
+			sourceTree = SOURCE_ROOT;
+		};
+		EA317BBC2E9FE29D00D1563E /* editor */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BB22E9FE29D00D1563E /* console.jai */,
+				EA317BB32E9FE29D00D1563E /* editor.jai */,
+				EA317BB42E9FE29D00D1563E /* iprof.jai */,
+				EA317BB52E9FE29D00D1563E /* level_editor.jai */,
+				EA317BB62E9FE29D00D1563E /* no_tacoma.jai */,
+				EA317BB72E9FE29D00D1563E /* picker.jai */,
+				EA317BB82E9FE29D00D1563E /* postprocess.jai */,
+				EA317BB92E9FE29D00D1563E /* tacoma.jai */,
+				EA317BBA2E9FE29D00D1563E /* textureDebugger.jai */,
+				EA317BBB2E9FE29D00D1563E /* trile_editor.jai */,
+			);
+			path = editor;
+			sourceTree = "<group>";
+		};
+		EA317BBE2E9FE29D00D1563E /* input */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BBD2E9FE29D00D1563E /* hotkeys.jai */,
+			);
+			path = input;
+			sourceTree = "<group>";
+		};
+		EA317BC62E9FE29D00D1563E /* meta */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BBF2E9FE29D00D1563E /* ascii.jai */,
+				EA317BC02E9FE29D00D1563E /* console_commands.jai */,
+				EA317BC12E9FE29D00D1563E /* hacks.jai */,
+				EA317BC22E9FE29D00D1563E /* lint.jai */,
+				EA317BC32E9FE29D00D1563E /* meta.jai */,
+				EA317BC42E9FE29D00D1563E /* pack.jai */,
+				EA317BC52E9FE29D00D1563E /* shaderload.jai */,
+			);
+			path = meta;
+			sourceTree = "<group>";
+		};
+		EA317BCD2E9FE29D00D1563E /* platform_specific */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BC72E9FE29D00D1563E /* common.jai */,
+				EA317BC82E9FE29D00D1563E /* main.c */,
+				EA317BC92E9FE29D00D1563E /* main_native.jai */,
+				EA317BCA2E9FE29D00D1563E /* main_web.jai */,
+				EA317BCB2E9FE29D00D1563E /* runtime.js */,
+				EA317BCC2E9FE29D00D1563E /* shell.html */,
+			);
+			path = platform_specific;
+			sourceTree = "<group>";
+		};
+		EA317BDA2E9FE29D00D1563E /* rendering */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BCE2E9FE29D00D1563E /* arbtri.jai */,
+				EA317BCF2E9FE29D00D1563E /* backend.jai */,
+				EA317BD02E9FE29D00D1563E /* backend_sokol.jai */,
+				EA317BD12E9FE29D00D1563E /* camera.jai */,
+				EA317BD22E9FE29D00D1563E /* core.jai */,
+				EA317BD32E9FE29D00D1563E /* helpers.jai */,
+				EA317BD42E9FE29D00D1563E /* meshgen.jai */,
+				EA317BD52E9FE29D00D1563E /* pipelines.jai */,
+				EA317BD62E9FE29D00D1563E /* post_processing.jai */,
+				EA317BD72E9FE29D00D1563E /* rendering.jai */,
+				EA317BD82E9FE29D00D1563E /* sky.jai */,
+				EA317BD92E9FE29D00D1563E /* tasks.jai */,
+			);
+			path = rendering;
+			sourceTree = "<group>";
+		};
+		EA317BE12E9FE29D00D1563E /* jai */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BDB2E9FE29D00D1563E /* shader_plane.jai */,
+				EA317BDC2E9FE29D00D1563E /* shader_post_process_main.jai */,
+				EA317BDD2E9FE29D00D1563E /* shader_sky.jai */,
+				EA317BDE2E9FE29D00D1563E /* shader_triangle.jai */,
+				EA317BDF2E9FE29D00D1563E /* shader_trile.jai */,
+				EA317BE02E9FE29D00D1563E /* shader_trixel.jai */,
+			);
+			path = jai;
+			sourceTree = "<group>";
+		};
+		EA317BEC2E9FE29D00D1563E /* shaders */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BE12E9FE29D00D1563E /* jai */,
+				EA317BE22E9FE29D00D1563E /* compile_shaders.sh */,
+				EA317BE32E9FE29D00D1563E /* compile_shaders_mac.sh */,
+				EA317BE42E9FE29D00D1563E /* shader_plane.glsl */,
+				EA317BE52E9FE29D00D1563E /* shader_post_process_main.glsl */,
+				EA317BE62E9FE29D00D1563E /* shader_sky.glsl */,
+				EA317BE72E9FE29D00D1563E /* shader_triangle.glsl */,
+				EA317BE82E9FE29D00D1563E /* shader_trile.glsl */,
+				EA317BE92E9FE29D00D1563E /* shader_trixel.glsl */,
+				EA317BEA2E9FE29D00D1563E /* sokol-shdc */,
+				EA317BEB2E9FE29D00D1563E /* sokol-shdc-mac */,
+			);
+			path = shaders;
+			sourceTree = "<group>";
+		};
+		EA317BF02E9FE29D00D1563E /* ui */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BED2E9FE29D00D1563E /* autoedit.jai */,
+				EA317BEE2E9FE29D00D1563E /* component_themes.jai */,
+				EA317BEF2E9FE29D00D1563E /* ui.jai */,
+			);
+			path = ui;
+			sourceTree = "<group>";
+		};
+		EA317BFA2E9FE29D00D1563E /* src */ = {
+			isa = PBXGroup;
+			children = (
+				EA317BBC2E9FE29D00D1563E /* editor */,
+				EA317BBE2E9FE29D00D1563E /* input */,
+				EA317BC62E9FE29D00D1563E /* meta */,
+				EA317BCD2E9FE29D00D1563E /* platform_specific */,
+				EA317BDA2E9FE29D00D1563E /* rendering */,
+				EA317BEC2E9FE29D00D1563E /* shaders */,
+				EA317BF02E9FE29D00D1563E /* ui */,
+				EA317BF12E9FE29D00D1563E /* buffers.jai */,
+				EA317BF22E9FE29D00D1563E /* events.jai */,
+				EA317BF32E9FE29D00D1563E /* load.jai */,
+				EA317BF42E9FE29D00D1563E /* main.jai */,
+				EA317BF52E9FE29D00D1563E /* ray.jai */,
+				EA317BF62E9FE29D00D1563E /* shapes.jai */,
+				EA317BF72E9FE29D00D1563E /* time.jai */,
+				EA317BF82E9FE29D00D1563E /* trile.jai */,
+				EA317BF92E9FE29D00D1563E /* world.jai */,
+			);
+			name = src;
+			path = ../src;
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		EA317AAE2E9ED68E00D1563E /* trueno */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = first.jai;
+			buildConfigurationList = EA317AB12E9ED68E00D1563E /* Build configuration list for PBXLegacyTarget "trueno" */;
+			buildPhases = (
+			);
+			buildToolPath = "/Users/tuomas.katajisto/jai/bin/jai-macos";
+			buildWorkingDirectory = /Users/tuomas.katajisto/trueno;
+			dependencies = (
+			);
+			name = trueno;
+			packageProductDependencies = (
+			);
+			passBuildSettingsInEnvironment = 0;
+			productName = trueno;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXProject section */
+		EA317AAA2E9ED68E00D1563E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				KnownAssetTags = (
+					New,
+				);
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					EA317AAE2E9ED68E00D1563E = {
+						CreatedOnToolsVersion = 16.4;
+					};
+				};
+			};
+			buildConfigurationList = EA317AAD2E9ED68E00D1563E /* Build configuration list for PBXProject "trueno" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = EA317AA92E9ED68E00D1563E;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EA317AAE2E9ED68E00D1563E /* trueno */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		EA317AAF2E9ED68E00D1563E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+			};
+			name = Debug;
+		};
+		EA317AB02E9ED68E00D1563E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+			};
+			name = Release;
+		};
+		EA317AB22E9ED68E00D1563E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EA317AB32E9ED68E00D1563E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		EA317AAD2E9ED68E00D1563E /* Build configuration list for PBXProject "trueno" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EA317AAF2E9ED68E00D1563E /* Debug */,
+				EA317AB02E9ED68E00D1563E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EA317AB12E9ED68E00D1563E /* Build configuration list for PBXLegacyTarget "trueno" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EA317AB22E9ED68E00D1563E /* Debug */,
+				EA317AB32E9ED68E00D1563E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = EA317AAA2E9ED68E00D1563E /* Project object */;
+}

@@ -28,7 +28,9 @@ game_tick :: () {
 }
 
 game_draw :: () {
-	create_set_cam_rendering_task(cam);
 	curworld := get_current_world();
-	if curworld.valid then create_world_rendering_tasks(curworld.world);
+	if curworld.valid {
+		create_set_cam_rendering_task(cam, curworld.world.conf.planeHeight);
+		create_world_rendering_tasks(curworld.world);
+	}
 }

@@ -18,7 +18,7 @@ tick_post_process_editor :: () {
 draw_post_process_editor :: () {
     curworld := get_current_world();
     if !curworld.valid then return;
-    create_set_cam_rendering_task(get_post_processing_camera());
+    create_set_cam_rendering_task(get_post_processing_camera(), curworld.world.conf.planeHeight);
 	create_world_rendering_tasks(curworld.world);
 }
 

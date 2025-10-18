@@ -57,6 +57,7 @@ Rendering_Task_Trixels :: struct {
 Rendering_Task_Set_Camera :: struct {
     #as using t : Rendering_Task;
     camera      : Camera;
+    planeHeight : float;
 }
 
 rendering_tasklist_clear :: () {
@@ -116,13 +117,16 @@ tasks_to_commands :: () {
                 array_add(*render_command_buckets.setup, commandGenGround);
                 array_add(*render_command_buckets.main, commandDrawGround);
             case .SET_CAMERA;
+                task := (cast(*Rendering_Task_Set_Camera)it);
                 command := New(Render_Command_Set_Camera,, temp);
-                command.camera = (cast(*Rendering_Task_Set_Camera)it).camera;
+                command.camera = task.camera;
                 array_add(*render_command_buckets.main, command);
                 commandReflected := New(Render_Command_Set_Camera,, temp);
-                commandReflected.camera = (cast(*Rendering_Task_Set_Camera)it).camera;
+                commandReflected.camera = task.camera;
                 commandReflected.camera.target   *= Vector3.{1, -1, 1};
                 commandReflected.camera.position *= Vector3.{1, -1, 1};
+                commandReflected.camera.target.y += task.planeHeight * 2;
+                commandReflected.camera.position.y += task.planeHeight * 2;
                 array_add(*render_command_buckets.reflection, commandReflected);
         }
     }

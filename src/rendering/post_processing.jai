@@ -1,7 +1,7 @@
 Post_Process :: struct {
     exposure   : float = 0.0; @Slider,-1,1,0.1;
     contrast   : float = 1.0; @Slider,0.1,4.0,0.1;
-    saturation : float;
+    saturation : float = 1.0; @Slider,0.0,2.0,0.1;
     gamma      : float = 1.0; @Slider,0.3,3.0,0.1;
     tonemap    : float = 1.0; @Slider,0,1,1;
 }

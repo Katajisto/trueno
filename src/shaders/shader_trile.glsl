@@ -41,13 +41,12 @@ layout(binding=1) uniform trile_world_config {
 
     int hasClouds;
 
-    int hasPlane;
     float planeHeight;
     int planeType;
+    vec3 waterColor;
+    vec3 deepColor;
 
     float time;
-
-    float grassDensity;
 };
 
 in vec3 cam;
@@ -56,6 +55,11 @@ in vec3 vpos;
 in vec3 ipos;
 in vec4 fnormal;
 out vec4 frag_color;
+
+layout(binding=3) uniform trile_fs_params {
+    mat4 mvp_shadow;
+    int  is_reflection;
+};
 
 layout(binding = 0) uniform texture2D triletex;
 layout(binding = 0) uniform sampler trilesmp;
@@ -179,6 +183,9 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 }
 
 void main() {
+    if (vpos.y < planeHeight - 0.01 && is_reflection == 1) {
+        discard;
+    }
     //frag_color = vec4((fnormal.xyz + vec3(1.0, 1.0, 1.0)) * 0.5, 1.0);
     vec3 pos_after_adjust = ipos - fnormal.xyz * 0.02;
     int count = 0;
@@ -232,7 +239,7 @@ void main() {
     vec3 samp = sky(R, sunPosition);
     // light += F * samp * modifier;
 
-    frag_color = vec4(vec3(light), 1.0);
+    frag_color = vec4(mix(deepColor, light, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
 
 }
 @end

@@ -15,7 +15,6 @@ fill_uniform_with_engine_data :: (uniform: *$A, enginedata: *$B) {
 create_world_rendering_tasks :: (world: *World) {
     create_sky_rendering_task(*world.conf);
     create_set_light_rendering_task(*world.conf);
-    create_ground_rendering_task(world);
     for world.positions {
         if it.positions.count < 1 then continue;
 		triletask := Rendering_Task_Trile.{};
@@ -24,6 +23,7 @@ create_world_rendering_tasks :: (world: *World) {
 		triletask.worldConf = *world.conf;
 		add_rendering_task(triletask);
 	}
+    create_ground_rendering_task(world);
 }
 
 create_sky_rendering_task :: (conf: *World_Config) {
@@ -47,8 +47,8 @@ create_ground_rendering_task :: (world: *World) {
 	add_rendering_task(groundtask);
 }
 
-create_set_cam_rendering_task :: (cam: Camera) {
-    camtask := Rendering_Task_Set_Camera.{type = .SET_CAMERA, camera = cam};
+create_set_cam_rendering_task :: (cam: Camera, planeHeight: float) {
+    camtask := Rendering_Task_Set_Camera.{type = .SET_CAMERA, camera = cam, planeHeight = planeHeight};
     add_rendering_task(camtask);
 }
 
