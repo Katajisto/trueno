@@ -473,6 +473,12 @@ create_plane_pipeline :: () {
         mag_filter = .NEAREST,
     }));
 
+    gPipelines.plane.bind.samplers[3] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .REPEAT,
+        wrap_v = .REPEAT,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
+    }));
 
     ground_img_desc := sg_image_desc.{
         width         = 1000,
@@ -573,4 +579,8 @@ create_postprocess_pipeline :: () {
         mag_filter = .NEAREST,
     }));
 
+}
+
+init_plane_textures :: () {
+    gPipelines.plane.bind.images[3] = create_texture_from_pack("./resources/utiltex/water.png");
 }

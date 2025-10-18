@@ -75,11 +75,11 @@ input_code_from_type_and_notes :: (name: string, type: *Type_Info, notes: []stri
 		if autoconf.kind == .DEFAULT {
 			print_to_builder(*builder, "{\n");
 			print_to_builder(*builder, "orig_w := r.w; orig_x := r.x; r.w = r.w / 3;\n");
-			print_to_builder(*builder, "GR.number_input(r, tprint(\"\%\", value.%.x), *value.%.x, 0, 100, *number_theme);\n", name, name);
+			print_to_builder(*builder, "GR.number_input(r, tprint(\"\%\", value.%.x), *value.%.x, -100, 100, *number_theme);\n", name, name);
 			print_to_builder(*builder, "r.x += r.w;\n");
-			print_to_builder(*builder, "GR.number_input(r, tprint(\"\%\", value.%.y), *value.%.y, 0, 100, *number_theme);\n", name, name);
+			print_to_builder(*builder, "GR.number_input(r, tprint(\"\%\", value.%.y), *value.%.y, -100, 100, *number_theme);\n", name, name);
 			print_to_builder(*builder, "r.x += r.w;\n");
-			print_to_builder(*builder, "GR.number_input(r, tprint(\"\%\", value.%.z), *value.%.z, 0, 100, *number_theme);\n", name, name);
+			print_to_builder(*builder, "GR.number_input(r, tprint(\"\%\", value.%.z), *value.%.z, -100, 100, *number_theme);\n", name, name);
 			print_to_builder(*builder, "r.w = orig_w; r.x = orig_x;\n");
 			print_to_builder(*builder, "}\n");
 		} else if autoconf.kind == .COLOR {

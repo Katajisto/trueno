@@ -95,6 +95,7 @@ init :: () {
 }
 
 init_after_asset_pack :: () {
+    init_plane_textures();
     add_font_from_pack("./resources/DroidSerif-Regular.ttf");
     ui_init_font_fields(*state.font_default);
 

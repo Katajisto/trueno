@@ -161,6 +161,9 @@ backend_draw_ground :: (wc: *World_Config) {
     w, h := get_render_size();
     plane_data.screen_w = w;
     plane_data.screen_h = h;
+    plane_data.cameraPosition = camera.position.component;
+    plane_data.reflectionDistortion = 0.1;
+    plane_data.shininess = 0.2;
 
     world_config_to_shader_type(wc, *world_conf);
 
