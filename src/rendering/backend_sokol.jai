@@ -235,7 +235,7 @@ backend_process_command_buckets :: () {
     }
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
     
-    // 2. Reflection pass
+    // 3. Reflection pass
 	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = gPipelines.plane.attachments}));
     in_reflection_pass = true;
     for render_command_buckets.reflection {
@@ -244,17 +244,8 @@ backend_process_command_buckets :: () {
     in_reflection_pass = false;
 	sg_end_pass();
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
-
-
-    // 3. Main pass
-	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_rendertex_attachments}));
-    for render_command_buckets.main {
-        backend_handle_command(it);
-    }
-	sg_end_pass();
-    current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
-
-    // 3. G-Buffer pass
+    
+    // 4. G-Buffer pass
     in_gbuffer_pass = true;
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_gbuf_attachments}));
     for render_command_buckets.gbuffer {
@@ -263,8 +254,19 @@ backend_process_command_buckets :: () {
     sg_end_pass();
     in_gbuffer_pass = false;
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
+
+    // --- TODO: Do SSAO pass here:
+
+    // 5. Main pass
+	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_rendertex_attachments}));
+    for render_command_buckets.main {
+        backend_handle_command(it);
+    }
+	sg_end_pass();
+    current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
+
    
-    // Begin main pass
+    // Begin drawing to swapchain
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     
     // Draw the render texture and do post processing:
@@ -280,8 +282,6 @@ backend_process_command_buckets :: () {
     sgl_matrix_mode_projection();
     sgl_ortho(0.0, sapp_widthf(), sapp_heightf(), 0.0, -1.0, +1.0);
     arb_tri_flush();
-
-    // End the main pass
 
 	sg_end_pass();
 

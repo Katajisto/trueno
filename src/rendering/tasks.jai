@@ -122,6 +122,7 @@ tasks_to_commands :: () {
                 command := New(Render_Command_Set_Camera,, temp);
                 command.camera = task.camera;
                 array_add(*render_command_buckets.main, command);
+                array_add(*render_command_buckets.gbuffer, command);
                 commandReflected := New(Render_Command_Set_Camera,, temp);
                 commandReflected.camera = task.camera;
                 commandReflected.camera.target   *= Vector3.{1, -1, 1};

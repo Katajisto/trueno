@@ -23,6 +23,8 @@ g_gbuf_normal           : sg_image;
 g_gbuf_depth            : sg_image;
 g_gbuf_attachments      : sg_attachments;
 
+g_ssaobuf : sg_image;
+
 gPipelines : struct {
     // G-Buffer generation for SSAO and other effects
     gbuffer: Pipeline_Binding;
