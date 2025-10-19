@@ -103,6 +103,7 @@ tasks_to_commands :: () {
                 drawPositionsCmd.conf = trileTask.worldConf;
                 array_add(*render_command_buckets.reflection, drawPositionsCmd);
                 array_add(*render_command_buckets.main, drawPositionsCmd);
+                array_add(*render_command_buckets.gbuffer, drawPositionsCmd);
                 array_add(*render_command_buckets.shadow, drawPositionsCmd);
             case .SKY;
                 command := New(Render_Command_Sky,, temp);

@@ -8,6 +8,7 @@ current_trile_offset_index : s32 = 0;
 current_world_config : *World_Config = null;
 in_shadowmap_pass    : bool = false;
 in_reflection_pass   : bool = false;
+in_gbuffer_pass     : bool = false;
 shadow_mvp           : Matrix4;
 
 backend_handle_command :: (cmd: *Render_Command) {
@@ -98,6 +99,42 @@ backend_add_trile_positions :: (positions : []Vector4) {
 }
 
 backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World_Config) {
+    if in_gbuffer_pass {
+        backend_draw_trile_positions_gbuffer(trile, amount, worldConf);
+    } else {
+        backend_draw_trile_positions_main(trile, amount, worldConf);
+    }
+}
+
+backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf: *World_Config) {
+    mvp := create_viewproj(*camera);
+    view := create_lookat(*camera);
+    vs_params : Gbuffer_Vs_Params;
+    vs_params.mvp = mvp.floats;
+    vs_params.view_matrix = view.floats;
+    sg_apply_pipeline(gPipelines.gbuffer.pipeline);
+    world_conf : Trile_World_Config;
+    world_config_to_shader_type(worldConf, *world_conf);
+
+    offset := trile_offsets[current_trile_offset_index];
+    current_trile_offset_index += 1;
+
+    trilegfx := get_trile_gfx(trile);
+    bindings : sg_bindings;
+    bindings.vertex_buffers[0]         = trilegfx.vertex_buffer;
+    bindings.vertex_buffers[1]         = trilegfx.normal_buffer;
+    bindings.vertex_buffers[2]         = trilegfx.centre_buffer;
+    bindings.vertex_buffers[3]         = gPipelines.trile.bind.vertex_buffers[3];
+    bindings.vertex_buffer_offsets[3]  = offset;
+    bindings.samplers[0]               = gPipelines.trile.bind.samplers[0];
+    bindings.images[0]                 = trilegfx.trixel_colors;
+
+    sg_apply_bindings(*bindings);
+    sg_apply_uniforms(UB_gbuffer_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
+    sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
+}
+
+backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *World_Config) {
 	mvp : Matrix4;
     if !in_shadowmap_pass {
         mvp = create_viewproj(*camera);
@@ -108,7 +145,7 @@ backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World
 	vs_params : Trile_Vs_Params;
 	vs_params.mvp = mvp.floats;
     vs_params.camera = camera.position.component;
-	sg_apply_pipeline(gPipelines.trile.pipeline);
+    sg_apply_pipeline(gPipelines.trile.pipeline);
     world_conf : Trile_World_Config;
     world_config_to_shader_type(worldConf, *world_conf);
 
@@ -128,15 +165,12 @@ backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World
     fs_params : Trile_Fs_Params;
     fs_params.mvp_shadow = shadow_mvp.floats;
     fs_params.is_reflection = ifx in_reflection_pass then cast(s32)1 else cast(s32)0;
-
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
     sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
     sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
-    
 }
-
 backend_draw_sky :: (wc: *World_Config) {
     mvp := create_viewproj(*camera);
     vs_params : Sky_Vs_Params;
@@ -211,12 +245,23 @@ backend_process_command_buckets :: () {
 	sg_end_pass();
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
 
+
     // 3. Main pass
 	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_rendertex_attachments}));
     for render_command_buckets.main {
         backend_handle_command(it);
     }
 	sg_end_pass();
+    current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
+
+    // 3. G-Buffer pass
+    in_gbuffer_pass = true;
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_gbuf_attachments}));
+    for render_command_buckets.gbuffer {
+        backend_handle_command(it);
+    }
+    sg_end_pass();
+    in_gbuffer_pass = false;
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
    
     // Begin main pass
@@ -246,6 +291,7 @@ backend_process_command_buckets :: () {
     array_reset_keeping_memory(*render_command_buckets.shadow);
     array_reset_keeping_memory(*render_command_buckets.reflection);
     array_reset_keeping_memory(*render_command_buckets.main);
+    array_reset_keeping_memory(*render_command_buckets.gbuffer);
     array_reset_keeping_memory(*render_command_buckets.ui);
     array_reset_keeping_memory(*trile_offsets);
     current_world_config = null;

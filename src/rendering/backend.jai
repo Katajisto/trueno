@@ -5,6 +5,7 @@ Render_Command_Buckets :: struct {
     shadow     : [..]*Render_Command;
     reflection : [..]*Render_Command;
     main       : [..]*Render_Command;
+    gbuffer    : [..]*Render_Command;
     ui         : [..]*Render_Command;
 }
 

@@ -18,7 +18,14 @@ g_rendertex             : sg_image;
 g_rendertex_depth       : sg_image;
 g_rendertex_attachments : sg_attachments;
 
+g_gbuf_position         : sg_image;
+g_gbuf_normal           : sg_image;
+g_gbuf_depth            : sg_image;
+g_gbuf_attachments      : sg_attachments;
+
 gPipelines : struct {
+    // G-Buffer generation for SSAO and other effects
+    gbuffer: Pipeline_Binding;
 
     // Arbitrary triangle rendering for rendering 2D things on the screen.
     // Used for UI rendering.
@@ -100,6 +107,8 @@ create_shadowmap_image :: () {
 }
 
 create_pipelines :: () {
+    create_gbuffer_images();
+    create_gbuffer_pipeline();
     create_arbtri_pipeline();
     create_trixel_pipeline();
     create_trile_pipeline();
@@ -109,6 +118,40 @@ create_pipelines :: () {
     
     create_shadowmap_image();
     create_final_image();
+}
+
+create_gbuffer_images :: () {
+    w,h := get_render_size();
+
+    if g_gbuf_position.id != INVALID_ID then sg_destroy_image(g_gbuf_position);
+    if g_gbuf_normal.id != INVALID_ID then sg_destroy_image(g_gbuf_normal);
+    if g_gbuf_depth.id != INVALID_ID then sg_destroy_image(g_gbuf_depth);
+
+    img_desc := sg_image_desc.{
+        width = w,
+        height = h,
+        pixel_format = .RGBA16F,
+        render_target = true,
+    };
+    depth_desc := sg_image_desc.{
+        width = w,
+        height = h,
+        pixel_format = .DEPTH,
+        render_target = true,
+    };
+
+    g_gbuf_position = sg_make_image(*img_desc);
+    g_gbuf_normal = sg_make_image(*img_desc);
+    g_gbuf_depth = sg_make_image(*depth_desc);
+
+    attachmentsDesc : sg_attachments_desc;
+	attachmentsDesc = .{
+	    colors[0].image = g_gbuf_position,
+	    colors[1].image = g_gbuf_normal,
+	   	depth_stencil.image = g_gbuf_depth,
+	};
+    sg_destroy_attachments(g_gbuf_attachments);
+    g_gbuf_attachments = sg_make_attachments(*attachmentsDesc);
 }
 
 TRIXEL_SIZE_HALF : float : 1.0/32.0;
@@ -235,6 +278,49 @@ create_trixel_pipeline :: () {
     gPipelines.trixel.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
     gPipelines.trixel.bind.vertex_buffers[1] = sg_make_buffer(*nbuffer);
     gPipelines.trixel.bind.vertex_buffers[2] = sg_make_buffer(*instance_buffer);
+}
+
+create_gbuffer_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := gbuffer_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.buffers[0].stride = 4*3;
+    pipeline.layout.buffers[1].stride = 4*3;
+
+    pipeline.layout.buffers[3].step_func = .PER_INSTANCE;
+
+    instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 16 * 4096 * 4 * 4};
+
+    pipeline.layout.attrs[ATTR_trile_position] = .{ format = .FLOAT3, buffer_index = 0 };
+    pipeline.layout.attrs[ATTR_trile_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
+    pipeline.layout.attrs[ATTR_trile_centre]   = .{ format = .FLOAT3, buffer_index = 2 };
+    pipeline.layout.attrs[ATTR_trile_instance] = .{ format = .FLOAT4, buffer_index = 3 };
+    pipeline.depth = .{
+            write_enabled = true,
+            compare = .LESS_EQUAL,
+            pixel_format = .DEPTH,
+    };
+
+    color_state_pos := sg_color_target_state.{
+        pixel_format = .RGBA16F,
+    };
+    color_state_normal := sg_color_target_state.{
+        pixel_format = .RGBA16F,
+    };
+
+
+    pipeline.color_count = 2;
+    pipeline.colors[0]   = color_state_pos;
+    pipeline.colors[1]   = color_state_normal;
+
+    gPipelines.gbuffer.pipeline = sg_make_pipeline(*pipeline);
+    gPipelines.gbuffer.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+    gPipelines.gbuffer.bind.vertex_buffers[3] = sg_make_buffer(*instance_buffer);
 }
 
 create_trile_pipeline :: () {
