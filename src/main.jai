@@ -114,6 +114,7 @@ init_after_asset_pack :: () {
     init_editor();
     game_init();
     lworlds();
+    init_rendering();
     load_post_process_from_pack();
 }
 

@@ -23,7 +23,10 @@ g_gbuf_normal           : sg_image;
 g_gbuf_depth            : sg_image;
 g_gbuf_attachments      : sg_attachments;
 
-g_ssaobuf : sg_image;
+g_ssaobuf               : sg_image;
+g_ssao_noise_buf        : sg_image;
+g_ssaobuf_depth         : sg_image;
+g_ssao_attachments      : sg_attachments;
 
 gPipelines : struct {
     // G-Buffer generation for SSAO and other effects
@@ -43,10 +46,14 @@ gPipelines : struct {
     // Renders sets of triles
     trile  : Pipeline_Binding;
 
-    // Renders the ground plane.
+    // Renders the ground plane. (just water)
     plane  : Pipeline_Binding;
 
+    // Post-processing pipeline
     postprocess : Pipeline_Binding;
+
+    // Renders the SSAO texture using things from the gbuffer pass.
+    ssao: Pipeline_Binding;
 }
 
 create_final_image :: () {
@@ -117,6 +124,7 @@ create_pipelines :: () {
     create_sky_pipeline();
     create_plane_pipeline();
     create_postprocess_pipeline();
+    create_ssao_pipeline();
     
     create_shadowmap_image();
     create_final_image();
@@ -667,6 +675,101 @@ create_postprocess_pipeline :: () {
         mag_filter = .NEAREST,
     }));
 
+}
+
+create_ssao_pipeline :: () {
+    platconf := get_plat_conf();
+    pipeline: sg_pipeline_desc;
+    shader_desc := ssao_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+
+    pipeline.layout.attrs[ATTR_ssao_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_ssao_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+
+    color_state := sg_color_target_state.{
+        blend = .{
+            enabled = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
+        }
+    };
+
+    pipeline.color_count = 1;
+    pipeline.depth = .{
+            write_enabled = true,
+            compare = .LESS_EQUAL,
+            pixel_format = .DEPTH
+    };
+    pipeline.colors[0] = color_state;
+
+    gPipelines.ssao.pipeline = sg_make_pipeline(*pipeline);
+
+    quad_vertices : [16]float = .[
+        -1.0,  1.0, 0.0, flip_if_plat(1.0), // top-let
+        -1.0, -1.0, 0.0, flip_if_plat(0.0), // bottom-let
+         1.0, -1.0, 1.0, flip_if_plat(0.0), // bottom-right
+         1.0,  1.0, 1.0, flip_if_plat(1.0), // top-right
+    ];
+    quad_indices  : [6]u16 = .[
+        0, 1, 2, 0, 2, 3
+    ];
+
+    vbuffer := sg_buffer_desc.{ size = size_of(float) * 16, data = .{
+        ptr = quad_vertices.data,
+        size = 16 * 4
+    }};
+    ibuffer := sg_buffer_desc.{ size = size_of(u16) * 6, data = .{
+        ptr = quad_indices.data,
+        size = 6 * 2
+    },
+    type = .INDEXBUFFER,
+    };
+
+    gPipelines.ssao.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    gPipelines.ssao.bind.index_buffer = sg_make_buffer(*ibuffer);
+    gPipelines.ssao.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+
+    w,h := get_render_size();
+    img_desc := sg_image_desc.{
+        width = w,
+        height = h,
+        render_target = true,
+    };
+    img_desc.sample_count = 1;
+    g_ssaobuf = sg_make_image(*img_desc);
+    img_desc = sg_image_desc.{
+        width = w,
+        height = h,
+        pixel_format = .DEPTH,
+        render_target = true,
+    };
+    img_desc.sample_count = 1;
+    g_ssaobuf_depth = sg_make_image(*img_desc);
+
+	attachmentsDesc := sg_attachments_desc.{
+	    colors[0].image = g_ssaobuf,
+        depth_stencil.image = g_ssaobuf_depth
+	};
+    sg_destroy_attachments(g_ssao_attachments);
+    g_ssao_attachments = sg_make_attachments(*attachmentsDesc);
+
+    imgdata : sg_image_data;
+    imgdata.subimage[0][0] = .{g_ssao_noise.data, cast(u64) (16*4)};
+    texdesc : sg_image_desc = .{
+        render_target = false,
+        width         = 4,
+        height        = 4,  
+        pixel_format  = sg_pixel_format.RGBA8,
+        sample_count  = 1,
+        data          = imgdata
+    };
+    g_ssao_noise_buf = sg_make_image(*texdesc);
 }
 
 init_plane_textures :: () {

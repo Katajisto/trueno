@@ -7,7 +7,7 @@ theme_ptr         : GR.Overall_Theme;
 
 current_pipeline : s32 = 0;
 current_slot     : s32 = 0;
-pipeline_names   : []string = .["shadowmap", "reflection", "main", "position", "normal"];
+pipeline_names   : []string = .["shadowmap", "reflection", "main", "position", "normal", "ssao"];
 
 draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *void) {
     r2 := r;
@@ -29,6 +29,7 @@ draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *
         case 2; image = g_rendertex;
         case 3; image = g_gbuf_position;
         case 4; image = g_gbuf_normal;
+        case 5; image = g_ssaobuf;
     }
     
     uiTex.tex = image; 

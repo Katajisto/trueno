@@ -256,6 +256,19 @@ backend_process_command_buckets :: () {
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
 
     // --- TODO: Do SSAO pass here:
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_ssao_attachments}));
+    sg_apply_pipeline(gPipelines.ssao.pipeline);
+    gPipelines.ssao.bind.images[0] = g_gbuf_position;
+    gPipelines.ssao.bind.images[1] = g_gbuf_normal;
+    gPipelines.ssao.bind.images[2] = g_gbuf_position;
+    sg_apply_bindings(*gPipelines.ssao.bind);
+    ssao_fs_uniform : Ssao_Fs_Params;
+    mvp := create_viewproj(*camera);
+    ssao_fs_uniform.projection = mvp.floats;
+    ssao_fs_uniform.samples    = g_ssao_samples;
+    sg_apply_uniforms(UB_ssao_fs_params, *(sg_range.{ ptr = *ssao_fs_uniform, size = size_of(type_of(ssao_fs_uniform)) }));
+    sg_draw(0, 6, 1);    
+    sg_end_pass();
 
     // 5. Main pass
 	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_rendertex_attachments}));

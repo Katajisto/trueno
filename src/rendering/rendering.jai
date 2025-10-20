@@ -8,6 +8,7 @@
 */
 
 #load "sky.jai";
+#load "ssao.jai";
 #load "core.jai";
 #load "tasks.jai";
 #load "camera.jai";
