@@ -161,6 +161,7 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     bindings.vertex_buffer_offsets[3]  = offset;
     bindings.samplers[0]               = gPipelines.trile.bind.samplers[0];
     bindings.images[0]                 = trilegfx.trixel_colors;
+    bindings.images[1]                 = g_ssaobuf;
 
     fs_params : Trile_Fs_Params;
     fs_params.mvp_shadow = shadow_mvp.floats;
@@ -266,6 +267,7 @@ backend_process_command_buckets :: () {
     mvp := create_perspective(*camera);
     ssao_fs_uniform.projection = mvp.floats;
     ssao_fs_uniform.samples    = g_ssao_samples;
+    ssao_fs_uniform.ssao_power = current_post_process.ssao;
     sg_apply_uniforms(UB_ssao_fs_params, *(sg_range.{ ptr = *ssao_fs_uniform, size = size_of(type_of(ssao_fs_uniform)) }));
     sg_draw(0, 6, 1);    
     sg_end_pass();

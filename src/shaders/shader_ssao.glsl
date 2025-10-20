@@ -21,6 +21,7 @@ layout(binding=0) uniform sampler ssao_smp;
 layout(binding=1) uniform ssao_fs_params {
     mat4 projection;
     vec4 samples[64];
+    float ssao_power;
 };
 
 in vec2 quad_uv;
@@ -39,18 +40,20 @@ void main() {
     float occlusion = 0.0;
     for(int i = 0; i < 64; i++) {
         vec3 sample_pos = tbn * samples[i].xyz;
-        sample_pos = frag_pos + sample_pos * 0.2;
+        sample_pos = frag_pos + sample_pos * 0.5;
 
         vec4 offset = vec4(sample_pos, 1.0);
         offset = projection * offset;
         offset.xyz /= offset.w;
         offset.xyz = offset.xyz * 0.5 + 0.5;
 
-        float sample_depth = texture(sampler2D(g_position, ssao_smp), offset.xy).z;
-        occlusion += (sample_depth >= sample_pos.z ? 1.0 : 0.0);
+        vec3 psample = texture(sampler2D(g_position, ssao_smp), offset.xy).xyz;
+        if (length(psample) > 0.01) {
+            occlusion += (psample.z >= sample_pos.z ? 1.0 : 0.0);
+        }
     }
     occlusion = 1.0 - (occlusion / 64.0);
-    out_color = vec4(vec3(occlusion), 1.0);
+    out_color = vec4(vec3(pow(occlusion, ssao_power)), 1.0);
 }
 @end
 

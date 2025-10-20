@@ -57,12 +57,14 @@ in vec4 fnormal;
 out vec4 frag_color;
 
 layout(binding=3) uniform trile_fs_params {
-    mat4 mvp_shadow;
-    int  is_reflection;
+    mat4  mvp_shadow;
+    int   is_reflection;
 };
 
 layout(binding = 0) uniform texture2D triletex;
 layout(binding = 0) uniform sampler trilesmp;
+layout(binding = 1) uniform texture2D ssaotex;
+layout(binding = 1) uniform sampler ssaosmp;
 
 const float PI = 3.1412854;
 
@@ -209,7 +211,8 @@ void main() {
     float metallic = float((packedMaterial >> 3) & 0x3) / 3.0;
     
     // Ambient light.
-    vec3 light = 0.2 * albedo;
+    float ssao_sample = texelFetch(sampler2D(ssaotex, trilesmp), ivec2(gl_FragCoord.x, gl_FragCoord.y), 0).r;
+    vec3 light = 0.2 * albedo * ssao_sample;
 
     vec3 N = normalize(fnormal.xyz);
     vec3 V = normalize(cam - vpos.xyz);

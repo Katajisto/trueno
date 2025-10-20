@@ -28,6 +28,7 @@ on_window_resize :: () {
     // Recreate textures that are rendering targets and dependent on window size.
     create_plane_pipeline_reflection_images();
     create_final_image();
+    create_ssao_images();
 }
 
 #scope_export

@@ -3,5 +3,6 @@
  "contrast": 1.075945,
  "saturation": 1.202777,
  "gamma": 1.019477,
- "tonemap": 1
+ "tonemap": 1,
+ "ssao": 2.603531
 }

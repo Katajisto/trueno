@@ -128,6 +128,7 @@ create_pipelines :: () {
     
     create_shadowmap_image();
     create_final_image();
+    create_ssao_images();
 }
 
 create_gbuffer_images :: () {
@@ -677,6 +678,34 @@ create_postprocess_pipeline :: () {
 
 }
 
+create_ssao_images :: () {
+    if g_ssaobuf.id != INVALID_ID then sg_destroy_image(g_ssaobuf);
+    if g_ssaobuf_depth.id != INVALID_ID then sg_destroy_image(g_ssaobuf_depth);
+    w,h := get_render_size();
+    img_desc := sg_image_desc.{
+        width = w,
+        height = h,
+        render_target = true,
+    };
+    img_desc.sample_count = 1;
+    g_ssaobuf = sg_make_image(*img_desc);
+    img_desc = sg_image_desc.{
+        width = w,
+        height = h,
+        pixel_format = .DEPTH,
+        render_target = true,
+    };
+    img_desc.sample_count = 1;
+    g_ssaobuf_depth = sg_make_image(*img_desc);
+
+	attachmentsDesc := sg_attachments_desc.{
+	    colors[0].image = g_ssaobuf,
+        depth_stencil.image = g_ssaobuf_depth
+	};
+    sg_destroy_attachments(g_ssao_attachments);
+    g_ssao_attachments = sg_make_attachments(*attachmentsDesc);
+}
+
 create_ssao_pipeline :: () {
     init_ssao();
     platconf := get_plat_conf();
@@ -736,29 +765,6 @@ create_ssao_pipeline :: () {
         mag_filter = .NEAREST,
     }));
 
-    w,h := get_render_size();
-    img_desc := sg_image_desc.{
-        width = w,
-        height = h,
-        render_target = true,
-    };
-    img_desc.sample_count = 1;
-    g_ssaobuf = sg_make_image(*img_desc);
-    img_desc = sg_image_desc.{
-        width = w,
-        height = h,
-        pixel_format = .DEPTH,
-        render_target = true,
-    };
-    img_desc.sample_count = 1;
-    g_ssaobuf_depth = sg_make_image(*img_desc);
-
-	attachmentsDesc := sg_attachments_desc.{
-	    colors[0].image = g_ssaobuf,
-        depth_stencil.image = g_ssaobuf_depth
-	};
-    sg_destroy_attachments(g_ssao_attachments);
-    g_ssao_attachments = sg_make_attachments(*attachmentsDesc);
 
     imgdata : sg_image_data;
     imgdata.subimage[0][0] = .{g_ssao_noise.data, cast(u64) (16*4*4)};
