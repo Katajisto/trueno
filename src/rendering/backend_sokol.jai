@@ -260,10 +260,10 @@ backend_process_command_buckets :: () {
     sg_apply_pipeline(gPipelines.ssao.pipeline);
     gPipelines.ssao.bind.images[0] = g_gbuf_position;
     gPipelines.ssao.bind.images[1] = g_gbuf_normal;
-    gPipelines.ssao.bind.images[2] = g_gbuf_position;
+    gPipelines.ssao.bind.images[2] = g_ssao_noise_buf;
     sg_apply_bindings(*gPipelines.ssao.bind);
     ssao_fs_uniform : Ssao_Fs_Params;
-    mvp := create_viewproj(*camera);
+    mvp := create_perspective(*camera);
     ssao_fs_uniform.projection = mvp.floats;
     ssao_fs_uniform.samples    = g_ssao_samples;
     sg_apply_uniforms(UB_ssao_fs_params, *(sg_range.{ ptr = *ssao_fs_uniform, size = size_of(type_of(ssao_fs_uniform)) }));

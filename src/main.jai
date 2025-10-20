@@ -87,7 +87,7 @@ init :: () {
     state.font_default.fons_font = FONS_INVALID;
     create_pipelines();
 
-    state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0.6, g = 0.7, b = 1.0, a = 1 } };
+    state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 0, a = 0 } };
     state.pass_action.colors[0] = .{ load_action = .LOAD };
 
     init_asset_pack_load();

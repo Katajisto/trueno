@@ -678,6 +678,7 @@ create_postprocess_pipeline :: () {
 }
 
 create_ssao_pipeline :: () {
+    init_ssao();
     platconf := get_plat_conf();
     pipeline: sg_pipeline_desc;
     shader_desc := ssao_shader_desc(sg_query_backend());
@@ -729,8 +730,8 @@ create_ssao_pipeline :: () {
     gPipelines.ssao.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
     gPipelines.ssao.bind.index_buffer = sg_make_buffer(*ibuffer);
     gPipelines.ssao.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
-        wrap_u = .CLAMP_TO_EDGE,
-        wrap_v = .CLAMP_TO_EDGE,
+        wrap_u = .REPEAT,
+        wrap_v = .REPEAT,
         min_filter = .NEAREST,
         mag_filter = .NEAREST,
     }));
@@ -760,12 +761,12 @@ create_ssao_pipeline :: () {
     g_ssao_attachments = sg_make_attachments(*attachmentsDesc);
 
     imgdata : sg_image_data;
-    imgdata.subimage[0][0] = .{g_ssao_noise.data, cast(u64) (16*4)};
+    imgdata.subimage[0][0] = .{g_ssao_noise.data, cast(u64) (16*4*4)};
     texdesc : sg_image_desc = .{
         render_target = false,
         width         = 4,
         height        = 4,  
-        pixel_format  = sg_pixel_format.RGBA8,
+        pixel_format  = sg_pixel_format.RGBA32F,
         sample_count  = 1,
         data          = imgdata
     };
