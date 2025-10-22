@@ -28,6 +28,14 @@ g_ssao_noise_buf        : sg_image;
 g_ssaobuf_depth         : sg_image;
 g_ssao_attachments      : sg_attachments;
 
+g_postprocess_a         : sg_image;
+g_postprocess_b         : sg_image;
+g_postprocess_a_depth   : sg_image;
+g_postprocess_b_depth   : sg_image;
+g_postprocess_attach_a  : sg_attachments;
+g_postprocess_attach_b  : sg_attachments;
+  
+
 gPipelines : struct {
     // G-Buffer generation for SSAO and other effects
     gbuffer: Pipeline_Binding;
@@ -51,6 +59,8 @@ gPipelines : struct {
 
     // Post-processing pipeline
     postprocess : Pipeline_Binding;
+
+    op : Pipeline_Binding;
 
     // Renders the SSAO texture using things from the gbuffer pass.
     ssao: Pipeline_Binding;
@@ -125,6 +135,7 @@ create_pipelines :: () {
     create_plane_pipeline();
     create_postprocess_pipeline();
     create_ssao_pipeline();
+    create_op_pipeline();
     
     create_shadowmap_image();
     create_final_image();
@@ -678,9 +689,73 @@ create_postprocess_pipeline :: () {
 
 }
 
+create_op_pipeline :: () {
+    platconf := get_plat_conf();
+    pipeline: sg_pipeline_desc;
+    shader_desc := op_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+
+    pipeline.layout.attrs[ATTR_op_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_op_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+
+    color_state := sg_color_target_state.{
+        blend = .{
+            enabled = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
+        }
+    };
+    pipeline.depth = .{
+            write_enabled = true,
+            compare = .LESS_EQUAL,
+            pixel_format = .DEPTH
+    };
+
+    pipeline.color_count = 1;
+    pipeline.colors[0] = color_state;
+
+    gPipelines.op.pipeline = sg_make_pipeline(*pipeline);
+
+    quad_vertices : [16]float = .[
+        -1.0,  1.0, 0.0, flip_if_plat(1.0), // top-let
+        -1.0, -1.0, 0.0, flip_if_plat(0.0), // bottom-let
+         1.0, -1.0, 1.0, flip_if_plat(0.0), // bottom-right
+         1.0,  1.0, 1.0, flip_if_plat(1.0), // top-right
+    ];
+    quad_indices  : [6]u16 = .[
+        0, 1, 2, 0, 2, 3
+    ];
+
+    vbuffer := sg_buffer_desc.{ size = size_of(float) * 16, data = .{
+        ptr = quad_vertices.data,
+        size = 16 * 4
+    }};
+    ibuffer := sg_buffer_desc.{ size = size_of(u16) * 6, data = .{
+        ptr = quad_indices.data,
+        size = 6 * 2
+    },
+    type = .INDEXBUFFER,
+    };
+
+    gPipelines.op.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    gPipelines.op.bind.index_buffer = sg_make_buffer(*ibuffer);
+    gPipelines.op.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+
+}
+
 create_ssao_images :: () {
     if g_ssaobuf.id != INVALID_ID then sg_destroy_image(g_ssaobuf);
     if g_ssaobuf_depth.id != INVALID_ID then sg_destroy_image(g_ssaobuf_depth);
+    if g_postprocess_a.id != INVALID_ID then sg_destroy_image(g_postprocess_a);
+    if g_postprocess_a_depth.id != INVALID_ID then sg_destroy_image(g_postprocess_a_depth);
+    if g_postprocess_b.id != INVALID_ID then sg_destroy_image(g_postprocess_b);
+    if g_postprocess_b_depth.id != INVALID_ID then sg_destroy_image(g_postprocess_b_depth);
     w,h := get_render_size();
     img_desc := sg_image_desc.{
         width = w,
@@ -689,6 +764,8 @@ create_ssao_images :: () {
     };
     img_desc.sample_count = 1;
     g_ssaobuf = sg_make_image(*img_desc);
+    g_postprocess_a = sg_make_image(*img_desc);
+    g_postprocess_b = sg_make_image(*img_desc);
     img_desc = sg_image_desc.{
         width = w,
         height = h,
@@ -697,13 +774,28 @@ create_ssao_images :: () {
     };
     img_desc.sample_count = 1;
     g_ssaobuf_depth = sg_make_image(*img_desc);
-
+    g_postprocess_a_depth = sg_make_image(*img_desc);
+    g_postprocess_b_depth = sg_make_image(*img_desc);
+    
 	attachmentsDesc := sg_attachments_desc.{
 	    colors[0].image = g_ssaobuf,
         depth_stencil.image = g_ssaobuf_depth
 	};
     sg_destroy_attachments(g_ssao_attachments);
     g_ssao_attachments = sg_make_attachments(*attachmentsDesc);
+    
+	attachmentsDescA := sg_attachments_desc.{
+	    colors[0].image = g_postprocess_a,
+        depth_stencil.image = g_postprocess_a_depth
+	};
+	attachmentsDescB := sg_attachments_desc.{
+	    colors[0].image = g_postprocess_b,
+        depth_stencil.image = g_postprocess_b_depth
+	};
+    sg_destroy_attachments(g_postprocess_attach_a);
+    g_postprocess_attach_a = sg_make_attachments(*attachmentsDescA);
+    sg_destroy_attachments(g_postprocess_attach_b);
+    g_postprocess_attach_b = sg_make_attachments(*attachmentsDescB);
 }
 
 create_ssao_pipeline :: () {

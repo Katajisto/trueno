@@ -256,8 +256,7 @@ backend_process_command_buckets :: () {
     in_gbuffer_pass = false;
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
 
-    // --- TODO: Do SSAO pass here:
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_ssao_attachments}));
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_postprocess_attach_a }));
     sg_apply_pipeline(gPipelines.ssao.pipeline);
     gPipelines.ssao.bind.images[0] = g_gbuf_position;
     gPipelines.ssao.bind.images[1] = g_gbuf_normal;
@@ -269,6 +268,13 @@ backend_process_command_buckets :: () {
     ssao_fs_uniform.samples    = g_ssao_samples;
     ssao_fs_uniform.ssao_power = current_post_process.ssao;
     sg_apply_uniforms(UB_ssao_fs_params, *(sg_range.{ ptr = *ssao_fs_uniform, size = size_of(type_of(ssao_fs_uniform)) }));
+    sg_draw(0, 6, 1);    
+    sg_end_pass();
+
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_ssao_attachments }));
+    sg_apply_pipeline(gPipelines.op.pipeline);
+    gPipelines.op.bind.images[0] = g_postprocess_a;
+    sg_apply_bindings(*gPipelines.op.bind);
     sg_draw(0, 6, 1);    
     sg_end_pass();
 
