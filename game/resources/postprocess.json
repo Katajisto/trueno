@@ -4,7 +4,7 @@
  "saturation": 0.988528,
  "gamma": 2.194679,
  "tonemap": 1,
- "ssao": 0.864454,
+ "ssao": 0.823773,
  "dilate_separation": 1.318038,
  "dilate_size": 7,
  "dilate_min": 0.142381,
@@ -12,5 +12,5 @@
  "dof_blur_size": 2,
  "dof_min": 2.750411,
  "dof_max": 15.987307,
- "dof_point": 14.644861
+ "dof_point": 11.471807
 }

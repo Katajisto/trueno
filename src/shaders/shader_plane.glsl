@@ -10,11 +10,13 @@ layout(binding=0) uniform plane_vs_params {
 
 out vec4 pos;
 out flat int idx;
+out float depth;
 
 void main() {
     vec3 multisize = vec3(position.xyz * 1000.0);
     multisize.y += float(gl_InstanceIndex) * planeHeight;
     gl_Position = mvp * vec4(multisize, 1.0);
+    depth = gl_Position.z;
     pos = vec4(multisize, 1.0);
     idx = gl_InstanceIndex;
 }
@@ -24,6 +26,7 @@ void main() {
 
 in vec4 pos;
 in flat int idx;
+in float depth;
 out vec4 frag_color;
 
 // Uniform bindings from the original shader
@@ -101,6 +104,12 @@ float fbm(vec2 p) {
     return value;
 }
 
+vec3 sky(vec3 skypos, vec3 sunpos) {
+    vec3 skyGradient = mix(skyBase, skyTop, clamp(skypos.y * 2.0, 0.0, 0.7));
+    vec3 final = skyGradient;
+    return final;
+}
+
 void main() {
     if(idx == 1) { // Second instance of the plane is the actual water surface.
         vec2 uv1 = pos.xz * 0.4 + time * vec2(-0.005, -0.012) * 1.5;
@@ -138,7 +147,10 @@ void main() {
         float reflection_alpha = 0.5;
         float alpha = mix(refraction_alpha, reflection_alpha, fresnel);
         
-        frag_color = vec4(final_color, alpha);
+        vec3 fog = skyIntensity * sky(normalize(pos.xyz), sunPosition);
+        float fogFactor = smoothstep(950.0, 1000.0, length(pos.xz));
+        
+        frag_color = vec4(mix(final_color, fog, fogFactor), mix(alpha, 1.0, fogFactor));
 
     } else { // Deep water plane
         vec2 noise_uv = pos.xz * 0.05 + time * 0.01;

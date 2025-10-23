@@ -91,8 +91,8 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
     final += sunHalo.xyz * clamp((sDist - 0.97) * 10.0, 0.0, 0.8) * 1.0;
 
     // Sun disk
-    if(sDist > 0.999) {
-        final = sunDisk.xyz;
+    if(sDist > 0.9995) {
+        final = sunDisk.xyz * 10.0;
     }
 
     // Horizon halo
