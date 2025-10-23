@@ -47,6 +47,10 @@ void main() {
         offset.xyz /= offset.w;
         offset.xyz = offset.xyz * 0.5 + 0.5;
 
+        #if !SOKOL_GLSL
+            offset.y = 1.0 - offset.y;
+        #endif
+
         vec3 psample = texture(sampler2D(g_position, ssao_smp), offset.xy).xyz;
         if (length(psample) > 0.01) {
             occlusion += (psample.z >= sample_pos.z ? 1.0 : 0.0);
