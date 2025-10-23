@@ -17,6 +17,7 @@
 #load "helpers.jai";
 #load "pipelines.jai";
 #load "post_processing.jai";
+#load "backend_sokol_helpers.jai";
 
 #scope_file
 

@@ -8,7 +8,7 @@ current_trile_offset_index : s32 = 0;
 current_world_config : *World_Config = null;
 in_shadowmap_pass    : bool = false;
 in_reflection_pass   : bool = false;
-in_gbuffer_pass     : bool = false;
+in_gbuffer_pass      : bool = false;
 shadow_mvp           : Matrix4;
 
 backend_handle_command :: (cmd: *Render_Command) {
@@ -30,7 +30,11 @@ backend_handle_command :: (cmd: *Render_Command) {
             update_image_from_ground(gen_command.world, *gPipelines.plane.bind.images[1]);
         case .DRAW_GROUND;
             ground_command := cast(*Render_Command_Draw_Ground)cmd;
-            backend_draw_ground(ground_command.worldConfig);
+            if in_gbuffer_pass {
+                backend_draw_ground_gbuf(ground_command.worldConfig);
+            } else {
+                backend_draw_ground(ground_command.worldConfig);
+            }
         case .UPDATE_TRIXELS;
             trixel_update_command := cast(*Render_Command_Update_Trixels)cmd;
             backend_update_trixels(trixel_update_command);
@@ -218,6 +222,27 @@ backend_draw_ground :: (wc: *World_Config) {
     sg_draw(0, 6, 2);    
 }
 
+backend_draw_ground_gbuf :: (wc: *World_Config) {
+    mvp := create_viewproj(*camera);
+    view := create_lookat(*camera);
+    vs_params : Gbuffer_Vs_Params;
+    vs_params.mvp = mvp.floats;
+    vs_params.view_matrix = view.floats;
+    vs_params.isGround = 1;
+    vs_params.planeHeight = wc.planeHeight;
+    sg_apply_pipeline(gPipelines.gbuffer.pipeline);
+
+    bindings : sg_bindings;
+    bindings.vertex_buffers[0]         = g_plane_gbuffer_vertex_buffer;
+    bindings.vertex_buffers[1]         = g_plane_gbuffer_normal_buffer;
+    bindings.vertex_buffers[2]         = g_plane_gbuffer_center_buffer;
+    bindings.vertex_buffers[3]         = g_plane_gbuffer_instance_buffer;
+
+    sg_apply_bindings(*bindings);
+    sg_apply_uniforms(UB_gbuffer_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
+    sg_draw(0, 6, 1);
+}
+
 backend_process_command_buckets :: () {
     // 1. Set up textures and buffers.
     for render_command_buckets.setup {
@@ -248,7 +273,7 @@ backend_process_command_buckets :: () {
     
     // 4. G-Buffer pass
     in_gbuffer_pass = true;
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_gbuf_attachments}));
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear_gbuf, attachments = g_gbuf_attachments}));
     for render_command_buckets.gbuffer {
         backend_handle_command(it);
     }
@@ -271,9 +296,15 @@ backend_process_command_buckets :: () {
     sg_draw(0, 6, 1);    
     sg_end_pass();
 
+    
+
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_ssao_attachments }));
     sg_apply_pipeline(gPipelines.op.pipeline);
+    op_uniform : Op_Fs_Params;
+    op_uniform.blur_size = 1;
+    op_uniform.op = 0;
     gPipelines.op.bind.images[0] = g_postprocess_a;
+    sg_apply_uniforms(UB_op_fs_params, *(sg_range.{ ptr = *op_uniform, size = size_of(type_of(op_uniform)) }));
     sg_apply_bindings(*gPipelines.op.bind);
     sg_draw(0, 6, 1);    
     sg_end_pass();
@@ -286,13 +317,14 @@ backend_process_command_buckets :: () {
 	sg_end_pass();
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
 
+    dof_process();
    
     // Begin drawing to swapchain
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     
     // Draw the render texture and do post processing:
     sg_apply_pipeline(gPipelines.postprocess.pipeline);
-    gPipelines.postprocess.bind.images[0] = g_rendertex;
+    gPipelines.postprocess.bind.images[0] = g_postprocess_a;
     sg_apply_bindings(*gPipelines.postprocess.bind);
     post_process_config_uniform : Post_Process_Config;
     fill_uniform_with_engine_data(*post_process_config_uniform , *current_post_process);

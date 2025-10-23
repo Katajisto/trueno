@@ -19,10 +19,11 @@ game_ui :: () {
 }
 
 game_tick :: () {
-	if input_button_states[#char "W"] & .START then char_pos += Vector3.{1.0, 0.0, 0.0};
-	if input_button_states[#char "S"] & .START then char_pos += Vector3.{-1.0, 0.0, 0.0};
-	if input_button_states[#char "A"] & .START then char_pos += Vector3.{0.0, 0.0, 1.0};
-	if input_button_states[#char "D"] & .START then char_pos += Vector3.{0.0, 0.0, -1.0};
+	speed := 0.1;
+	if input_button_states[#char "W"] & .DOWN then char_pos += speed * Vector3.{-1.0, 0.0, 0.0};
+	if input_button_states[#char "S"] & .DOWN then char_pos += speed * Vector3.{1.0, 0.0, 0.0};
+	if input_button_states[#char "A"] & .DOWN then char_pos += speed * Vector3.{0.0, 0.0, 1.0};
+	if input_button_states[#char "D"] & .DOWN then char_pos += speed * Vector3.{0.0, 0.0, -1.0};
 	cam.target = char_pos;
 	cam.position = char_pos + .{10,5,0};
 }

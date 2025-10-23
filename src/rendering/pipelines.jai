@@ -61,6 +61,8 @@ gPipelines : struct {
     postprocess : Pipeline_Binding;
 
     op : Pipeline_Binding;
+    
+    mix : Pipeline_Binding;
 
     // Renders the SSAO texture using things from the gbuffer pass.
     ssao: Pipeline_Binding;
@@ -136,10 +138,12 @@ create_pipelines :: () {
     create_postprocess_pipeline();
     create_ssao_pipeline();
     create_op_pipeline();
+    create_mix_pipeline();
     
     create_shadowmap_image();
     create_final_image();
     create_ssao_images();
+    create_gbuffer_impostors();
 }
 
 create_gbuffer_images :: () {
@@ -469,7 +473,6 @@ create_sky_pipeline :: () {
     gPipelines.sky.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
 }
 
-// @ToDo: This needs to be redone when the window is resized;
 create_plane_pipeline_reflection_images :: () {
     binding := *gPipelines.plane.bind;
     if binding.images[4].id != INVALID_ID then sg_destroy_image(binding.images[4]);
@@ -689,6 +692,7 @@ create_postprocess_pipeline :: () {
 
 }
 
+// Takes in a texture, manipulates it and outputs it.
 create_op_pipeline :: () {
     platconf := get_plat_conf();
     pipeline: sg_pipeline_desc;
@@ -741,6 +745,67 @@ create_op_pipeline :: () {
     gPipelines.op.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
     gPipelines.op.bind.index_buffer = sg_make_buffer(*ibuffer);
     gPipelines.op.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+
+}
+
+// Takes in 2-3 textures, and mixes them.
+create_mix_pipeline :: () {
+    platconf := get_plat_conf();
+    pipeline: sg_pipeline_desc;
+    shader_desc := mix_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+
+    pipeline.layout.attrs[ATTR_mix_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_mix_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+
+    color_state := sg_color_target_state.{
+        blend = .{
+            enabled = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
+        }
+    };
+    pipeline.depth = .{
+            write_enabled = true,
+            compare = .LESS_EQUAL,
+            pixel_format = .DEPTH
+    };
+
+    pipeline.color_count = 1;
+    pipeline.colors[0] = color_state;
+
+    gPipelines.mix.pipeline = sg_make_pipeline(*pipeline);
+
+    quad_vertices : [16]float = .[
+        -1.0,  1.0, 0.0, flip_if_plat(1.0), // top-let
+        -1.0, -1.0, 0.0, flip_if_plat(0.0), // bottom-let
+         1.0, -1.0, 1.0, flip_if_plat(0.0), // bottom-right
+         1.0,  1.0, 1.0, flip_if_plat(1.0), // top-right
+    ];
+    quad_indices  : [6]u16 = .[
+        0, 1, 2, 0, 2, 3
+    ];
+
+    vbuffer := sg_buffer_desc.{ size = size_of(float) * 16, data = .{
+        ptr = quad_vertices.data,
+        size = 16 * 4
+    }};
+    ibuffer := sg_buffer_desc.{ size = size_of(u16) * 6, data = .{
+        ptr = quad_indices.data,
+        size = 6 * 2
+    },
+    type = .INDEXBUFFER,
+    };
+
+    gPipelines.mix.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    gPipelines.mix.bind.index_buffer = sg_make_buffer(*ibuffer);
+    gPipelines.mix.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .CLAMP_TO_EDGE,
         wrap_v = .CLAMP_TO_EDGE,
         min_filter = .NEAREST,
@@ -873,4 +938,57 @@ create_ssao_pipeline :: () {
 
 init_plane_textures :: () {
     gPipelines.plane.bind.images[3] = create_texture_from_pack("./resources/utiltex/water.png");
+}
+
+g_plane_gbuffer_vertex_buffer : sg_buffer;
+g_plane_gbuffer_normal_buffer : sg_buffer;
+g_plane_gbuffer_center_buffer : sg_buffer;
+g_plane_gbuffer_instance_buffer : sg_buffer;
+
+create_gbuffer_impostors :: () {
+    plane_vertices: [6]Vector3 = .[
+        .{-1.0, 0.0, -1.0},
+        .{ 1.0, 0.0, -1.0},
+        .{ 1.0, 0.0,  1.0},
+        .{-1.0, 0.0, -1.0},
+        .{ 1.0, 0.0,  1.0},
+        .{-1.0, 0.0,  1.0},
+    ];
+    vbuffer := sg_buffer_desc.{ size = size_of(float) * 18, data = .{
+        ptr = plane_vertices.data,
+        size = 6 * 3 * 4
+    }};
+    g_plane_gbuffer_vertex_buffer = sg_make_buffer(*vbuffer);
+    
+    plane_normals: [6]Vector3 = .[
+        .{0.0, 1.0, 0.0},
+        .{0.0, 1.0, 0.0},
+        .{0.0, 1.0, 0.0},
+        .{0.0, 1.0, 0.0},
+        .{0.0, 1.0, 0.0},
+        .{0.0, 1.0, 0.0},
+    ];
+    nbuffer := sg_buffer_desc.{ size = size_of(float) * 18, data = .{
+        ptr = plane_normals.data,
+        size = 6 * 3 * 4
+    }};
+    g_plane_gbuffer_normal_buffer = sg_make_buffer(*nbuffer);
+    
+    plane_centers: [2]Vector3 = .[ // these are useless, just to fill the pipeline requirement.
+        .{0.0, 1.0, 0.0},
+        .{0.0, 1.0, 0.0},
+    ];
+    cbuffer := sg_buffer_desc.{ size = size_of(float) * 6, data = .{
+        ptr = plane_centers.data,
+        size = 3 * 2 * 4
+    }};
+    g_plane_gbuffer_center_buffer = sg_make_buffer(*cbuffer);
+
+    instances: [1]Vector4 = .[.{0,0,0,0}];
+    instance_buffer := sg_buffer_desc.{size = 4 * 4, data = .{
+        ptr = instances.data,
+        size = 4*4,
+    }};
+    g_plane_gbuffer_instance_buffer = sg_make_buffer(*instance_buffer);
+
 }

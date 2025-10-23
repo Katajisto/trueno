@@ -1,8 +1,16 @@
 {
- "exposure": 0.057475,
- "contrast": 1.075945,
- "saturation": 1.202777,
- "gamma": 1.019477,
+ "exposure": -0.239281,
+ "contrast": 1.821381,
+ "saturation": 0.988528,
+ "gamma": 2.194679,
  "tonemap": 1,
- "ssao": 2.603531
+ "ssao": 0.864454,
+ "dilate_separation": 1.318038,
+ "dilate_size": 7,
+ "dilate_min": 0.142381,
+ "dilate_max": 0.242047,
+ "dof_blur_size": 2,
+ "dof_min": 2.750411,
+ "dof_max": 15.987307,
+ "dof_point": 14.644861
 }

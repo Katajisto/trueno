@@ -1,10 +1,18 @@
 Post_Process :: struct {
-    exposure   : float = 0.0; @Slider,-1,1,0.1;
-    contrast   : float = 1.0; @Slider,0.1,4.0,0.1;
-    saturation : float = 1.0; @Slider,0.0,2.0,0.1;
-    gamma      : float = 1.0; @Slider,0.3,3.0,0.1;
-    tonemap    : float = 1.0; @Slider,0,1,1;
-    ssao       : float = 1.0; @Slider,0,5,0.1;
+    exposure          : float = 0.0; @Slider,-1,1,0.1;
+    contrast          : float = 1.0; @Slider,0.1,4.0,0.1;
+    saturation        : float = 1.0; @Slider,0.0,2.0,0.1;
+    gamma             : float = 1.0; @Slider,0.3,3.0,0.1;
+    tonemap           : float = 1.0; @Slider,0,1,1;
+    ssao              : float = 1.0; @Slider,0,5,0.1;
+    dilate_separation : float = 1.0; @Slider,0,6,0.1;
+    dilate_size       : s32   = 2;   @Slider,0,10,1;
+    dilate_min        : float = 0.1; @Slider,0,1,0.1;
+    dilate_max        : float = 0.3; @Slider,0,1,0.1;
+    dof_blur_size     : s32   = 2;   @Slider,0,10,1;
+    dof_min           : float = 1.0; @Slider,0,10,1;
+    dof_max           : float = 3.0; @Slider,0,20,1;
+    dof_point         : float = 5.0; @Slider,0,30,1;
 }
 
 current_post_process : Post_Process;

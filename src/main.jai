@@ -35,6 +35,7 @@ V_MINOR :: 5;
 
 state: struct {
     pass_action_clear : sg_pass_action;
+    pass_action_clear_gbuf : sg_pass_action;
     pass_action       : sg_pass_action;
     dpi_scale         : float;
     fons              : *FONScontext;
@@ -88,6 +89,7 @@ init :: () {
     create_pipelines();
 
     state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 0, a = 0 } };
+    state.pass_action_clear_gbuf.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 1000, a = 0 } };
     state.pass_action.colors[0] = .{ load_action = .LOAD };
 
     init_asset_pack_load();
