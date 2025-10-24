@@ -1,6 +1,7 @@
 #load "./src/meta/meta.jai";
 
 Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
+#import "File_Utilities";
 
 #run {
     print("%\n", ascii_car);
@@ -80,6 +81,15 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         add_build_file("src/platform_specific/main_web.jai", w);
         add_build_string("HAS_TACOMA :: false;", w);
         add_build_string("HAS_IPROF :: false;", w);
+
+        if is_directory("./game") {
+            add_build_string("USE_SAMPLE_GAME :: false;", w);
+        } else {
+            add_build_string("USE_SAMPLE_GAME :: true;", w);
+            
+        }
+        
+        
         add_shaders_to_workspace(w);
 
         while true {
@@ -157,6 +167,13 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         } else {
             add_build_string("HAS_TACOMA :: false;", w);
         }
+
+        if is_directory("./game") {
+            add_build_string("USE_SAMPLE_GAME :: false;", w);
+        } else {
+            add_build_string("USE_SAMPLE_GAME :: true;", w);
+        }
+
         if profile {
             add_build_string("HAS_IPROF :: true;", w);
             iprof_plugin.add_source(iprof_plugin);

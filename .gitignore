@@ -1,6 +1,7 @@
 .DS_Store
 .build/
 dist/
+game/
 first
 packs/*
 first.dSYM/Contents

@@ -24,8 +24,12 @@ stbi   :: #import "stb_image";
 #load "load.jai";
 #load "ray.jai";
 #load "world.jai";
-
-#load "../game/game.jai";
+    
+#if USE_SAMPLE_GAME {
+    #load "../sample_game/game.jai";
+} else {
+    #load "../game/game.jai";
+}
 
 last_frame_time : float64;
 delta\    _time : float64;
