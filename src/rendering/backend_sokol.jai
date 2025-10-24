@@ -317,6 +317,7 @@ backend_process_command_buckets :: () {
 	sg_end_pass();
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
 
+    bloom_process();
     dof_process();
    
     // Begin drawing to swapchain

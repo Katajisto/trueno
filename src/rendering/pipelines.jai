@@ -708,7 +708,8 @@ create_op_pipeline :: () {
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
             dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
-        }
+        },
+        pixel_format = .RGBA32F,
     };
     pipeline.depth = .{
             write_enabled = true,
@@ -769,7 +770,8 @@ create_mix_pipeline :: () {
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
             dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
-        }
+        },
+        pixel_format = .RGBA32F,
     };
     pipeline.depth = .{
             write_enabled = true,
@@ -826,6 +828,7 @@ create_ssao_images :: () {
         width = w,
         height = h,
         render_target = true,
+        pixel_format = .RGBA32F
     };
     img_desc.sample_count = 1;
     g_ssaobuf = sg_make_image(*img_desc);
@@ -879,7 +882,8 @@ create_ssao_pipeline :: () {
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
             dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
-        }
+        },
+        pixel_format = .RGBA32F,
     };
 
     pipeline.color_count = 1;

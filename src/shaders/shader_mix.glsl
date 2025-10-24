@@ -21,9 +21,8 @@ layout(binding=1) uniform mix_fs_params {
     float dof_point;
     /*
         List of mixs:
-        0. blur for ssao
-        1. dilate.
-        2. normal blur
+        0. DOF
+        1. Add
     */
 };
 
@@ -40,8 +39,10 @@ void main() {
         vec4 position  = texture(sampler2D(mixtex_c, mixsmp), texcoord);
         float blur = smoothstep(dof_min, dof_max, abs(position.z + dof_point));
         frag_color = vec4(mix(in_focus, out_focus, blur), 1.0);
-    } else {
-        frag_color = vec4(1.0);
+    } else if(op == 1) {
+        vec3 a = texture(sampler2D(mixtex_b, mixsmp), texcoord).rgb;
+        vec3 b = texture(sampler2D(mixtex_a, mixsmp), texcoord).rgb;
+        frag_color = vec4(a+b, 1.0);
     }
 }
 @end

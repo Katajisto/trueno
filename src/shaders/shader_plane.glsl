@@ -148,7 +148,7 @@ void main() {
         float alpha = mix(refraction_alpha, reflection_alpha, fresnel);
         
         vec3 fog = skyIntensity * sky(normalize(pos.xyz), sunPosition);
-        float fogFactor = smoothstep(950.0, 1000.0, length(pos.xz));
+        float fogFactor = smoothstep(750.0, 1000.0, length(pos.xz));
         
         frag_color = vec4(mix(final_color, fog, fogFactor), mix(alpha, 1.0, fogFactor));
 

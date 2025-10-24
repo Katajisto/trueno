@@ -11,8 +11,12 @@ Post_Process :: struct {
     dilate_max        : float = 0.3; @Slider,0,1,0.1;
     dof_blur_size     : s32   = 2;   @Slider,0,10,1;
     dof_min           : float = 1.0; @Slider,0,10,1;
-    dof_max           : float = 3.0; @Slider,0,20,1;
+    dof_max           : float = 3.0; @Slider,0,50,1;
     dof_point         : float = 5.0; @Slider,0,30,1;
+    bloom_size        : s32   = 5;   @Slider,0,10,1;
+    bloom_separation  : float = 3.0; @Slider,0,10,1;
+    bloom_treshold   : float = 0.4; @Slider,0,1,0.1;
+    bloom_amount      : float = 1.0; @Slider,0,5,0.1;
 }
 
 current_post_process : Post_Process;
