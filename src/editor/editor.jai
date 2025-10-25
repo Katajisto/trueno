@@ -1,11 +1,13 @@
-#load "iprof.jai";
-#load "picker.jai";
-#load "console.jai";
-#load "postprocess.jai";
-#load "trile_editor.jai";
-#load "level_editor.jai";
-#load "textureDebugger.jai";
+#if OS != .WASM {
+    #load "iprof.jai";
+    #load "picker.jai";
+    #load "postprocess.jai";
+    #load "trile_editor.jai";
+    #load "level_editor.jai";
+}
 #if HAS_TACOMA { #load "tacoma.jai"; }
+#load "console.jai";
+#load "textureDebugger.jai";
 
 #scope_file
 
@@ -23,7 +25,7 @@ current_editor_view : Editor_View = .Trile_Editor;
 in_editor_view : bool = false;
 
 init_editor :: () {
-    init_profiler();
+    #if OS != .WASM {init_profiler();}
     init_console();
 }
 
@@ -32,38 +34,40 @@ console_open_ignore_input : bool = false;
 
 
 draw_editor_ui :: (theme: *GR.Overall_Theme) {
-    if in_editor_view {
-        r := GR.get_rect(0,0,0,0);
-        r.x = 0; r.w = 100*vw;
-        r.y = 0; r.h = ui_h(5, 0);
-        draw_bg_rectangle(r, theme);
-        r.w = 15*vw;
-        GR.label(r, tprint("Trueno v%.%", V_MAJOR, V_MINOR), *t_label_left(theme));
+    #if OS != .WASM {
+        if in_editor_view {
+            r := GR.get_rect(0,0,0,0);
+            r.x = 0; r.w = 100*vw;
+            r.y = 0; r.h = ui_h(5, 0);
+            draw_bg_rectangle(r, theme);
+            r.w = 15*vw;
+            GR.label(r, tprint("Trueno v%.%", V_MAJOR, V_MINOR), *t_label_left(theme));
 
-        r.x = 100*vw - r.w;
-        if GR.button(r, "Level editor", *t_button_selectable(theme, current_editor_view == .Level_Editor)) 
-            then current_editor_view = .Level_Editor;
+            r.x = 100*vw - r.w;
+            if GR.button(r, "Level editor", *t_button_selectable(theme, current_editor_view == .Level_Editor)) 
+                then current_editor_view = .Level_Editor;
 
-        r.x -= r.w;
-        if GR.button(r, "Trile editor", *t_button_selectable(theme, current_editor_view == .Trile_Editor)) 
-            then current_editor_view = .Trile_Editor;
+            r.x -= r.w;
+            if GR.button(r, "Trile editor", *t_button_selectable(theme, current_editor_view == .Trile_Editor)) 
+                then current_editor_view = .Trile_Editor;
         
-        r.x -= r.w;
-        if GR.button(r, "Post-process", *t_button_selectable(theme, current_editor_view == .Post_Process_Editor)) 
-            then current_editor_view = .Post_Process_Editor;
+            r.x -= r.w;
+            if GR.button(r, "Post-process", *t_button_selectable(theme, current_editor_view == .Post_Process_Editor)) 
+                then current_editor_view = .Post_Process_Editor;
     
 
-        if current_editor_view == {
-            case .Trile_Editor;
-                draw_trile_editor_ui(theme);
-            case .Level_Editor;
-                draw_level_editor_ui(theme);
-            case .Post_Process_Editor;
-                draw_post_process_editor_ui(theme);
+            if current_editor_view == {
+                case .Trile_Editor;
+                    draw_trile_editor_ui(theme);
+                case .Level_Editor;
+                    draw_level_editor_ui(theme);
+                case .Post_Process_Editor;
+                    draw_post_process_editor_ui(theme);
+            }
         }
+        draw_profiler();
     }
     draw_console(theme);
-    draw_profiler();
     draw_texture_debugger(theme);
     draw_postprocess_popup(theme);
     GR.draw_popups();
@@ -71,17 +75,18 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
 }
 
 draw_editor :: () {
-    if !in_editor_view then return;
+    #if OS != .WASM {
+        if !in_editor_view then return;
 
-    if current_editor_view == {
-        case .Trile_Editor;
-            draw_trile_editor();
-        case .Level_Editor;
-            draw_level_editor();
-        case .Post_Process_Editor;
-            draw_post_process_editor();
+        if current_editor_view == {
+            case .Trile_Editor;
+                draw_trile_editor();
+            case .Level_Editor;
+                draw_level_editor();
+            case .Post_Process_Editor;
+                draw_post_process_editor();
+        }
     }
-    
 }
 
 tick_editor_ui :: () {
@@ -89,14 +94,16 @@ tick_editor_ui :: () {
         in_editor_view = !in_editor_view;
     }
 
-    if in_editor_view {
-        if current_editor_view == {
-            case .Trile_Editor;
-                tick_trile_editor();
-            case .Level_Editor;
-                tick_level_editor();
-            case .Post_Process_Editor;
-                tick_post_process_editor();
+    #if OS != .WASM {
+        if in_editor_view {
+            if current_editor_view == {
+                case .Trile_Editor;
+                    tick_trile_editor();
+                case .Level_Editor;
+                    tick_level_editor();
+                case .Post_Process_Editor;
+                    tick_post_process_editor();
+            }
         }
     }
 

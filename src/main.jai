@@ -145,7 +145,7 @@ frame :: () {
     
     dpis := state.dpi_scale;
 
-    tick_profiler();
+    #if OS != .WASM { tick_profiler(); }
     if !in_editor_view then game_tick();
     fonsClearState(state.fons);
     for event: Input.events_this_frame {
@@ -167,7 +167,7 @@ frame :: () {
         memory_visualizer_per_frame_update();
     }
 
-    profiler_update();
+    #if OS != .WASM { profiler_update(); }
     reset_temporary_storage();
 }
 
