@@ -134,7 +134,7 @@ tick_level_editor_camera :: () {
 		editY = max(editY - 1, 0);
 	}
 	
-	if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .DOWN {
+	if get_mouse_state(Key_Code.MOUSE_BUTTON_MIDDLE) & .DOWN {
 		if mouse2Active {
 			lastInputTime = get_time();
 			diff := mouse2ActivationPosition - Vector2.{input_mouse_x, input_mouse_y};
@@ -154,7 +154,7 @@ tick_level_editor_camera :: () {
 	}
 
 
-	if get_mouse_state(Key_Code.MOUSE_BUTTON_MIDDLE) & .DOWN {
+	if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .DOWN {
 		if mouse3Active {
 			lastInputTime = get_time();
 			diff := mouse3ActivationPosition - Vector2.{input_mouse_x, input_mouse_y};

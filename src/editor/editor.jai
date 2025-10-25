@@ -1,7 +1,6 @@
 #if OS != .WASM {
     #load "iprof.jai";
     #load "picker.jai";
-    #load "postprocess.jai";
     #load "trile_editor.jai";
     #load "level_editor.jai";
 }
@@ -15,7 +14,8 @@ Editor_View :: enum {
     Closed_Editor;
     Trile_Editor;
     Level_Editor; 
-    Post_Process_Editor;
+    Animation_Editor;
+    Material_Editor;
 };
 
 current_editor_view : Editor_View = .Trile_Editor;
@@ -44,16 +44,20 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
             GR.label(r, tprint("Trueno v%.%", V_MAJOR, V_MINOR), *t_label_left(theme));
 
             r.x = 100*vw - r.w;
-            if GR.button(r, "Level editor", *t_button_selectable(theme, current_editor_view == .Level_Editor)) 
+            if GR.button(r, "Level studio", *t_button_selectable(theme, current_editor_view == .Level_Editor)) 
                 then current_editor_view = .Level_Editor;
 
             r.x -= r.w;
-            if GR.button(r, "Trile editor", *t_button_selectable(theme, current_editor_view == .Trile_Editor)) 
+            if GR.button(r, "Trile studio", *t_button_selectable(theme, current_editor_view == .Trile_Editor)) 
                 then current_editor_view = .Trile_Editor;
         
             r.x -= r.w;
-            if GR.button(r, "Post-process", *t_button_selectable(theme, current_editor_view == .Post_Process_Editor)) 
-                then current_editor_view = .Post_Process_Editor;
+            if GR.button(r, "Animation studio", *t_button_selectable(theme, current_editor_view == .Animation_Editor)) 
+                then current_editor_view = .Animation_Editor;
+
+            r.x -= r.w;
+            if GR.button(r, "Material studio", *t_button_selectable(theme, current_editor_view == .Material_Editor)) 
+                then current_editor_view = .Material_Editor;
     
 
             if current_editor_view == {
@@ -61,8 +65,6 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
                     draw_trile_editor_ui(theme);
                 case .Level_Editor;
                     draw_level_editor_ui(theme);
-                case .Post_Process_Editor;
-                    draw_post_process_editor_ui(theme);
             }
         }
         draw_profiler();
@@ -83,8 +85,7 @@ draw_editor :: () {
                 draw_trile_editor();
             case .Level_Editor;
                 draw_level_editor();
-            case .Post_Process_Editor;
-                draw_post_process_editor();
+            case .Animation_Editor;
         }
     }
 }
@@ -101,8 +102,7 @@ tick_editor_ui :: () {
                     tick_trile_editor();
                 case .Level_Editor;
                     tick_level_editor();
-                case .Post_Process_Editor;
-                    tick_post_process_editor();
+                case .Animation_Editor;
             }
         }
     }

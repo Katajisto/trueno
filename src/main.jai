@@ -35,7 +35,7 @@ last_frame_time : float64;
 delta\    _time : float64;
 
 V_MAJOR :: 0;
-V_MINOR :: 5;
+V_MINOR :: 6;
 
 state: struct {
     pass_action_clear : sg_pass_action;
