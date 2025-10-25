@@ -943,7 +943,7 @@ create_ssao_pipeline :: () {
 }
 
 init_plane_textures :: () {
-    gPipelines.plane.bind.images[3] = create_texture_from_pack("./resources/utiltex/water.png");
+    gPipelines.plane.bind.images[3] = create_texture_from_pack("./resources/utiltex/water_small.png");
 }
 
 g_plane_gbuffer_vertex_buffer : sg_buffer;

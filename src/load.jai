@@ -1,9 +1,10 @@
+g_asset_pack : Load_Package;
+
 #scope_file
 
 MAX_FILE_SIZE :: 2_000_000_000;
 buf : [MAX_FILE_SIZE]u8;
 
-g_asset_pack : Load_Package;
 
 mandatory_loads_left      : s32  = 0;
 
@@ -48,12 +49,12 @@ add_font_from_pack :: (path: string) {
     state.font_default.fons_font = fonsAddFontMem(state.fons, "sans", entry.data.data, xx entry.data.count, 0);
 }
 
-create_texture_from_pack :: (path: string) -> sg_image {
+create_texture_from_pack :: (path: string) -> (sg_image, s32, s32) {
     ok, entry := table_find_new(*g_asset_pack.lookup, path);
     if !ok {
         print("Failed to find texture % from pack...\n", path);
         img : sg_image;
-        return img;
+        return img, 0, 0;
     }
     
     x : s32;
@@ -79,7 +80,7 @@ create_texture_from_pack :: (path: string) -> sg_image {
 
     stbi.stbi_image_free(data);
 
-    return img;
+    return img, x, y;
 }
 
 load_string_from_pack :: (path: string) -> string {
@@ -104,7 +105,7 @@ asset_list :: () -> string #expand {
     return tprint("> A total of % assets.", count);
 } @Command
 
-// Returns tprinted pointer, please copy it somewhere.
+// Returns tprinted string, please copy it somewhere.
 format_size :: (bytes: int) -> string {
     bytes_counter := bytes;
     bytes_float := cast(float) bytes;

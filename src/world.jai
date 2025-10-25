@@ -105,17 +105,10 @@ TrilePositions :: struct {
     positions: [..]Vector4;
 }
 
-Ground_Tile :: enum u8 {
-    WATER :: 0;
-    GRASS :: 1;
-    SAND  :: 2;
-}
-
 World :: struct {
     name      : string;
     conf      : World_Config;
     positions : [..]TrilePositions;
-    ground    : [1000][1000]Ground_Tile;
 }
 
 Trile_Positions_Serialized :: struct {
@@ -127,7 +120,6 @@ World_Serialized :: struct {
     name      : string;
     conf      : World_Config;
     positions : [..]Trile_Positions_Serialized;
-    ground    : string;
 }
 
 // You should call this function with the temp allocator as context allocator.
@@ -147,14 +139,6 @@ serialize_world :: (world: *World) -> World_Serialized {
         array_add(*ws.positions, tsp);
     }
 
-    groundstring : [..]u8;
-    for i: 0..999 {
-        for j: 0..999 {
-            array_add(*groundstring, (cast(u8) world.ground[i][j]) + #char "a");
-        }
-    }
-    ws.ground.data = groundstring.data;
-    ws.ground.count = groundstring.count;
     return ws;
 }
 
@@ -175,45 +159,6 @@ deserialize_world :: (ws: *World_Serialized, world: *World) {
         }
         array_add(*world.positions, tp);
     }
-
-    for c, ci : ws.ground {
-        world.ground[ci/1000][ci%1000] = cast(Ground_Tile)((cast(u8)c)-#char "a");
-    }
-}
-
-update_image_from_ground :: (world: *World, img: *sg_image) {
-    materialdata : [1000*1000*4]u8;
-    counter      : int = 0;
-    for x: 0..999 {
-        for y: 0..999 {
-            if world.ground[x][y] == .GRASS {
-                materialdata[counter + 0] = 0;
-                materialdata[counter + 1] = 255;
-                materialdata[counter + 2] = 0;
-                materialdata[counter + 3] = 255;
-                
-            }
-            if world.ground[x][y] == .WATER {
-                materialdata[counter + 0] = 0;
-                materialdata[counter + 1] = 0;
-                materialdata[counter + 2] = 255;
-                materialdata[counter + 3] = 255;
-                
-            }
-            if world.ground[x][y] == .SAND {
-                materialdata[counter + 0] = 255;
-                materialdata[counter + 1] = 0;
-                materialdata[counter + 2] = 0;
-                materialdata[counter + 3] = 255;
-                
-            }
-            counter += 4;
-        } 
-    }
-    imgdata : sg_image_data;
-    imgdata.subimage[0][0] = .{materialdata.data, materialdata.count};
-
-    sg_update_image(img, *imgdata);
 }
 
 draw_world_picker :: (r_in: GR.Rect, theme: *GR.Overall_Theme) {

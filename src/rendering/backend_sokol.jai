@@ -25,9 +25,6 @@ backend_handle_command :: (cmd: *Render_Command) {
         case .SET_CAMERA;
             camera_command := cast(*Render_Command_Set_Camera)cmd;
             camera = camera_command.camera;
-        case .GENERATE_GROUND;
-            gen_command := cast(*Render_Command_Generate_Ground_Texture)cmd;
-            update_image_from_ground(gen_command.world, *gPipelines.plane.bind.images[1]);
         case .DRAW_GROUND;
             ground_command := cast(*Render_Command_Draw_Ground)cmd;
             if in_gbuffer_pass {

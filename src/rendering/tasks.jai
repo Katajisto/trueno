@@ -113,8 +113,6 @@ tasks_to_commands :: () {
             case .GROUND;
                 commandDrawGround := New(Render_Command_Draw_Ground,, temp);
                 commandDrawGround.worldConfig = *(cast(*Rendering_Task_Ground)it).world.conf;
-                commandGenGround := New(Render_Command_Generate_Ground_Texture,, temp);
-                commandGenGround.world = (cast(*Rendering_Task_Ground)it).world;
                 array_add(*render_command_buckets.main, commandDrawGround);
                 array_add(*render_command_buckets.gbuffer, commandDrawGround);
             case .SET_CAMERA;

@@ -225,10 +225,8 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 
 Edit_Mode :: enum {
 	TRILES;
-	GROUND;
 }
 
-groundType : Ground_Tile;
 editMode : Edit_Mode;
 
 #scope_export
@@ -236,49 +234,15 @@ editMode : Edit_Mode;
 draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	r := total_r;
 	r.h = ui_h(3,0);
-	r.w = r.w/2.0;
-    if GR.button(r, "Edit triles", *t_button_selectable(theme, editMode == .TRILES)) {
-        editMode = .TRILES;
-    }
-	r.x += r.w;
-    if GR.button(r, "Edit ground", *t_button_selectable(theme, editMode == .GROUND)) {
-        editMode = .GROUND;
-    }
-	r.x -= r.w;
-	r.w *= 2.0;
-	r.y += r.h * 1.5;
-	if editMode == .GROUND {
-	    if GR.button(r, "Grass", *t_button_selectable(theme, groundType == .GRASS)) {
-	        groundType = .GRASS;
-	    }
-		r.y += r.h;
-	    if GR.button(r, "Water", *t_button_selectable(theme, groundType == .WATER)) {
-	        groundType = .WATER;
-	    }
-		r.y += r.h;
-	    if GR.button(r, "Sand", *t_button_selectable(theme, groundType == .SAND)) {
-	        groundType = .SAND;
-	    }
-	}
 }
 
 handle_tool_click :: (x: int, y: int, z: int, delete: bool = false) {
 	curworld := get_current_world();
-	if editMode == {
-		case .TRILES;
-			if delete {
-				remove_trile(cast(float)x, cast(float)y, cast(float)z);
-			} else {
-				if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
-			}
-		case .GROUND;
-			ray := get_mouse_ray(*get_level_editor_camera());
-			hit, point := ray_plane_collision_point(ray, 0, 100);
-		if hit {
-				curworld.world.ground[floor(point.y).(int) + 500][floor(point.x).(int) + 500] = groundType;
-			}
+	if delete {
+		remove_trile(cast(float)x, cast(float)y, cast(float)z);
+	} else {
+		if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
 	}
-
 } 
 
 add_trile :: (name: string, x: float, y: float, z: float) {

@@ -16,7 +16,6 @@ Render_Command_Type :: enum {
     DRAW_SKY;
     SET_CAMERA;
     DRAW_GROUND;
-    GENERATE_GROUND;
     ADD_TRILE_POSITIONS;
     DRAW_TRILE_POSITIONS;
     UPDATE_TRIXELS;
@@ -70,12 +69,6 @@ Render_Command_Draw_Ground :: struct {
     #as using c : Render_Command;
     c.type      = .DRAW_GROUND;
     worldConfig : *World_Config;
-}
-
-Render_Command_Generate_Ground_Texture :: struct {
-    #as using c : Render_Command;
-    c.type      = .GENERATE_GROUND;
-    world : *World;
 }
 
 Render_Command_Set_Camera :: struct {

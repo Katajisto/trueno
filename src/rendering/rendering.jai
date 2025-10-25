@@ -15,6 +15,7 @@
 #load "arbtri.jai";
 #load "meshgen.jai";
 #load "helpers.jai";
+#load "animation.jai";
 #load "pipelines.jai";
 #load "post_processing.jai";
 #load "backend_sokol_helpers.jai";

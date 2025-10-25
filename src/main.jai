@@ -119,6 +119,7 @@ init_after_asset_pack :: () {
     }
     init_editor();
     lworlds();
+    init_spritesheets();
     init_rendering();
     load_post_process_from_pack();
 

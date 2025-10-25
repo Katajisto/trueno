@@ -3,6 +3,7 @@
     #load "picker.jai";
     #load "trile_editor.jai";
     #load "level_editor.jai";
+    #load "animation_studio.jai";
 }
 #if HAS_TACOMA { #load "tacoma.jai"; }
 #load "console.jai";
@@ -65,6 +66,8 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
                     draw_trile_editor_ui(theme);
                 case .Level_Editor;
                     draw_level_editor_ui(theme);
+                case .Animation_Editor;
+                    draw_animation_studio_ui(theme);
             }
         }
         draw_profiler();
@@ -103,6 +106,7 @@ tick_editor_ui :: () {
                 case .Level_Editor;
                     tick_level_editor();
                 case .Animation_Editor;
+                    tick_animation_studio();
             }
         }
     }
