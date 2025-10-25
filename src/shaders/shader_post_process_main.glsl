@@ -23,6 +23,13 @@ layout(binding=0) uniform post_process_config {
     float saturation;
     float gamma;
     float tonemap;
+    float vignette_intensity;
+    float vignette_radius;
+    float scanlines_intensity;
+    float scanlines_density;
+    float chromatic_aberration_intensity;
+    float film_grain_intensity;
+    float barrel_distortion_intensity;
 };
 
 vec3 aces(vec3 x) {
@@ -34,8 +41,30 @@ vec3 aces(vec3 x) {
   return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
+float rand(vec2 co){
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
 void main() {
-    vec4 sampled = texture(sampler2D(pptex, ppsmp), texcoord.xy);
+    vec2 distorted_texcoord = texcoord;
+    float barrel_dist = length(texcoord - 0.5);
+    distorted_texcoord -= 0.5;
+    distorted_texcoord *= 1.0 + barrel_dist * barrel_distortion_intensity;
+    distorted_texcoord += 0.5;
+
+    if (barrel_distortion_intensity > 0.0) {
+        if (distorted_texcoord.x < 0.0 || distorted_texcoord.x > 1.0 || distorted_texcoord.y < 0.0 || distorted_texcoord.y > 1.0) {
+            frag_color = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
+        }
+    }
+
+    vec4 sampled = vec4(0.0);
+    float r = texture(sampler2D(pptex, ppsmp), distorted_texcoord + vec2(chromatic_aberration_intensity, 0.0)).r;
+    float g = texture(sampler2D(pptex, ppsmp), distorted_texcoord).g;
+    float b = texture(sampler2D(pptex, ppsmp), distorted_texcoord - vec2(chromatic_aberration_intensity, 0.0)).b;
+    sampled = vec4(r, g, b, 1.0);
+
     vec3 tonemapped = aces(sampled.xyz);
     if(tonemap > 0.5) {
         tonemapped = aces(sampled.xyz);
@@ -50,6 +79,15 @@ void main() {
     float lum = (0.2125 * gammaCorrected.r) + (0.7154 * gammaCorrected.g) + (0.0721 * gammaCorrected.b);
     vec3 brtColor = vec3(lum, lum, lum);
     gammaCorrected.rgb = mix(brtColor, gammaCorrected.rgb, saturation);
+
+    float vignette = 1.0 - smoothstep(0.0, vignette_radius, length(texcoord - vec2(0.5))) * vignette_intensity;
+    gammaCorrected.rgb *= vignette;
+
+    float scanline = 1.0 - (sin(texcoord.y * textureSize(sampler2D(pptex, ppsmp), 0).y * scanlines_density) * 0.5 + 0.5) * scanlines_intensity;
+    gammaCorrected.rgb *= scanline;
+
+    float grain = (rand(texcoord) - 0.5) * film_grain_intensity;
+    gammaCorrected.rgb += grain;
     
     frag_color = vec4(gammaCorrected, 1.0);
 }

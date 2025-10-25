@@ -330,6 +330,13 @@ backend_process_command_buckets :: () {
     sg_apply_bindings(*gPipelines.postprocess.bind);
     post_process_config_uniform : Post_Process_Config;
     fill_uniform_with_engine_data(*post_process_config_uniform , *current_post_process);
+    post_process_config_uniform.vignette_intensity = current_post_process.vignette_intensity;
+    post_process_config_uniform.vignette_radius = current_post_process.vignette_radius;
+    post_process_config_uniform.scanlines_intensity = current_post_process.scanlines_intensity;
+    post_process_config_uniform.scanlines_density = current_post_process.scanlines_density;
+    post_process_config_uniform.chromatic_aberration_intensity = current_post_process.chromatic_aberration_intensity;
+    post_process_config_uniform.film_grain_intensity = current_post_process.film_grain_intensity;
+    post_process_config_uniform.barrel_distortion_intensity = current_post_process.barrel_distortion_intensity;
     sg_apply_uniforms(UB_post_process_config, *(sg_range.{ ptr = *post_process_config_uniform, size = size_of(type_of(post_process_config_uniform)) }));
     sg_draw(0, 6, 1);    
 

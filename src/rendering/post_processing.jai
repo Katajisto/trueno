@@ -18,6 +18,13 @@ Post_Process :: struct {
     bloom_separation  : float = 3.0; @Slider,0,10,1;
     bloom_treshold   : float = 0.4; @Slider,0,1,0.1;
     bloom_amount      : float = 1.0; @Slider,0,5,0.1;
+    vignette_intensity: float = 0.5; @Slider,0,1,0.1;
+    vignette_radius: float = 0.5; @Slider,0,1,0.1;
+    scanlines_intensity: float = 0.1; @Slider,0,1,0.1;
+    scanlines_density: float = 1; @Slider,0,2,0.1;
+    chromatic_aberration_intensity: float = 0.0; @Slider,0,0.05,0.001;
+    film_grain_intensity: float = 0.0; @Slider,0,0.5,0.001;
+    barrel_distortion_intensity: float = 0.0; @Slider,-2,2,0.1;
 }
 
 current_post_process : Post_Process;
