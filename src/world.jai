@@ -27,6 +27,10 @@ lworld :: (name: string) {
     }
 
     worldptr := table_find_pointer(*world_table, name);
+    if !worldptr {
+        print("Did not find world: %...\n", name);
+        return;
+    }
     current_world.world = worldptr;
     current_world.valid = true;
 } @Command;

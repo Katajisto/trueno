@@ -2,6 +2,9 @@
 
 subwindow         : GR.Subwindow_Info;
 subwindow_initted : bool = false;
+
+pp_subwindow         : GR.Subwindow_Info;
+pp_subwindow_initted : bool = false;
 // @Hack: This is probably kinda a bad idea, I don't really know atm how else to get the theme into the subwindow.
 theme_ptr         : GR.Overall_Theme;
 
@@ -42,6 +45,24 @@ draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *
     immediate_flush();
 }
 
+draw_subwindow_post_process :: (state: *GR.Subwindow_State, r: GR.Rect, data: *void) {
+    r2 := r;
+	ui_add_mouse_occluder(r);
+    r3 := r;
+    r3.h =  ui_h(5,0);
+    r2.h -= r3.h;
+    r2.y += r3.h;
+    if GR.button(r3, "Save postprocessing", *theme_ptr.button_theme) {
+        #if OS != .WASM {
+            file :: #import "File";
+            json := Jaison.json_write_string(current_post_process, " ");
+            file.write_entire_file("./game/resources/postprocess.json", json);
+        }
+    }
+
+    autoedit(r2, *current_post_process, *theme_ptr);
+}
+
 #scope_export
 
 draw_texture_debug :: () {
@@ -50,6 +71,26 @@ draw_texture_debug :: () {
 toggle_texdebug :: () {
     subwindow.open = !subwindow.open;
 } @Command
+
+toggle_pp :: () {
+    pp_subwindow.open = !pp_subwindow.open;
+} @Command
+
+draw_postprocess_popup :: (theme: *GR.Overall_Theme) {
+    if !pp_subwindow.open then return;
+    if !pp_subwindow_initted {
+        theme_ptr = theme;
+        r := GR.get_rect(ui_w(40, 0), ui_w(40, 0), ui_h(50,0), ui_h(50,0));
+        pp_subwindow.rect        = r;
+        pp_subwindow.draw        = draw_subwindow_post_process;
+        pp_subwindow.title_text  = "Post Process";
+        pp_subwindow.open        = false;
+        pp_subwindow_initted = true;
+    }
+    if pp_subwindow.open {  // The Subwindow starts open, but pressing the Close button can close it.
+        pp_subwindow_state := GR.add_subwindow(*pp_subwindow, *theme.subwindow_theme);
+    }
+}
 
 draw_texture_debugger :: (theme: *GR.Overall_Theme) {
     if !subwindow.open then return;

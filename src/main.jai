@@ -118,10 +118,12 @@ init_after_asset_pack :: () {
         }
     }
     init_editor();
-    game_init();
     lworlds();
     init_rendering();
     load_post_process_from_pack();
+
+    // We want to do this last.
+    game_init();
 }
 
 is_in_reflection_pass : bool = false;

@@ -65,6 +65,7 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
     draw_console(theme);
     draw_profiler();
     draw_texture_debugger(theme);
+    draw_postprocess_popup(theme);
     GR.draw_popups();
     immediate_flush();
 }
