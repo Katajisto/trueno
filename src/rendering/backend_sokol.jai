@@ -170,6 +170,10 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params : Trile_Fs_Params;
     fs_params.mvp_shadow = shadow_mvp.floats;
     fs_params.is_reflection = ifx in_reflection_pass then cast(s32)1 else cast(s32)0;
+    w, h := get_render_size();
+    fs_params.screen_w = w;
+    fs_params.screen_h = h;
+    
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
@@ -301,7 +305,7 @@ backend_process_command_buckets :: () {
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_ssao_attachments }));
     sg_apply_pipeline(gPipelines.op.pipeline);
     op_uniform : Op_Fs_Params;
-    op_uniform.blur_size = 1;
+    op_uniform.blur_size = current_post_process.ssao_size;
     op_uniform.op = 0;
     gPipelines.op.bind.images[0] = g_postprocess_a;
     sg_apply_uniforms(UB_op_fs_params, *(sg_range.{ ptr = *op_uniform, size = size_of(type_of(op_uniform)) }));

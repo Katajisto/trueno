@@ -51,10 +51,15 @@ void main() {
             offset.y = 1.0 - offset.y;
         #endif
 
+        float bias = 0.01;
+            
         vec3 psample = texture(sampler2D(g_position, ssao_smp), offset.xy).xyz;
-        if (length(psample) > 0.01) {
-            occlusion += (psample.z >= sample_pos.z ? 1.0 : 0.0);
-        }
+        float occluded = 0.0;
+        if(sample_pos.z + bias <= psample.z) { occluded = 1; } else { occluded = 0; }
+        // float intensity = smoothstep(0.0, 1.0, 0.5 / abs(frag_pos.z - offset.z));
+        // occluded *= intensity;
+        occlusion += occluded;
+        
     }
     occlusion = 1.0 - (occlusion / 64.0);
     out_color = vec4(vec3(pow(occlusion, ssao_power)), 1.0);

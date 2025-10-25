@@ -92,7 +92,7 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
 
     // Sun disk
     if(sDist > 0.9995) {
-        final = sunDisk.xyz * 10.0;
+        final = sunDisk.xyz * 3.0;
     }
 
     // Horizon halo

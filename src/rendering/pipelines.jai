@@ -481,14 +481,14 @@ create_plane_pipeline_reflection_images :: () {
 
     w, h := get_render_size();
     img_desc := sg_image_desc.{
-        width = w,
-        height = h,
+        width = w/2,
+        height = h/2,
         pixel_format = .RGBA32F,
         render_target = true,
     };
     depth_desc := sg_image_desc.{
-        width = w,
-        height = h,
+        width = w/2,
+        height = h/2,
         pixel_format = .DEPTH,
         render_target = true,
     };
@@ -565,8 +565,8 @@ create_plane_pipeline :: () {
     gPipelines.plane.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .CLAMP_TO_EDGE,
         wrap_v = .CLAMP_TO_EDGE,
-        min_filter = .NEAREST,
-        mag_filter = .NEAREST,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
     }));
 
     g_shadowmap_sampler = sg_make_sampler(*(sg_sampler_desc.{
@@ -825,23 +825,25 @@ create_ssao_images :: () {
     if g_postprocess_b_depth.id != INVALID_ID then sg_destroy_image(g_postprocess_b_depth);
     w,h := get_render_size();
     img_desc := sg_image_desc.{
-        width = w,
-        height = h,
+        width = w/2,
+        height = h/2,
         render_target = true,
         pixel_format = .RGBA32F
     };
     img_desc.sample_count = 1;
     g_ssaobuf = sg_make_image(*img_desc);
+    img_desc.width *= 2; img_desc.height *= 2;
     g_postprocess_a = sg_make_image(*img_desc);
     g_postprocess_b = sg_make_image(*img_desc);
     img_desc = sg_image_desc.{
-        width = w,
-        height = h,
+        width = w/2,
+        height = h/2,
         pixel_format = .DEPTH,
         render_target = true,
     };
     img_desc.sample_count = 1;
     g_ssaobuf_depth = sg_make_image(*img_desc);
+    img_desc.width *= 2; img_desc.height *= 2;
     g_postprocess_a_depth = sg_make_image(*img_desc);
     g_postprocess_b_depth = sg_make_image(*img_desc);
     

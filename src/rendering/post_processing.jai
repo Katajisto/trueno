@@ -5,6 +5,7 @@ Post_Process :: struct {
     gamma             : float = 1.0; @Slider,0.3,3.0,0.1;
     tonemap           : float = 1.0; @Slider,0,1,1;
     ssao              : float = 1.0; @Slider,0,5,0.1;
+    ssao_size         : s32   = 1;   @Slider,0,5,1;
     dilate_separation : float = 1.0; @Slider,0,6,0.1;
     dilate_size       : s32   = 2;   @Slider,0,10,1;
     dilate_min        : float = 0.1; @Slider,0,1,0.1;

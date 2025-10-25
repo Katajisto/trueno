@@ -59,6 +59,8 @@ out vec4 frag_color;
 layout(binding=3) uniform trile_fs_params {
     mat4  mvp_shadow;
     int   is_reflection;
+    int   screen_h;
+    int   screen_w;
 };
 
 layout(binding = 0) uniform texture2D triletex;
@@ -211,7 +213,7 @@ void main() {
     float metallic = float((packedMaterial >> 3) & 0x3) / 3.0;
     
     // Ambient light.
-    float ssao_sample = texelFetch(sampler2D(ssaotex, trilesmp), ivec2(gl_FragCoord.x, gl_FragCoord.y), 0).r;
+    float ssao_sample = texture(sampler2D(ssaotex, trilesmp), vec2(gl_FragCoord.x/screen_w, gl_FragCoord.y/screen_h), 0).r;
     vec3 light = 0.2 * albedo * ssao_sample;
 
     vec3 N = normalize(fnormal.xyz);

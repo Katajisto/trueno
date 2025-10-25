@@ -141,7 +141,7 @@ void main() {
         screen_uv.y = 1.0 - screen_uv.y;
         vec3 reflected_color = texture(sampler2D(reftex, refsmp), screen_uv).rgb;
 
-        vec3 surface_color = mix(refracted_color, reflected_color, min(1.0, fresnel * 3));
+        vec3 surface_color = mix(refracted_color, reflected_color, min(1.0, fresnel * 1.5));
         vec3 final_color = (surface_color + specular_highlight) * shadow_factor;
         float refraction_alpha = 0.3;
         float reflection_alpha = 0.5;
