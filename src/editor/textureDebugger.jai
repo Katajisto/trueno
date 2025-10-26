@@ -59,6 +59,12 @@ draw_subwindow_post_process :: (state: *GR.Subwindow_State, r: GR.Rect, data: *v
             file.write_entire_file("./game/resources/postprocess.json", json);
         }
     }
+    r3.y += r3.h;
+    r2.h -= r3.h;
+    r2.y += r3.h;
+
+    
+    GR.dropdown(r3, LUT_name_list, *g_current_lut_texture_index, *theme_ptr.dropdown_theme);
 
     autoedit(r2, *current_post_process, *theme_ptr);
 }

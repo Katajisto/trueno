@@ -81,6 +81,9 @@ World_Config :: struct {
     planeType     : s32   = 1; @Slider,0,1,1
     waterColor    : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
     deepColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values. 
+    
+    // ambientColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color
+    // ambientIntensity : float   = 0.3; @Slider,0,3,0.1
 
 }
 

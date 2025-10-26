@@ -690,6 +690,13 @@ create_postprocess_pipeline :: () {
         mag_filter = .NEAREST,
     }));
 
+    gPipelines.postprocess.bind.samplers[1] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
+    }));
+
 }
 
 // Takes in a texture, manipulates it and outputs it.

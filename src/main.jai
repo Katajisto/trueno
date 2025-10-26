@@ -121,6 +121,7 @@ init_after_asset_pack :: () {
     lworlds();
     init_spritesheets();
     init_rendering();
+    load_color_lut_images();
     load_post_process_from_pack();
 
     // We want to do this last.
