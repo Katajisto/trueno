@@ -13,6 +13,7 @@ Spritesheet :: struct {
 }
 
 Animation :: struct {
+    name        : string;
     spritesheet : string;
     ids         : [..]u32;   
     fps         : float;

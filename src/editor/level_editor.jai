@@ -154,7 +154,7 @@ tick_level_editor_camera :: () {
 	}
 
 
-	if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .DOWN {
+	if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .DOWN {
 		if mouse3Active {
 			lastInputTime = get_time();
 			diff := mouse3ActivationPosition - Vector2.{input_mouse_x, input_mouse_y};

@@ -22,6 +22,68 @@ tick_animation_studio :: () {
 
 }
 
+add_anim :: (name: string) {
+    anim_name := sprint("%", name);
+    animation := Animation.{
+        name = anim_name,
+        spritesheet = current_sheet_ptr.name,
+        fps = 1  
+    };
+    table_add(*g_animations, sprint("%", anim_name), animation);
+} @Command
+
+sanim :: () {
+    Jaison :: #import "Jaison";
+    anims : [..]Animation;
+    anims.allocator = temp;
+    for v : g_animations {
+        array_add(*anims, v);
+    }
+    #if OS != .WASM {
+        file :: #import "File";
+        json := Jaison.json_write_string(anims, " ",, temp);
+        file.write_entire_file("./game/resources/animations.json", json);
+    }
+} @Command
+
+lanim :: () {
+    Jaison :: #import "Jaison";
+    s := load_string_from_pack("./game/resources/animations.json");
+    success, anims := Jaison.json_parse_string(s, [..]Animation,, temp);
+    if !success then return;
+    for anims {
+        print("Loaded %\n", it.name);
+
+        ids : [..]u32;
+        for id : it.ids {
+            array_add(*ids, id);
+        }
+        
+        name_cpy := sprint("%", it.name);
+        newAnimation := Animation.{
+            name   = name_cpy,
+            fps    = it.fps,
+            spritesheet = sprint("%", it.spritesheet),
+            ids = ids
+        };
+        table_add(*g_animations, name_cpy, newAnimation);
+    }
+} @Command
+
+draw_animation_picker :: (theme: *GR.Overall_Theme) {
+    r := GR.get_rect(ui_w(80,0), ui_h(5,0), ui_w(20, 0), ui_h(95, 0));
+	ui_add_mouse_occluder(r);
+    draw_bg_rectangle(r, theme);
+    r.h = ui_h(5,0);
+
+    i := 0;
+    for v : g_animations {
+        GR.button(r, v.name, *theme.button_theme, i);
+        r.y += r.h;
+        i += 1;
+    }
+}
+
 draw_animation_studio_ui :: (theme: *GR.Overall_Theme) {
     if g_spritesheets.count < 1 then return; 
 
@@ -55,6 +117,11 @@ draw_animation_studio_ui :: (theme: *GR.Overall_Theme) {
     GR.label(r2, "Step Y", *theme.label_theme);
     r2.y += r2.h * 1.1;
     GR.number_input(r2, tprint("%", current_sheet_ptr.step_y), *current_sheet_ptr.step_y, 0, 128, *number_theme); 
+
+    r2.y += r2.h * 1.1;
+    GR.label(r2, "Frames", *theme.label_theme);
+    r2.y += r2.h * 1.1;
+    GR.label(r2, "FPS", *theme.label_theme);
     
     uiTex := New(Ui_Texture ,,temp);
     uiTex.tex = current_sheet_ptr.sheet; 
@@ -72,4 +139,6 @@ draw_animation_studio_ui :: (theme: *GR.Overall_Theme) {
         immediate_quad(.{img_r.x, img_r.y}, .{img_r.x + img_r.w, img_r.y}, .{img_r.x + img_r.w, img_r.y + img_r.h}, .{img_r.x, img_r.y + img_r.h});
     	set_shader_for_color();
     }
+    draw_animation_picker(theme);
 }
+

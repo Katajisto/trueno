@@ -120,6 +120,7 @@ init_after_asset_pack :: () {
     init_editor();
     lworlds();
     init_spritesheets();
+    lanim();
     init_rendering();
     load_color_lut_images();
     load_post_process_from_pack();
