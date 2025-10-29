@@ -3,7 +3,6 @@
     #load "picker.jai";
     #load "trile_editor.jai";
     #load "level_editor.jai";
-    #load "animation_studio.jai";
 }
 #if HAS_TACOMA { #load "tacoma.jai"; }
 #load "console.jai";
@@ -15,7 +14,6 @@ Editor_View :: enum {
     Closed_Editor;
     Trile_Editor;
     Level_Editor; 
-    Animation_Editor;
     Material_Editor;
 };
 
@@ -53,10 +51,6 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
                 then current_editor_view = .Trile_Editor;
         
             r.x -= r.w;
-            if GR.button(r, "Animation studio", *t_button_selectable(theme, current_editor_view == .Animation_Editor)) 
-                then current_editor_view = .Animation_Editor;
-
-            r.x -= r.w;
             if GR.button(r, "Material studio", *t_button_selectable(theme, current_editor_view == .Material_Editor)) 
                 then current_editor_view = .Material_Editor;
     
@@ -66,8 +60,6 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
                     draw_trile_editor_ui(theme);
                 case .Level_Editor;
                     draw_level_editor_ui(theme);
-                case .Animation_Editor;
-                    draw_animation_studio_ui(theme);
             }
         }
         draw_profiler();
@@ -88,7 +80,6 @@ draw_editor :: () {
                 draw_trile_editor();
             case .Level_Editor;
                 draw_level_editor();
-            case .Animation_Editor;
         }
     }
 }
@@ -105,8 +96,6 @@ tick_editor_ui :: () {
                     tick_trile_editor();
                 case .Level_Editor;
                     tick_level_editor();
-                case .Animation_Editor;
-                    tick_animation_studio();
             }
         }
     }

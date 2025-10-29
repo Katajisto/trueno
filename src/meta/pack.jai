@@ -1,3 +1,16 @@
+should_ignore_file :: (name: string) -> bool {
+    #import "String";
+    
+    
+    ok, left, right :=  split_from_right(name, #char ".");
+    if right == "aseprite" {
+        print("Ignoring % as aseprite file...\n", name);
+        return true;
+    }
+    
+    return false;
+}
+
 create_pack :: () {
     #import "Simple_Package";
     #import "File";
@@ -13,6 +26,7 @@ create_pack :: () {
     
 
     for files_to_pack {
+        if should_ignore_file(it) then continue;
         file, ok := read_entire_file(it);
         if !ok {
             print("Failed in loading file to pack: %\n", it);
@@ -25,6 +39,7 @@ create_pack :: () {
     }
     
     for files_to_pack_game {
+        if should_ignore_file(it) then continue;
         file, ok := read_entire_file(it);
         if !ok {
             print("Failed in loading file to pack: %\n", it);

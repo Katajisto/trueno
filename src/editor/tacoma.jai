@@ -14,32 +14,7 @@ Tacoma_Screenshot :: struct {
 
 current_screenshot : Tacoma_Screenshot;
 
-post_process_pipeline :: (color: Vector3, post_process: Post_Process) -> Vector3 {
-    vec3 :: (f: float) -> Vector3 {
-        return .{f,f,f};
-    }
-
-    v := color;
-    v *= pow(2.0, post_process.exposure);
-    v *= 0.6;
-    a : float = 2.51;
-    b : float = 0.03;
-    c : float = 2.43;
-    d : float = 0.59;
-    e : float = 0.14;
-    pre_clamp := (v*(a*v+vec3(b)))/(v*(c*v+vec3(d))+vec3(e));
-    sdr : Vector3;
-    sdr.x = clamp(pre_clamp.x, 0.0, 1.0);
-    sdr.y = clamp(pre_clamp.y, 0.0, 1.0);
-    sdr.z = clamp(pre_clamp.z, 0.0, 1.0);
-    
-    sdr =  vec3(0.5) + post_process.contrast * (sdr - vec3(0.5));
-    LUMINANCE := Vector3.{0.2126, 0.7152, 0.0722};
-    grayscale := dot(sdr, LUMINANCE);
-    return lerp(vec3(grayscale), sdr, post_process.saturation);
-}
-
-gen_reference :: (w: s32, h: s32, postprocess: Post_Process, conf: Tacoma.Gen_Config, world: World) {
+gen_reference :: (w: s32, h: s32, conf: Tacoma.Gen_Config, world: World) {
     // Trile BLASes.
     trile_list : [..]Tacoma.Trile_Data;
     trile_list.allocator = temp;
@@ -99,8 +74,6 @@ gen_reference :: (w: s32, h: s32, postprocess: Post_Process, conf: Tacoma.Gen_Co
         color.x = data[it * 4 + 0]; 
         color.y = data[it * 4 + 1]; 
         color.z = data[it * 4 + 2]; 
-
-        color = post_process_pipeline(color, postprocess);
 
         data[it * 4 + 0] = color.x;
         data[it * 4 + 1] = color.y;
