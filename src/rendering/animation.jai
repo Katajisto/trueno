@@ -1,7 +1,5 @@
 g_animations: Table(string, Animation);
 
-String :: #import "String";
-
 Frame :: struct {
     x: s32;
     y: s32;
@@ -50,6 +48,8 @@ init_spritesheets :: () {
 }
 
 add_new_spritesheets_from_pack :: () {
+    String :: #import "String";
+
     for v : g_asset_pack.lookup {
         isSpritesheet, remainder := String.contains(v.name, "/sprites/");
         isData := String.contains(remainder, ".json");
