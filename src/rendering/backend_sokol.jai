@@ -40,6 +40,8 @@ backend_handle_command :: (cmd: *Render_Command) {
         case .SET_LIGHT;
             set_light_command := cast(*Render_Command_Set_Light)cmd;
             current_world_config = set_light_command.worldConfig;
+        case .DRAW_BILLBOARD;
+            backend_draw_billboard();
     }
 }
 
@@ -221,6 +223,31 @@ backend_draw_ground :: (wc: *World_Config) {
     sg_apply_uniforms(UB_plane_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
     sg_apply_uniforms(UB_plane_data, *(sg_range.{ptr = *plane_data, size = size_of(type_of(plane_data))}));
     sg_draw(0, 6, 2);    
+}
+
+backend_draw_billboard :: () {
+    mvp := create_viewproj(*camera);
+    vs_params : Billboard_Vs_Params;
+    anim := table_find_pointer(*g_animations, "player_idle");
+    if anim {
+        gPipelines.billboard.bind.images[0] = anim.sheet;
+        num := cast(s32)(get_time() / 0.1) % anim.frames.count;
+        frame := anim.frames[num];
+        vs_params.uvs = Vector4.{
+            cast(float) frame.x / cast(float)anim.sheet_w,
+            cast(float) frame.y / cast(float)anim.sheet_h,
+            cast(float) frame.w / cast(float)anim.sheet_w,
+            cast(float) frame.h / cast(float)anim.sheet_h,
+        }.component;
+        vs_params.size = Vector2.{cast(float)(frame.w / 16), cast(float)(frame.h / 16)}.component;
+        vs_params.cam = camera.position.component;
+    }
+    vs_params.mvp = mvp.floats;
+    vs_params.offset = Vector3.{10, 1, 5.5}.component;
+    sg_apply_pipeline(gPipelines.billboard.pipeline);
+    sg_apply_bindings(*gPipelines.billboard.bind);
+    sg_apply_uniforms(UB_billboard_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
+    sg_draw(0, 6, 1);    
 }
 
 backend_draw_ground_gbuf :: (wc: *World_Config) {

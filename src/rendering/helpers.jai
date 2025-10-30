@@ -15,6 +15,7 @@ fill_uniform_with_engine_data :: (uniform: *$A, enginedata: *$B) {
 create_world_rendering_tasks :: (world: *World) {
     create_sky_rendering_task(*world.conf);
     create_set_light_rendering_task(*world.conf);
+    create_billboard_rendering_task();
     for world.positions {
         if it.positions.count < 1 then continue;
 		triletask := Rendering_Task_Trile.{};
@@ -45,6 +46,11 @@ create_trixel_rendering_task :: (trile: *Trile, muls: *[16][16][16]Vector3) {
 create_ground_rendering_task :: (world: *World) {
 	groundtask := Rendering_Task_Ground.{type = .GROUND, world = world};
 	add_rendering_task(groundtask);
+}
+
+create_billboard_rendering_task :: () {
+	billboardtask := Rendering_Task_Billboard.{type = .BILLBOARD };
+	add_rendering_task(billboardtask);
 }
 
 create_set_cam_rendering_task :: (cam: Camera, planeHeight: float) {

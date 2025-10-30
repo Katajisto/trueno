@@ -11,6 +11,7 @@ MEM_DEBUG :: false;
 #import "Hash";
 #import "Simple_Package_Reader";
 
+String :: #import "String";
 Jaison :: #import "Jaison";
 stbi   :: #import "stb_image";
 

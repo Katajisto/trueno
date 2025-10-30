@@ -8,8 +8,8 @@ Rendering_Task_Type :: enum {
     SET_LIGHT;
     TRILE;     // We need to add an ability to invalidate buffer instead of updating it constantly. Also probably have a buffer for static world triles and one for moving ones.
     TRIXELS;
-    SPRITE;    
-    PARTICLES; 
+    BILLBOARD; 
+    PARTICLES;
 };
 
 Rendering_Task :: struct {
@@ -37,6 +37,11 @@ Rendering_Task_Ground :: struct {
     #as using t : Rendering_Task;
     t.type      = .GROUND;
     world : *World;
+}
+
+Rendering_Task_Billboard :: struct {
+    #as using t : Rendering_Task;
+    t.type      = .BILLBOARD;
 }
 
 Rendering_Task_Trile :: struct {
@@ -115,6 +120,9 @@ tasks_to_commands :: () {
                 commandDrawGround.worldConfig = *(cast(*Rendering_Task_Ground)it).world.conf;
                 array_add(*render_command_buckets.main, commandDrawGround);
                 array_add(*render_command_buckets.gbuffer, commandDrawGround);
+            case .BILLBOARD;
+                commandDrawBillboard := New(Render_Command_Draw_Billboard,, temp);
+                array_add(*render_command_buckets.main, commandDrawBillboard);
             case .SET_CAMERA;
                 task := (cast(*Rendering_Task_Set_Camera)it);
                 command := New(Render_Command_Set_Camera,, temp);

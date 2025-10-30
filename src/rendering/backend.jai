@@ -21,6 +21,7 @@ Render_Command_Type :: enum {
     UPDATE_TRIXELS;
     DRAW_TRIXELS;
     SET_LIGHT;
+    DRAW_BILLBOARD;
 }
 
 Render_Command :: struct {
@@ -58,6 +59,11 @@ Render_Command_Update_Trixels :: struct {
     c.type         = .UPDATE_TRIXELS;
     trile          : *Trile;
     colMultipliers : *[16][16][16]Vector3;
+}
+
+Render_Command_Draw_Billboard :: struct {
+    #as using c    : Render_Command;
+    c.type         = .DRAW_BILLBOARD;
 }
 
 Render_Command_Draw_Trixels :: struct {

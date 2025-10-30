@@ -63,6 +63,8 @@ gPipelines : struct {
     op : Pipeline_Binding;
     
     mix : Pipeline_Binding;
+    
+    billboard : Pipeline_Binding;
 
     // Renders the SSAO texture using things from the gbuffer pass.
     ssao: Pipeline_Binding;
@@ -139,6 +141,7 @@ create_pipelines :: () {
     create_ssao_pipeline();
     create_op_pipeline();
     create_mix_pipeline();
+    create_billboard_pipeline();
     
     create_shadowmap_image();
     create_final_image();
@@ -759,6 +762,61 @@ create_op_pipeline :: () {
         mag_filter = .NEAREST,
     }));
 
+}
+
+create_billboard_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := billboard_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.buffers[0].stride = 4*3;
+
+    pipeline.layout.attrs[ATTR_billboard_position] = .{ format = .FLOAT3, buffer_index = 0 };
+    pipeline.index_type = .UINT16;
+    pipeline.depth = .{
+        write_enabled = true,
+        compare = .LESS_EQUAL,
+        pixel_format = .DEPTH
+    };
+
+    color_state := sg_color_target_state.{
+        pixel_format = .RGBA32F,
+        blend = .{
+            enabled = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
+        }
+    };
+
+    vertices: [4]Vector3 = .[
+        .{ 0.0,  0.0, 0.0},
+        .{ 1.0,  0.0, 0.0},
+        .{ 1.0,  1.0, 0.0},
+        .{ 0.0,  1.0, 0.0},
+    ];
+
+    indices: [6]u16 = .[
+        0, 1, 2,
+        0, 2, 3,
+    ];
+
+
+    pipeline.color_count = 1;
+    pipeline.colors[0]   = color_state;
+
+    gPipelines.billboard.pipeline = sg_make_pipeline(*pipeline);
+
+    ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 6 * 2 } };
+    vbuffer         := sg_buffer_desc.{ data = .{ ptr = vertices.data, size = 4 * 3 * 4 } };
+
+    gPipelines.billboard.bind.index_buffer      = sg_make_buffer(*ibuffer);
+    gPipelines.billboard.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+
+    gPipelines.billboard.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
 }
 
 // Takes in 2-3 textures, and mixes them.
