@@ -1,0 +1,8 @@
+.DS_Store
+.build/
+dist/
+first
+sample_game/
+!game/
+packs/*
+first.dSYM/Contents

@@ -40,7 +40,7 @@ void main() {
     #endif
     vec4 sampled = texture(sampler2D(sprite, spritesmp), uv);
     if(sampled.a < 0.01) discard;
-    color = vec4(sampled.rgb * 0.3, 1.0);
+    color = vec4(sampled.rgb * 0.5, 1.0);
 }
 
 @end

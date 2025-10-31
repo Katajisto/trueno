@@ -131,6 +131,8 @@ init_after_asset_pack :: () {
 
 is_in_reflection_pass : bool = false;
 
+delta_time_accumulator : float64 = 0;
+
 frame :: () {
     check_and_handle_window_resize();
     delta_time = get_time() - last_frame_time;
@@ -149,7 +151,15 @@ frame :: () {
     dpis := state.dpi_scale;
 
     #if OS != .WASM { tick_profiler(); }
-    if !in_editor_view then game_tick();
+
+    delta_time_accumulator += delta_time;
+    
+    if !in_editor_view {
+        while delta_time_accumulator > (1.0/60.0) {
+            game_tick(1.0/60.0);
+            delta_time_accumulator -= (1.0/60.0);
+        }
+    }
     fonsClearState(state.fons);
     for event: Input.events_this_frame {
         GR.getrect_handle_event(event);

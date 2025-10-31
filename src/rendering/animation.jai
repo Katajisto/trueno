@@ -1,5 +1,44 @@
 g_animations: Table(string, Animation);
 
+Animation_Player :: struct {
+    current_animation      : *Animation;
+    queued_animation       : *Animation = null;
+    current_frame          : s32 = 0;
+    frame_start            : float64 = 0;
+}
+
+animation_player_tick :: (player: *Animation_Player) {
+    if player.current_animation == null then return;
+    frame := player.current_animation.frames[player.current_frame];
+    current_time := get_time();
+    if cast(s32)((current_time - player.frame_start) * 1000) > frame.duration_ms {
+        player.current_frame += 1;
+        player.frame_start = current_time;
+        if player.current_frame >= player.current_animation.frames.count {
+            player.current_frame = 0;
+            if player.queued_animation != null {
+                player.current_animation = player.queued_animation;
+                player.queued_animation = null;
+            }
+        }
+    }
+}
+
+animation_draw :: (player: *Animation_Player, position: Vector3, flipX: bool = false, flipY: bool = false) {
+    animation_player_tick(player);
+    if player.current_animation == null then print("Trying to draw a null animation!!\n");
+    create_billboard_rendering_task(position, player.current_animation, player.current_frame, flipX, flipY);
+}
+
+animation_set :: (player: *Animation_Player, animation: string) {
+    player.current_frame = 0;
+    player.current_animation = table_find_pointer(*g_animations, animation);
+}
+
+animation_is :: (player: *Animation_Player, animation: string) -> bool {
+    return player.current_animation.name == animation;
+}
+
 Frame :: struct {
     x: s32;
     y: s32;

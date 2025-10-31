@@ -41,7 +41,8 @@ backend_handle_command :: (cmd: *Render_Command) {
             set_light_command := cast(*Render_Command_Set_Light)cmd;
             current_world_config = set_light_command.worldConfig;
         case .DRAW_BILLBOARD;
-            backend_draw_billboard();
+            command := cast(*Render_Command_Draw_Billboard)cmd;
+            backend_draw_billboard(command.position, command.animation, command.frame, command.flipX);
     }
 }
 
@@ -142,11 +143,11 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     if !in_shadowmap_pass {
         mvp = create_viewproj(*camera);
     } else {
-        mvp = create_shadow_viewproj(*camera, worldConf);
-        shadow_mvp = mvp;
+        mvp = shadow_mvp;
     }
 	vs_params : Trile_Vs_Params;
 	vs_params.mvp = mvp.floats;
+	vs_params.mvp_shadow = shadow_mvp.floats;
     vs_params.camera = camera.position.component;
     sg_apply_pipeline(gPipelines.trile.pipeline);
     world_conf : Trile_World_Config;
@@ -165,6 +166,8 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     bindings.samplers[0]               = gPipelines.trile.bind.samplers[0];
     bindings.images[0]                 = trilegfx.trixel_colors;
     bindings.images[1]                 = g_ssaobuf;
+    bindings.samplers[2]               = g_shadowmap_sampler;
+    bindings.images[2]                 = g_shadowmap;
 
     fs_params : Trile_Fs_Params;
     fs_params.mvp_shadow = shadow_mvp.floats;
@@ -225,25 +228,30 @@ backend_draw_ground :: (wc: *World_Config) {
     sg_draw(0, 6, 2);    
 }
 
-backend_draw_billboard :: () {
+backend_draw_billboard :: (position: Vector3, anim: *Animation, frame_idx: s32, flipX: bool) {
+    if !anim then return;
     mvp := create_viewproj(*camera);
     vs_params : Billboard_Vs_Params;
-    anim := table_find_pointer(*g_animations, "player_idle");
-    if anim {
-        gPipelines.billboard.bind.images[0] = anim.sheet;
-        num := cast(s32)(get_time() / 0.1) % anim.frames.count;
-        frame := anim.frames[num];
-        vs_params.uvs = Vector4.{
-            cast(float) frame.x / cast(float)anim.sheet_w,
-            cast(float) frame.y / cast(float)anim.sheet_h,
-            cast(float) frame.w / cast(float)anim.sheet_w,
-            cast(float) frame.h / cast(float)anim.sheet_h,
-        }.component;
-        vs_params.size = Vector2.{cast(float)(frame.w / 16), cast(float)(frame.h / 16)}.component;
-        vs_params.cam = camera.position.component;
+    gPipelines.billboard.bind.images[0] = anim.sheet;
+    frame := anim.frames[frame_idx];
+    vs_params.uvs = Vector4.{
+        cast(float) frame.x / cast(float)anim.sheet_w,
+        cast(float) frame.y / cast(float)anim.sheet_h,
+        cast(float) frame.w / cast(float)anim.sheet_w,
+        cast(float) frame.h / cast(float)anim.sheet_h,
+    }.component;
+    if flipX {
+        vs_params.uvs[0] += vs_params.uvs[2];
+        vs_params.uvs[2] *= -1.0;
     }
-    vs_params.mvp = mvp.floats;
-    vs_params.offset = Vector3.{10, 1, 5.5}.component;
+    vs_params.size = Vector2.{cast(float)(frame.w / 16), cast(float)(frame.h / 16)}.component;
+    vs_params.cam = camera.position.component;
+    if !in_shadowmap_pass {
+        vs_params.mvp = mvp.floats;
+    } else {
+        vs_params.mvp = shadow_mvp.floats;
+    }
+    vs_params.offset = position.component;
     sg_apply_pipeline(gPipelines.billboard.pipeline);
     sg_apply_bindings(*gPipelines.billboard.bind);
     sg_apply_uniforms(UB_billboard_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
@@ -279,6 +287,7 @@ backend_process_command_buckets :: () {
 
     // 2. Shadow pass
     if current_world_config != null {
+        shadow_mvp = create_shadow_viewproj(*camera, current_world_config);
         in_shadowmap_pass = true;
     	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_shadowmap_attachments}));
         for render_command_buckets.shadow {

@@ -64,6 +64,11 @@ Render_Command_Update_Trixels :: struct {
 Render_Command_Draw_Billboard :: struct {
     #as using c    : Render_Command;
     c.type         = .DRAW_BILLBOARD;
+    position       : Vector3;
+    animation      : *Animation;
+    frame          : s32;
+    flipX          : bool;
+    flipY          : bool;
 }
 
 Render_Command_Draw_Trixels :: struct {

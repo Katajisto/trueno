@@ -7,6 +7,7 @@ in vec4 instance;
 
 layout(binding=0) uniform trile_vs_params {
     mat4 mvp;
+    mat4 mvp_shadow;
     vec3 camera;
 };
 
@@ -15,9 +16,11 @@ out vec3 to_center;
 out vec3 vpos; // The actual position;
 out vec3 ipos; // Trile space position;
 out vec4 fnormal;
+out vec4 light_proj_pos;
 
 void main() {
     gl_Position = mvp * vec4(position.xyz + instance.xyz, 1.0);
+    light_proj_pos = mvp_shadow * vec4(position.xyz + instance.xyz, 1.0);
     fnormal = normal;
     to_center = centre.xyz - position.xyz;
     vpos = position.xyz + instance.xyz;
@@ -54,6 +57,7 @@ in vec3 to_center;
 in vec3 vpos;
 in vec3 ipos;
 in vec4 fnormal;
+in vec4 light_proj_pos;
 out vec4 frag_color;
 
 layout(binding=3) uniform trile_fs_params {
@@ -67,6 +71,8 @@ layout(binding = 0) uniform texture2D triletex;
 layout(binding = 0) uniform sampler trilesmp;
 layout(binding = 1) uniform texture2D ssaotex;
 layout(binding = 1) uniform sampler ssaosmp;
+layout(binding = 2) uniform texture2D shadowtex;
+layout(binding = 2) uniform sampler shadowsmp;
 
 const float PI = 3.1412854;
 
@@ -233,7 +239,12 @@ void main() {
     vec3 kD = vec3(1.0) - F;
     kD *= 1.0 - metallic;
 
-    light += (kD * albedo / PI + specular) * NdotL * sunLightColor * sunIntensity;
+    vec3 light_pos = light_proj_pos.xyz / light_proj_pos.w;
+    light_pos = light_pos * 0.5 + 0.5;
+    light_pos.z -= 0.0005;
+    float shadowp = texture(sampler2DShadow(shadowtex, shadowsmp), light_pos);
+    
+    light += shadowp * (kD * albedo / PI + specular) * NdotL * sunLightColor * sunIntensity;
 
     vec3 R = reflect(-V, N);
     vec3 modifier = vec3(1.0);
@@ -243,6 +254,7 @@ void main() {
     }
     vec3 samp = sky(R, sunPosition);
     // light += F * samp * modifier;
+
 
     frag_color = vec4(mix(deepColor, light, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
 

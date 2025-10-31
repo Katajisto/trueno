@@ -15,7 +15,6 @@ fill_uniform_with_engine_data :: (uniform: *$A, enginedata: *$B) {
 create_world_rendering_tasks :: (world: *World) {
     create_sky_rendering_task(*world.conf);
     create_set_light_rendering_task(*world.conf);
-    create_billboard_rendering_task();
     for world.positions {
         if it.positions.count < 1 then continue;
 		triletask := Rendering_Task_Trile.{};
@@ -48,8 +47,8 @@ create_ground_rendering_task :: (world: *World) {
 	add_rendering_task(groundtask);
 }
 
-create_billboard_rendering_task :: () {
-	billboardtask := Rendering_Task_Billboard.{type = .BILLBOARD };
+create_billboard_rendering_task :: (position: Vector3, animation: *Animation, frame: s32, flipX: bool, flipY: bool) {
+	billboardtask := Rendering_Task_Billboard.{type = .BILLBOARD, position = position, animation = animation, frame = frame, flipX = flipX, flipY = flipY };
 	add_rendering_task(billboardtask);
 }
 

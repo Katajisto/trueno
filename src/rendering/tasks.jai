@@ -42,6 +42,11 @@ Rendering_Task_Ground :: struct {
 Rendering_Task_Billboard :: struct {
     #as using t : Rendering_Task;
     t.type      = .BILLBOARD;
+    position    : Vector3;
+    animation   : *Animation;
+    frame       : s32;
+    flipX       : bool;
+    flipY       : bool;
 }
 
 Rendering_Task_Trile :: struct {
@@ -121,8 +126,16 @@ tasks_to_commands :: () {
                 array_add(*render_command_buckets.main, commandDrawGround);
                 array_add(*render_command_buckets.gbuffer, commandDrawGround);
             case .BILLBOARD;
+                billboardTask := (cast(*Rendering_Task_Billboard)it);
                 commandDrawBillboard := New(Render_Command_Draw_Billboard,, temp);
+                commandDrawBillboard.position = billboardTask.position;
+                commandDrawBillboard.frame = billboardTask.frame;
+                commandDrawBillboard.flipX = billboardTask.flipX;
+                commandDrawBillboard.flipY = billboardTask.flipY;
+                commandDrawBillboard.animation = billboardTask.animation;
                 array_add(*render_command_buckets.main, commandDrawBillboard);
+                array_add(*render_command_buckets.shadow, commandDrawBillboard);
+                array_add(*render_command_buckets.reflection, commandDrawBillboard);
             case .SET_CAMERA;
                 task := (cast(*Rendering_Task_Set_Camera)it);
                 command := New(Render_Command_Set_Camera,, temp);
