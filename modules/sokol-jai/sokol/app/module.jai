@@ -1435,6 +1435,10 @@ sapp_html5_ask_leave_site :: (ask: bool) -> void #foreign sokol_app_clib;
 sapp_html5_get_dropped_file_size :: (index: s32) -> u32 #foreign sokol_app_clib;
 // HTML5: asynchronously load the content of a dropped file
 sapp_html5_fetch_dropped_file :: (request: *sapp_html5_fetch_request) -> void #foreign sokol_app_clib;
+
+// DEBUG DISABLE VSYNC:
+sapp_glx_swapinterval :: (interval: s32) -> void #foreign sokol_app_clib;
+
 // Metal: get bridged pointer to Metal device object
 sapp_metal_get_device :: () -> *void #foreign sokol_app_clib;
 // Metal: get bridged pointer to MTKView's current drawable of type CAMetalDrawable

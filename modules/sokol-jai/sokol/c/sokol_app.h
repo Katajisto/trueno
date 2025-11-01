@@ -10475,7 +10475,7 @@ _SOKOL_PRIVATE void _sapp_glx_swap_buffers(void) {
     _sapp.glx.SwapBuffers(_sapp.x11.display, _sapp.glx.window);
 }
 
-_SOKOL_PRIVATE void _sapp_glx_swapinterval(int interval) {
+void sapp_glx_swapinterval(int interval) {
     if (_sapp.glx.EXT_swap_control) {
         _sapp.glx.SwapIntervalEXT(_sapp.x11.display, _sapp.glx.window, interval);
     }
@@ -11731,7 +11731,7 @@ _SOKOL_PRIVATE void _sapp_linux_run(const sapp_desc* desc) {
     _sapp_glx_choose_visual(&visual, &depth);
     _sapp_x11_create_window(visual, depth);
     _sapp_glx_create_context();
-    _sapp_glx_swapinterval(_sapp.swap_interval);
+    sapp_glx_swapinterval(_sapp.swap_interval);
 #else
     _sapp_egl_init();
 #endif

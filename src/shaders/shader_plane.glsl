@@ -64,15 +64,13 @@ layout(binding=2) uniform plane_data {
 
 // Texture bindings
 layout(binding = 0) uniform texture2D reftex;
-layout(binding = 1) uniform texture2D groundtex;
-layout(binding = 2) uniform texture2D shadow;
-layout(binding = 3) uniform texture2D normal_map;
+layout(binding = 1) uniform texture2D shadow;
+layout(binding = 2) uniform texture2D normal_map;
 
 // Sampler bindings
 layout(binding = 0) uniform sampler refsmp;
-layout(binding = 1) uniform sampler groundsmp;
-layout(binding = 2) uniform sampler shadowsmp;
-layout(binding = 3) uniform sampler normalsmp;
+layout(binding = 1) uniform sampler shadowsmp;
+layout(binding = 2) uniform sampler normalsmp;
 
 vec3 fresnelSchlick(float cosTheta) {
     vec3 F0 = vec3(0.02);

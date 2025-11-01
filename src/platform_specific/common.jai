@@ -1,12 +1,12 @@
-#import,dir "../../modules/sokol-jai/sokol/app"(DEBUG = true);
-#import,dir "../../modules/sokol-jai/sokol/gfx"(DEBUG = true);
-#import,dir "../../modules/sokol-jai/sokol/gl"(DEBUG = true);
-#import,dir "../../modules/sokol-jai/sokol/glue"(DEBUG = true);
-#import,dir "../../modules/sokol-jai/sokol/shape"(DEBUG = true);
+#import,dir "../../modules/sokol-jai/sokol/app"(DEBUG = RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/gfx"(DEBUG = RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/gl"(DEBUG = RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/glue"(DEBUG = RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/shape"(DEBUG = RELEASE_BUILD);
 #import,dir "../../modules/sokol-jai/sokol/fontstash";
-#import,dir "../../modules/sokol-jai/sokol/log"(DEBUG = true);
-#import,dir "../../modules/sokol-jai/sokol/time"(DEBUG = true);
-#import,dir "../../modules/sokol-jai/sokol/fetch"(DEBUG = true);
+#import,dir "../../modules/sokol-jai/sokol/log"(DEBUG = RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/time"(DEBUG = RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/fetch"(DEBUG = RELEASE_BUILD);
 
 #load "../main.jai";
 
@@ -38,6 +38,7 @@ sapp_init :: () {
         window_title = wi.title,
         // icon = .{ sokol_default = true },
         logger = .{ func = slog_func },
+        swap_interval = 0,
         sample_count = 1, // I think I'll end up pixelifying the whole thing, so I don't think we need MSAA.
     }));
     }

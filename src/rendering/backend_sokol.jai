@@ -167,7 +167,14 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     bindings.images[0]                 = trilegfx.trixel_colors;
     bindings.images[1]                 = g_ssaobuf;
     bindings.samplers[2]               = g_shadowmap_sampler;
-    bindings.images[2]                 = g_shadowmap;
+    if !in_shadowmap_pass {
+        bindings.images[2]                 = g_shadowmap;
+    } else {
+        // Just put something in this slot instead of the shadowmap
+        // so we don't have a circular shadowmap drawing situation.
+        // The texture is not used in shadowmap pass.
+        bindings.images[2]                 = g_rendertex_depth;
+    }
 
     fs_params : Trile_Fs_Params;
     fs_params.mvp_shadow = shadow_mvp.floats;
@@ -218,8 +225,8 @@ backend_draw_ground :: (wc: *World_Config) {
     vs_params.mvp = mvp.floats;
     vs_params.planeHeight = wc.planeHeight;
     sg_apply_pipeline(gPipelines.plane.pipeline);
-    gPipelines.plane.bind.samplers[2] = g_shadowmap_sampler;
-    gPipelines.plane.bind.images[2] = g_shadowmap;
+    gPipelines.plane.bind.samplers[1] = g_shadowmap_sampler;
+    gPipelines.plane.bind.images[1] = g_shadowmap;
     sg_apply_bindings(*gPipelines.plane.bind);
     sg_apply_uniforms(UB_plane_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
     sg_apply_uniforms(UB_plane_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
@@ -309,15 +316,15 @@ backend_process_command_buckets :: () {
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
     
     // 4. G-Buffer pass
-    in_gbuffer_pass = true;
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear_gbuf, attachments = g_gbuf_attachments}));
-    for render_command_buckets.gbuffer {
-        backend_handle_command(it);
-    }
-    sg_end_pass();
-    in_gbuffer_pass = false;
-    current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
-
+    // in_gbuffer_pass = true;
+    // sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear_gbuf, attachments = g_gbuf_attachments}));
+    // for render_command_buckets.gbuffer {
+    //     backend_handle_command(it);
+    // }
+    // sg_end_pass();
+    // in_gbuffer_pass = false;
+    // current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
+ 
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_postprocess_attach_a }));
     sg_apply_pipeline(gPipelines.ssao.pipeline);
     gPipelines.ssao.bind.images[0] = g_gbuf_position;

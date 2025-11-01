@@ -5,7 +5,7 @@ build_lib_wasm_release() {
     dst=$2
     backend=$3
     echo $dst
-    emcc -c -O2 -DNDEBUG -sMEMORY64 -sSHARED_MEMORY -DIMPL -D$backend c/$src.c
+    emcc -c -O2 -DNDEBUG -DSKIP_ERROR_CHECK -sMEMORY64 -sSHARED_MEMORY -DIMPL -D$backend c/$src.c
     emar rcs $dst.a $src.o
 }
 

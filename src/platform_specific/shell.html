@@ -55,6 +55,7 @@ body {
 <body style="background:black">
   <canvas class="game" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
   <script type="text/javascript">
+      window.focus()
       var Module = {
         onRuntimeInitialized: function () {
           const originalSet = HEAPU8.set.bind(HEAPU8);

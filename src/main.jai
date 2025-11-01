@@ -32,8 +32,10 @@ stbi   :: #import "stb_image";
     #load "../game/game.jai";
 }
 
-last_frame_time : float64;
+last_frame_time : float64; // timestamp of the last frame
 delta\    _time : float64;
+
+latest_frametime : float64; // latest frame generation duration
 
 V_MAJOR :: 0;
 V_MINOR :: 6;
@@ -70,6 +72,7 @@ round_pow2 :: (v: float) -> s32 {
     return cast(s32) (vi + 1);
 }
 
+debug_font : *Font;
 
 init :: () {
     sg_setup(*(sg_desc.{
@@ -98,7 +101,8 @@ init :: () {
     state.pass_action.colors[0] = .{ load_action = .LOAD };
 
     init_asset_pack_load();
-
+    useless_mem : [1]u8;
+    debug_font = get_font_at_size(useless_mem, 15);
 }
 
 init_after_asset_pack :: () {
@@ -127,6 +131,8 @@ init_after_asset_pack :: () {
 
     // We want to do this last.
     game_init();
+
+    #if UNCAPPED_FRAMES then sapp_glx_swapinterval(0);
 }
 
 is_in_reflection_pass : bool = false;
@@ -138,6 +144,7 @@ frame :: () {
     delta_time = get_time() - last_frame_time;
     last_frame_time = get_time();
 
+
     sfetch_dowork();
 
     if mandatory_loads_done() && !init_after_mandatory_done {
@@ -147,6 +154,8 @@ frame :: () {
 
     if !mandatory_loads_done() then return;
     fonsClearState(state.fons);
+    
+    frame_start_time := get_time();
     
     dpis := state.dpi_scale;
 
@@ -173,6 +182,8 @@ frame :: () {
 
     ui_clear_mouse_occluders();
     ui_pass();
+    prepare_text(debug_font, tprint("frametime: % ms", latest_frametime * 1000));
+    draw_prepared_text(debug_font, 10, 10, .{0.0, 1.0, 0.0, 1.0});
     draw_editor();
     render();
     input_per_frame_event_and_flag_update();
@@ -182,6 +193,8 @@ frame :: () {
 
     #if OS != .WASM { profiler_update(); }
     reset_temporary_storage();
+    frame_end_time := get_time();
+    latest_frametime = frame_end_time - frame_start_time;
 }
 
 cleanup :: () {

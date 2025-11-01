@@ -1,4 +1,4 @@
-SHADOWMAP_SIZE :: 2000;
+SHADOWMAP_SIZE :: 1000;
 
 Pipeline_Binding :: struct {
     pipeline    : sg_pipeline;
@@ -580,14 +580,9 @@ create_plane_pipeline :: () {
         compare    = .LESS,
     }));
     
-    gPipelines.plane.bind.samplers[1] = sg_make_sampler(*(sg_sampler_desc.{
-        wrap_u = .CLAMP_TO_EDGE,
-        wrap_v = .CLAMP_TO_EDGE,
-        min_filter = .NEAREST,
-        mag_filter = .NEAREST,
-    }));
+    gPipelines.plane.bind.samplers[1] = g_shadowmap_sampler;
 
-    gPipelines.plane.bind.samplers[3] = sg_make_sampler(*(sg_sampler_desc.{
+    gPipelines.plane.bind.samplers[2] = sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .REPEAT,
         wrap_v = .REPEAT,
         min_filter = .LINEAR,
@@ -602,8 +597,6 @@ create_plane_pipeline :: () {
         sample_count  = 1,
         usage         = .DYNAMIC,
     };
-
-    gPipelines.plane.bind.images[1] = sg_make_image(*ground_img_desc);
 }
 
 create_arbtri_pipeline :: () {
@@ -1008,7 +1001,7 @@ create_ssao_pipeline :: () {
 }
 
 init_plane_textures :: () {
-    gPipelines.plane.bind.images[3] = create_texture_from_pack("./resources/utiltex/water_small.png");
+    gPipelines.plane.bind.images[2] = create_texture_from_pack("./resources/utiltex/water_small.png");
 }
 
 g_plane_gbuffer_vertex_buffer : sg_buffer;

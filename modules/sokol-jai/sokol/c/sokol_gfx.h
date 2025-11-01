@@ -5350,8 +5350,15 @@ inline int sg_append_buffer(sg_buffer buf_id, const sg_range& data) { return sg_
     #ifndef GL_COMPUTE_SHADER
     #define GL_COMPUTE_SHADER 0x91B9
     #endif
+    #ifndef SKIP_ERROR_CHECK
     #ifndef _SG_GL_CHECK_ERROR
-    #define _SG_GL_CHECK_ERROR() { SOKOL_ASSERT(glGetError() == GL_NO_ERROR); }
+    #define _SG_GL_CHECK_ERROR() { }
+    #endif
+    #endif
+    #ifdef SKIP_ERROR_CHECK
+    #ifndef _SG_GL_CHECK_ERROR
+    #define _SG_GL_CHECK_ERROR() { }
+    #endif
     #endif
 #endif
 

@@ -27,10 +27,16 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
     doWasmBuild := false;
     hasTacoma := false;
     releaseBuild := false;
+    iprof        := false;
+    uncap_frames := false;
+    
     for arg : args {
         if arg == "wasm" then doWasmBuild = true;
         if arg == "tacoma" then hasTacoma = true;
         if arg == "release" then releaseBuild = true;
+        if arg == "iprof" then iprof = true;
+        if arg == "iprof" then iprof = true;
+        if arg == "uncap_frames" then uncap_frames = true;
     }
 
     if doWasmBuild {
@@ -81,6 +87,13 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         add_build_file("src/platform_specific/main_web.jai", w);
         add_build_string("HAS_TACOMA :: false;", w);
         add_build_string("HAS_IPROF :: false;", w);
+        add_build_string("UNCAPPED_FRAMES :: false;", w);
+
+        if releaseBuild {
+            add_build_string("RELEASE_BUILD :: true;", w);
+        } else {
+            add_build_string("RELEASE_BUILD :: false;", w);
+        }
 
         if is_directory("./game") {
             add_build_string("USE_SAMPLE_GAME :: false;", w);
@@ -149,7 +162,7 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         set_build_options(opts, w);
         iprof_plugin: *Iprof.My_Plugin;
 
-        profile := !releaseBuild;
+        profile := iprof; 
 
         if profile {
             iprof_plugin = cast(*Iprof.My_Plugin) Iprof.get_plugin();
@@ -172,6 +185,18 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
             add_build_string("USE_SAMPLE_GAME :: false;", w);
         } else {
             add_build_string("USE_SAMPLE_GAME :: true;", w);
+        }
+
+        if uncap_frames {
+            add_build_string("UNCAPPED_FRAMES :: true;", w);
+        } else {
+            add_build_string("UNCAPPED_FRAMES :: false;", w);
+        }
+
+        if releaseBuild {
+            add_build_string("RELEASE_BUILD :: true;", w);
+        } else {
+            add_build_string("RELEASE_BUILD :: false;", w);
         }
 
         if profile {

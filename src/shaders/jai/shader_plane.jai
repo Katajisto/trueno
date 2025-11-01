@@ -31,7 +31,7 @@
             Image type: ._2D
             Sample type: .FLOAT
             Multisampled: false
-            Bind slot: IMG_normal_map => 3
+            Bind slot: IMG_normal_map => 2
         Image 'reftex':
             Image type: ._2D
             Sample type: .FLOAT
@@ -39,7 +39,7 @@
             Bind slot: IMG_reftex => 0
         Sampler 'normalsmp':
             Type: .FILTERING
-            Bind slot: SMP_normalsmp => 3
+            Bind slot: SMP_normalsmp => 2
         Sampler 'refsmp':
             Type: .FILTERING
             Bind slot: SMP_refsmp => 0
@@ -49,9 +49,9 @@ UB_plane_vs_params :: 0;
 UB_plane_world_config :: 1;
 UB_plane_data :: 2;
 UB_plane_fs_params :: 3;
-IMG_normal_map :: 3;
+IMG_normal_map :: 2;
 IMG_reftex :: 0;
-SMP_normalsmp :: 3;
+SMP_normalsmp :: 2;
 SMP_refsmp :: 0;
 Plane_Vs_Params :: struct {
     mvp: [16]float;
@@ -1594,17 +1594,17 @@ plane_shader_desc :: (backend: sg_backend) -> sg_shader_desc {
         desc.images[0].multisampled = false;
         desc.images[0].image_type = ._2D;
         desc.images[0].sample_type = .FLOAT;
-        desc.images[3].stage = .FRAGMENT;
-        desc.images[3].multisampled = false;
-        desc.images[3].image_type = ._2D;
-        desc.images[3].sample_type = .FLOAT;
+        desc.images[2].stage = .FRAGMENT;
+        desc.images[2].multisampled = false;
+        desc.images[2].image_type = ._2D;
+        desc.images[2].sample_type = .FLOAT;
         desc.samplers[0].stage = .FRAGMENT;
         desc.samplers[0].sampler_type = .FILTERING;
-        desc.samplers[3].stage = .FRAGMENT;
-        desc.samplers[3].sampler_type = .FILTERING;
+        desc.samplers[2].stage = .FRAGMENT;
+        desc.samplers[2].sampler_type = .FILTERING;
         desc.image_sampler_pairs[0].stage = .FRAGMENT;
-        desc.image_sampler_pairs[0].image_slot = 3;
-        desc.image_sampler_pairs[0].sampler_slot = 3;
+        desc.image_sampler_pairs[0].image_slot = 2;
+        desc.image_sampler_pairs[0].sampler_slot = 2;
         desc.image_sampler_pairs[0].glsl_name = "normal_map_normalsmp";
         desc.image_sampler_pairs[1].stage = .FRAGMENT;
         desc.image_sampler_pairs[1].image_slot = 0;
@@ -1705,17 +1705,17 @@ plane_shader_desc :: (backend: sg_backend) -> sg_shader_desc {
         desc.images[0].multisampled = false;
         desc.images[0].image_type = ._2D;
         desc.images[0].sample_type = .FLOAT;
-        desc.images[3].stage = .FRAGMENT;
-        desc.images[3].multisampled = false;
-        desc.images[3].image_type = ._2D;
-        desc.images[3].sample_type = .FLOAT;
+        desc.images[2].stage = .FRAGMENT;
+        desc.images[2].multisampled = false;
+        desc.images[2].image_type = ._2D;
+        desc.images[2].sample_type = .FLOAT;
         desc.samplers[0].stage = .FRAGMENT;
         desc.samplers[0].sampler_type = .FILTERING;
-        desc.samplers[3].stage = .FRAGMENT;
-        desc.samplers[3].sampler_type = .FILTERING;
+        desc.samplers[2].stage = .FRAGMENT;
+        desc.samplers[2].sampler_type = .FILTERING;
         desc.image_sampler_pairs[0].stage = .FRAGMENT;
-        desc.image_sampler_pairs[0].image_slot = 3;
-        desc.image_sampler_pairs[0].sampler_slot = 3;
+        desc.image_sampler_pairs[0].image_slot = 2;
+        desc.image_sampler_pairs[0].sampler_slot = 2;
         desc.image_sampler_pairs[0].glsl_name = "normal_map_normalsmp";
         desc.image_sampler_pairs[1].stage = .FRAGMENT;
         desc.image_sampler_pairs[1].image_slot = 0;
@@ -1748,20 +1748,20 @@ plane_shader_desc :: (backend: sg_backend) -> sg_shader_desc {
         desc.images[0].image_type = ._2D;
         desc.images[0].sample_type = .FLOAT;
         desc.images[0].msl_texture_n = 1;
-        desc.images[3].stage = .FRAGMENT;
-        desc.images[3].multisampled = false;
-        desc.images[3].image_type = ._2D;
-        desc.images[3].sample_type = .FLOAT;
-        desc.images[3].msl_texture_n = 0;
+        desc.images[2].stage = .FRAGMENT;
+        desc.images[2].multisampled = false;
+        desc.images[2].image_type = ._2D;
+        desc.images[2].sample_type = .FLOAT;
+        desc.images[2].msl_texture_n = 0;
         desc.samplers[0].stage = .FRAGMENT;
         desc.samplers[0].sampler_type = .FILTERING;
         desc.samplers[0].msl_sampler_n = 1;
-        desc.samplers[3].stage = .FRAGMENT;
-        desc.samplers[3].sampler_type = .FILTERING;
-        desc.samplers[3].msl_sampler_n = 0;
+        desc.samplers[2].stage = .FRAGMENT;
+        desc.samplers[2].sampler_type = .FILTERING;
+        desc.samplers[2].msl_sampler_n = 0;
         desc.image_sampler_pairs[0].stage = .FRAGMENT;
-        desc.image_sampler_pairs[0].image_slot = 3;
-        desc.image_sampler_pairs[0].sampler_slot = 3;
+        desc.image_sampler_pairs[0].image_slot = 2;
+        desc.image_sampler_pairs[0].sampler_slot = 2;
         desc.image_sampler_pairs[1].stage = .FRAGMENT;
         desc.image_sampler_pairs[1].image_slot = 0;
         desc.image_sampler_pairs[1].sampler_slot = 0;
