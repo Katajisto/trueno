@@ -33,6 +33,12 @@ animation_draw :: (player: *Animation_Player, position: Vector3, flipX: bool = f
 animation_set :: (player: *Animation_Player, animation: string) {
     player.current_frame = 0;
     player.current_animation = table_find_pointer(*g_animations, animation);
+
+}
+animation_set_if_not :: (player: *Animation_Player, animation: string) {
+    if !animation_is(player, animation) {
+        animation_set(player, animation);
+    }
 }
 
 animation_is :: (player: *Animation_Player, animation: string) -> bool {
