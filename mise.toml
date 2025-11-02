@@ -1,3 +1,4 @@
 [tasks]
 build_web = "$HOME/bin/jai/bin/jai-linux first.jai - wasm release && rm -rf dist/packs/ && cp -r packs/ dist/ && rm dist/main.o"
-ship_web = ""
+ship_web  = "./game/ship_web.sh"
+run       = "$HOME/bin/jai/bin/jai-linux first.jai && ./first"
