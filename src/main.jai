@@ -167,6 +167,7 @@ frame :: () {
         while delta_time_accumulator > (1.0/60.0) {
             game_tick(1.0/60.0);
             delta_time_accumulator -= (1.0/60.0);
+            input_per_frame_event_and_flag_update();
         }
     }
     fonsClearState(state.fons);
@@ -186,7 +187,6 @@ frame :: () {
     draw_prepared_text(debug_font, 10, 10, .{0.0, 1.0, 0.0, 1.0});
     draw_editor();
     render();
-    input_per_frame_event_and_flag_update();
     #if MEM_DEBUG {
         memory_visualizer_per_frame_update();
     }
