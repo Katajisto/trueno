@@ -15,6 +15,7 @@ String :: #import "String";
 Jaison :: #import "Jaison";
 stbi   :: #import "stb_image";
 
+#load "pseudophysics/core.jai";
 #load "trile.jai";
 #load "rendering/rendering.jai";
 #load "input/hotkeys.jai";
