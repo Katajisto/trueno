@@ -83,7 +83,7 @@ print_val :: (using val: JSON_Value) {
 			for array	print_val(it);
 			print("]");
 		case .OBJECT;
-			print("%", <<object);
+			print("%", (.*)object);
 	}
 }
 
@@ -166,7 +166,7 @@ json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, inden
 			keys: [..] string;
 			defer array_free(keys);
 			array_reserve(*keys, obj.count);
-			for v, k: <<obj {
+			for v, k: (.*)obj {
 				array_add(*keys, k);
 			}
 			intro_sort(keys, compare);
@@ -177,7 +177,7 @@ json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, inden
 				}
 				json_append_escaped(builder, it);
 				append(builder, ": ");
-				found, v := table_find_new(obj, it);
+				found, v := table_find(obj, it);
 				assert(found, "Missing table value %", it);
 				json_write_json_value(builder, v, indent_char, level + 1);
 				if it_index != obj.count - 1	append(builder, ",");
@@ -202,7 +202,7 @@ json_set :: (obj: *JSON_Object, path: string, val: JSON_Value) -> bool {
 	if !next.count		return false;
 	if !remainder.count	return false;
 
-	success, next_value := table_find_new(obj, next);
+	success, next_value := table_find(obj, next);
 	next_obj: *JSON_Object;
 	if success {
 		if next_value.type != JSON_Type.OBJECT	return false;
@@ -242,7 +242,7 @@ get_as :: (val: JSON_Value, $T: Type) -> T {
 		} else if T == JSON_Object {
 			return #string END
 				assert(val.type == .OBJECT, "Expected a % but got %", T, val.type);
-				return <<val.object;
+				return (.*)val.object;
 			END;
 		} else {
 			compiler_report("Unsupported type");
@@ -283,7 +283,7 @@ parse_value :: (to_parse: string) -> JSON_Value, remainder: string, success: boo
 			result.array, remainder, success = parse_array(remainder);
 		case #char "{";
 			obj := cast(*JSON_Object) alloc(size_of(JSON_Object));
-			<<obj, remainder, success = parse_object(remainder);
+			(.*)obj, remainder, success = parse_object(remainder);
 			result = json_value(obj);
 		case;
 			result.type = JSON_Type.NUMBER;

@@ -72,7 +72,7 @@ init_from_memory :: (package: *Load_Package, data: [] u8, name_for_debugging := 
     }
 
     _header := cast(*Package_Header) data.data;
-    package.header = << _header;
+    package.header = (.*) _header;
 
     header_success := check_header(*package.header, name_for_debugging, data.count);
     if !header_success return false;
@@ -156,8 +156,8 @@ load_table_of_contents :: (package: *Load_Package, data: [] u8, base_file_data_i
 
 #scope_file
 
-MAGIC :: #run << cast(*u32) "simp".data;
-TABLE_OF_CONTENTS_MAGIC :: #run << cast(*u32) "toc!".data;
+MAGIC :: #run (.*) cast(*u32) "simp".data;
+TABLE_OF_CONTENTS_MAGIC :: #run (.*) cast(*u32) "toc!".data;
 
 FILE_VERSION :: 1;
 TARGET_IS_LITTLE_ENDIAN :: true;  // @Endian: Need a way to change this based on target CPU!

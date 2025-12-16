@@ -56,7 +56,7 @@ main :: () {
     print("\n");
     
     if success {
-        found, entry := table_find_new(*package.lookup, "this is item2");
+        found, entry := table_find(*package.lookup, "this is item2");
 
         if found {
             print("Found the entry!: %\n", entry.*);

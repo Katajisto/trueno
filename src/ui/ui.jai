@@ -127,7 +127,7 @@ texture_load_from_memory :: (texture: *Ui_Texture, memory: []u8, srgb: bool, bui
         size = xx (x * y * 4)
     };
 
-    sg_init_image(*img, *(sg_image_desc.{
+    sg_init_image(img, *(sg_image_desc.{
         width = x,
         height = y,
         pixel_format = sg_pixel_format.RGBA8,

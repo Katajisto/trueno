@@ -41,7 +41,7 @@ init_asset_pack_load :: () {
 }
 
 add_font_from_pack :: (path: string) {
-    ok, entry := table_find_new(*g_asset_pack.lookup, path);
+    ok, entry := table_find(*g_asset_pack.lookup, path);
     if !ok {
         print("Failed to find font % from pack...\n", path);
         return;
@@ -50,7 +50,7 @@ add_font_from_pack :: (path: string) {
 }
 
 create_texture_from_pack :: (path: string) -> (sg_image, s32, s32) {
-    ok, entry := table_find_new(*g_asset_pack.lookup, path);
+    ok, entry := table_find(*g_asset_pack.lookup, path);
     if !ok {
         print("Failed to find texture % from pack...\n", path);
         img : sg_image;
@@ -69,7 +69,7 @@ create_texture_from_pack :: (path: string) -> (sg_image, s32, s32) {
         size = xx (x * y * 4)
     };
 
-    sg_init_image(*img, *(sg_image_desc.{
+    sg_init_image(img, *(sg_image_desc.{
         width = x,
         height = y,
         pixel_format = sg_pixel_format.RGBA8,
@@ -84,7 +84,7 @@ create_texture_from_pack :: (path: string) -> (sg_image, s32, s32) {
 }
 
 load_string_from_pack :: (path: string) -> string {
-    ok, entry := table_find_new(*g_asset_pack.lookup, path);
+    ok, entry := table_find(*g_asset_pack.lookup, path);
     if !ok {
         print("Failed to load string from pack: %\n", path);
         return "";

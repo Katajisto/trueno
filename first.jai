@@ -152,7 +152,7 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
         root_opts := get_build_options();
         w := compiler_create_workspace("Target");
         opts := get_build_options(w);
-        copy_commonly_propagated_fields(*opts, *root_opts);
+        copy_commonly_propagated_fields(opts, *root_opts);
         
         opts.cpu_target = root_opts.cpu_target;
         opts.os_target  = root_opts.os_target;

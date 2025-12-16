@@ -86,7 +86,7 @@ draw_trile_side_triangles :: (vecs: *[]float, normals: *[]float, index: *int, si
         index.* = index.* + 3;
     }
     
-    for #v2 < 0..2 {
+    for < 0..2 {
         vecs.*[index.*] = (x + points[it][0]) * TRIXEL_SIZE;
         vecs.*[index.*+1] = (y + points[it][1]) * TRIXEL_SIZE;
         vecs.*[index.*+2] = (z + points[it][2]) * TRIXEL_SIZE;
