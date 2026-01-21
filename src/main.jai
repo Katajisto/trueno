@@ -133,7 +133,7 @@ init_after_asset_pack :: () {
     // We want to do this last.
     game_init();
 
-    #if UNCAPPED_FRAMES then sapp_glx_swapinterval(0);
+    // #if UNCAPPED_FRAMES then sapp_glx_swapinterval(0);
 }
 
 is_in_reflection_pass : bool = false;
@@ -168,7 +168,6 @@ frame :: () {
         while delta_time_accumulator > (1.0/60.0) {
             game_tick(1.0/60.0);
             delta_time_accumulator -= (1.0/60.0);
-            input_per_frame_event_and_flag_update();
         }
     }
     fonsClearState(state.fons);
@@ -196,6 +195,7 @@ frame :: () {
     reset_temporary_storage();
     frame_end_time := get_time();
     latest_frametime = frame_end_time - frame_start_time;
+    input_per_frame_event_and_flag_update();
 }
 
 cleanup :: () {

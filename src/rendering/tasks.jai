@@ -133,6 +133,7 @@ tasks_to_commands :: () {
                 commandDrawBillboard.flipX = billboardTask.flipX;
                 commandDrawBillboard.flipY = billboardTask.flipY;
                 commandDrawBillboard.animation = billboardTask.animation;
+                array_add(*render_command_buckets.gbuffer, commandDrawBillboard);
                 array_add(*render_command_buckets.main, commandDrawBillboard);
                 array_add(*render_command_buckets.shadow, commandDrawBillboard);
                 array_add(*render_command_buckets.reflection, commandDrawBillboard);

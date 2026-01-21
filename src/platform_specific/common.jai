@@ -38,7 +38,6 @@ sapp_init :: () {
         window_title = wi.title,
         // icon = .{ sokol_default = true },
         logger = .{ func = slog_func },
-        swap_interval = 0,
         sample_count = 1, // I think I'll end up pixelifying the whole thing, so I don't think we need MSAA.
     }));
     }

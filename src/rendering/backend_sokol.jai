@@ -42,7 +42,11 @@ backend_handle_command :: (cmd: *Render_Command) {
             current_world_config = set_light_command.worldConfig;
         case .DRAW_BILLBOARD;
             command := cast(*Render_Command_Draw_Billboard)cmd;
-            backend_draw_billboard(command.position, command.animation, command.frame, command.flipX);
+            if !in_gbuffer_pass {
+                backend_draw_billboard(command.position, command.animation, command.frame, command.flipX);
+            } else {
+                backend_gbuffer_draw_billboard(command.position, command.animation, command.frame, command.flipX);
+            }
     }
 }
 
@@ -265,6 +269,38 @@ backend_draw_billboard :: (position: Vector3, anim: *Animation, frame_idx: s32, 
     sg_draw(0, 6, 1);    
 }
 
+backend_gbuffer_draw_billboard :: (position: Vector3, anim: *Animation, frame_idx: s32, flipX: bool) {
+    if !anim then return;
+    mvp := create_viewproj(*camera);
+    view := create_lookat(*camera);
+    vs_params : Gbuffer_Billboard_Vs_Params;
+    vs_params.view_matrix = view.floats;
+    gPipelines.gbuffer_billboard.bind.images[0] = anim.sheet;
+    frame := anim.frames[frame_idx];
+    vs_params.uvs = Vector4.{
+        cast(float) frame.x / cast(float)anim.sheet_w,
+        cast(float) frame.y / cast(float)anim.sheet_h,
+        cast(float) frame.w / cast(float)anim.sheet_w,
+        cast(float) frame.h / cast(float)anim.sheet_h,
+    }.component;
+    if flipX {
+        vs_params.uvs[0] += vs_params.uvs[2];
+        vs_params.uvs[2] *= -1.0;
+    }
+    vs_params.size = Vector2.{cast(float)(frame.w / 16), cast(float)(frame.h / 16)}.component;
+    vs_params.cam = camera.position.component;
+    if !in_shadowmap_pass {
+        vs_params.mvp = mvp.floats;
+    } else {
+        vs_params.mvp = shadow_mvp.floats;
+    }
+    vs_params.offset = position.component;
+    sg_apply_pipeline(gPipelines.gbuffer_billboard.pipeline);
+    sg_apply_bindings(*gPipelines.gbuffer_billboard.bind);
+    sg_apply_uniforms(UB_gbuffer_billboard_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
+    sg_draw(0, 6, 1);    
+}
+
 backend_draw_ground_gbuf :: (wc: *World_Config) {
     mvp := create_viewproj(*camera);
     view := create_lookat(*camera);
@@ -316,14 +352,14 @@ backend_process_command_buckets :: () {
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
     
     // 4. G-Buffer pass
-    // in_gbuffer_pass = true;
-    // sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear_gbuf, attachments = g_gbuf_attachments}));
-    // for render_command_buckets.gbuffer {
-    //     backend_handle_command(it);
-    // }
-    // sg_end_pass();
-    // in_gbuffer_pass = false;
-    // current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
+    in_gbuffer_pass = true;
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear_gbuf, attachments = g_gbuf_attachments}));
+    for render_command_buckets.gbuffer {
+        backend_handle_command(it);
+    }
+    sg_end_pass();
+    in_gbuffer_pass = false;
+    current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
  
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_postprocess_attach_a }));
     sg_apply_pipeline(gPipelines.ssao.pipeline);

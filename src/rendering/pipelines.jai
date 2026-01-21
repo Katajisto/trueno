@@ -65,6 +65,8 @@ gPipelines : struct {
     mix : Pipeline_Binding;
     
     billboard : Pipeline_Binding;
+    
+    gbuffer_billboard : Pipeline_Binding;
 
     // Renders the SSAO texture using things from the gbuffer pass.
     ssao: Pipeline_Binding;
@@ -73,6 +75,7 @@ gPipelines : struct {
 create_final_image :: () {
     // @ToDo: Some smarter logic for this.
     w,h := get_render_size();
+
 
     if g_rendertex.id != INVALID_ID then sg_destroy_image(g_rendertex);
     if g_rendertex_depth.id != INVALID_ID then sg_destroy_image(g_rendertex);
@@ -142,6 +145,7 @@ create_pipelines :: () {
     create_op_pipeline();
     create_mix_pipeline();
     create_billboard_pipeline();
+    create_gbuffer_billboard_pipeline();
     
     create_shadowmap_image();
     create_final_image();
@@ -805,6 +809,64 @@ create_billboard_pipeline :: () {
     gPipelines.billboard.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
 
     gPipelines.billboard.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+}
+
+create_gbuffer_billboard_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := gbuffer_billboard_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.buffers[0].stride = 4*3;
+
+    pipeline.layout.attrs[ATTR_billboard_position] = .{ format = .FLOAT3, buffer_index = 0 };
+    pipeline.index_type = .UINT16;
+    pipeline.depth = .{
+        write_enabled = true,
+        compare = .LESS_EQUAL,
+        pixel_format = .DEPTH
+    };
+
+    color_state_pos := sg_color_target_state.{
+        pixel_format = .RGBA16F,
+    };
+    color_state_normal := sg_color_target_state.{
+        pixel_format = .RGBA16F,
+    };
+
+
+    pipeline.color_count = 2;
+    pipeline.colors[0]   = color_state_pos;
+    pipeline.colors[1]   = color_state_normal;
+
+    vertices: [4]Vector3 = .[
+        .{ 0.0,  0.0, 0.0},
+        .{ 1.0,  0.0, 0.0},
+        .{ 1.0,  1.0, 0.0},
+        .{ 0.0,  1.0, 0.0},
+    ];
+
+    indices: [6]u16 = .[
+        0, 1, 2,
+        0, 2, 3,
+    ];
+
+    pipeline.color_count = 2;
+    pipeline.colors[0]   = color_state_pos;
+    pipeline.colors[1]   = color_state_normal;
+
+    gPipelines.gbuffer_billboard.pipeline = sg_make_pipeline(*pipeline);
+
+    ibuffer         := sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 6 * 2 } };
+    vbuffer         := sg_buffer_desc.{ data = .{ ptr = vertices.data, size = 4 * 3 * 4 } };
+
+    gPipelines.gbuffer_billboard.bind.index_buffer      = sg_make_buffer(*ibuffer);
+    gPipelines.gbuffer_billboard.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+
+    gPipelines.gbuffer_billboard.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .CLAMP_TO_EDGE,
         wrap_v = .CLAMP_TO_EDGE,
         min_filter = .NEAREST,
