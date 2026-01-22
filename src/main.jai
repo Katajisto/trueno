@@ -26,6 +26,7 @@ stbi   :: #import "stb_image";
 #load "load.jai";
 #load "ray.jai";
 #load "world.jai";
+#load "utils.jai";
     
 #if USE_SAMPLE_GAME {
     #load "../sample_game/game.jai";

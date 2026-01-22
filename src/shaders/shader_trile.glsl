@@ -241,7 +241,7 @@ void main() {
 
     vec3 light_pos = light_proj_pos.xyz / light_proj_pos.w;
     light_pos = light_pos * 0.5 + 0.5;
-    light_pos.z -= 0.0005;
+    light_pos.z -= 0.0009;
     float shadowp = texture(sampler2DShadow(shadowtex, shadowsmp), light_pos);
     
     light += shadowp * (kD * albedo / PI + specular) * NdotL * sunLightColor * sunIntensity;
