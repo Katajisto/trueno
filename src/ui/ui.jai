@@ -374,8 +374,6 @@ get_font_at_size :: (pixel_height: int) -> *Font {
     return get_font_at_size(list, pixel_height);
 }
 
-idk : bool;
-
 test_color : Vector3 = .{1.0, 0.0, 1.0};
 
 draw_bg_rectangle :: (r: GR.Rect, theme: GR.Overall_Theme) {
@@ -388,6 +386,24 @@ draw_rectangle :: (r: GR.Rect, color: Vector4) {
     immediate_flush();
 }
 
+draw_ui_rect_animation:: (r: GR.Rect, animationPlayer: *Animation_Player) {
+    tex := New(Ui_Texture ,,temp);
+    animation_player_tick(animationPlayer);
+    animation := animationPlayer.current_animation;
+    tex.tex = animation.sheet;
+    set_shader_for_images(tex);
+    frame := animation.frames[animationPlayer.current_frame];
+    uv := Vector4.{
+        cast(float) frame.x / cast(float)animation.sheet_w,
+        cast(float) frame.y / cast(float)animation.sheet_h,
+        cast(float) frame.w / cast(float)animation.sheet_w,
+        cast(float) frame.h / cast(float)animation.sheet_h,
+    };
+    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h}, .{0.9,0.9,0.9,1}, .{uv.x, uv.y}, .{uv.x + uv.z, uv.y},  .{uv.x + uv.z, uv.y + uv.w}, .{uv.x, uv.y + uv.w});
+    immediate_flush();
+    set_shader_for_color();
+}
+
 font_boundary :: () {
     arb_tri_command_add(.{type = .FONT_BOUNDARY});
 }
@@ -397,6 +413,7 @@ render_ui :: () {
     my_theme := proc();
     GR.set_default_theme(my_theme);
     draw_editor_ui(*my_theme);
+    game_ui(*my_theme);
 }
 
 ui_pass :: () {

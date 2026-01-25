@@ -4,6 +4,12 @@ t_label_left :: (theme: *GR.Overall_Theme) -> GR.Label_Theme {
     return t;
 }
 
+t_label_center :: (theme: *GR.Overall_Theme) -> GR.Label_Theme {
+    t := theme.label_theme;
+    t.alignment = GR.Text_Alignment.Center;
+    return t;
+}
+
 t_button_tab :: (theme: *GR.Overall_Theme, active: bool) -> GR.Button_Theme {
     t := theme.button_theme;
 

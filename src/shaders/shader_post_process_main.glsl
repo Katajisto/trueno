@@ -115,7 +115,8 @@ void main() {
     float vignette = 1.0 - smoothstep(0.0, vignette_radius, length(texcoord - vec2(0.5))) * vignette_intensity;
     color_srgb *= vignette;
 
-    float scanline = 1.0 - (sin(texcoord.y * textureSize(sampler2D(pptex, ppsmp), 0).y * scanlines_density) * 0.5 + 0.5) * scanlines_intensity;
+    float scanline = 1.0 - (sin(gl_FragCoord.y * scanlines_density) * 0.5 + 0.5) * scanlines_intensity;
+   
     color_srgb *= scanline;
 
     float grain = (rand(texcoord) - 0.5) * film_grain_intensity;

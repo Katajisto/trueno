@@ -220,7 +220,7 @@ void main() {
     
     // Ambient light.
     float ssao_sample = texture(sampler2D(ssaotex, trilesmp), vec2(gl_FragCoord.x/screen_w, gl_FragCoord.y/screen_h), 0).r;
-    vec3 light = 0.2 * albedo * ssao_sample;
+    vec3 light = 0.35 * albedo * ssao_sample;
 
     vec3 N = normalize(fnormal.xyz);
     vec3 V = normalize(cam - vpos.xyz);
