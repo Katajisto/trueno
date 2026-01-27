@@ -399,7 +399,13 @@ draw_ui_rect_animation:: (r: GR.Rect, animationPlayer: *Animation_Player) {
         cast(float) frame.w / cast(float)animation.sheet_w,
         cast(float) frame.h / cast(float)animation.sheet_h,
     };
-    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h}, .{0.9,0.9,0.9,1}, .{uv.x, uv.y}, .{uv.x + uv.z, uv.y},  .{uv.x + uv.z, uv.y + uv.w}, .{uv.x, uv.y + uv.w});
+
+    uv0 := flip_y_if_plat(Vector2.{uv.x, uv.y});
+    uv1 := flip_y_if_plat(Vector2.{uv.x + uv.z, uv.y});
+    uv2 := flip_y_if_plat(Vector2.{uv.x + uv.z, uv.y + uv.w});
+    uv3 := flip_y_if_plat(Vector2.{uv.x, uv.y + uv.w});
+    
+    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h}, .{0.9,0.9,0.9,1}, uv0, uv1, uv2, uv3);
     immediate_flush();
     set_shader_for_color();
 }

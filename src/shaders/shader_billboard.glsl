@@ -35,9 +35,7 @@ layout(binding = 0) uniform sampler spritesmp;
 
 void main() {
     vec2 uv = uv_in;
-    #if SOKOL_GLSL
-        uv.y = 1.0 - uv.y;
-    #endif
+    uv.y = 1.0 - uv.y;
     vec4 sampled = texture(sampler2D(sprite, spritesmp), uv);
     if(sampled.a < 0.01) discard;
     color = vec4(sampled.rgb * 0.5, 1.0);
