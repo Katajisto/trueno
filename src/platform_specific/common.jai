@@ -7,6 +7,7 @@
 #import,dir "../../modules/sokol-jai/sokol/log"(DEBUG = RELEASE_BUILD);
 #import,dir "../../modules/sokol-jai/sokol/time"(DEBUG = RELEASE_BUILD);
 #import,dir "../../modules/sokol-jai/sokol/fetch"(DEBUG = RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/audio"(DEBUG = RELEASE_BUILD);
 
 #load "../main.jai";
 

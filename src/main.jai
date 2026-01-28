@@ -27,6 +27,7 @@ stbi   :: #import "stb_image";
 #load "ray.jai";
 #load "world.jai";
 #load "utils.jai";
+#load "audio/audio.jai";
     
 #if USE_SAMPLE_GAME {
     #load "../sample_game/game.jai";
@@ -87,6 +88,10 @@ init :: () {
     sfetch_setup(*(sfetch_desc_t.{
         logger = .{ func = slog_func },
     }));
+    saudio_setup(*(saudio_desc.{
+        logger = .{ func = slog_func },
+        stream_cb = sokol_audio_callback,
+    }));
     stm_setup();
     state.dpi_scale = sapp_dpi_scale();
     atlas_dim := round_pow2(512.0 * state.dpi_scale);
@@ -130,6 +135,8 @@ init_after_asset_pack :: () {
     init_rendering();
     load_color_lut_images();
     load_post_process_from_pack();
+
+    audio_init();
 
     // We want to do this last.
     game_init();
@@ -200,6 +207,7 @@ frame :: () {
 }
 
 cleanup :: () {
+    audio_cleanup();
     sg_shutdown();
 }
 

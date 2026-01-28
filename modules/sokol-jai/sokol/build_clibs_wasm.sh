@@ -29,6 +29,7 @@ build_lib_wasm_release sokol_debugtext   debugtext/sokol_debugtext_wasm_gl_relea
 build_lib_wasm_release sokol_shape       shape/sokol_shape_wasm_gl_release SOKOL_GLES3
 build_lib_wasm_release sokol_fontstash       fontstash/sokol_fontstash_wasm_gl_release SOKOL_GLES3
 build_lib_wasm_release sokol_fetch       fetch/sokol_fetch_wasm_gl_release SOKOL_GLES3
+build_lib_wasm_release sokol_audio       audio/sokol_audio_wasm_gl_release SOKOL_GLES3
 build_lib_wasm_release sokol_gl          gl/sokol_gl_wasm_gl_release SOKOL_GLES3
 build_lib_wasm_release stb_image            stbi/stb_image SOKOL_GLES3
 
@@ -43,6 +44,7 @@ build_lib_wasm_debug sokol_debugtext     debugtext/sokol_debugtext_wasm_gl_debug
 build_lib_wasm_debug sokol_shape         shape/sokol_shape_wasm_gl_debug SOKOL_GLES3
 build_lib_wasm_debug sokol_fontstash         fontstash/sokol_fontstash_wasm_gl_debug SOKOL_GLES3
 build_lib_wasm_debug sokol_fetch         fetch/sokol_fetch_wasm_gl_debug SOKOL_GLES3
+build_lib_wasm_debug sokol_audio         audio/sokol_audio_wasm_gl_debug SOKOL_GLES3
 build_lib_wasm_debug sokol_gl            gl/sokol_gl_wasm_gl_debug SOKOL_GLES3
 build_lib_wasm_debug stb_image            stbi/stb_image SOKOL_GLES3
 
