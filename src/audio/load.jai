@@ -1,3 +1,7 @@
+Audio_Data :: struct {
+    
+}
+
 Wav :: #import "Wav_File";
 
 audio_info : Wav.Waveformatex;
