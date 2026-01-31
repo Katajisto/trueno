@@ -17,18 +17,21 @@ Mixer_Play_Task :: struct {
     audio     : *Audio_Data;
     bus       : Mixer_Bus;
     mode      : Play_Mode;
-    curSample : s64;
+    curSample : s64 = 0;
 
-    startTime           : float64;
-    delay               : float64;
-    silenceBeforeRepeat : float64;
+    startTime           : float64 = 0;
+    delay               : float64 = 0;
+    silenceBeforeRepeat : float64 = 0;
 }
 
 Mixer_Config :: struct {
+    musicVolume        : float = 0.5; @Slider,0,1,0.1
     masterVolume       : float = 0.5; @Slider,0,1,0.1
     dialogueVolume     : float = 0.5; @Slider,0,1,0.1
     soundEffectVolume  : float = 0.5; @Slider,0,1,0.1
 }
+
+g_mixer : Mixer;
 
 Mixer :: struct {
     #if OS != .WASM {
@@ -50,23 +53,22 @@ Mixer :: struct {
 // Removes tasks from the mixer's task list that
 // no longer have a reason to be on the task list.
 // Eg. a sound that is .ONESHOT but has already been played.
-mixer_clean_tasks :: (mixer: *Mixer) {
-    mixer_lock(mixer);
-    defer mixer_unlock(mixer);
+mixer_clean_tasks :: () {
+    mixer_lock(*g_mixer);
+    defer mixer_unlock(*g_mixer);
     
 }
 
-mixer_add_task :: (mixer: *Mixer, task: Mixer_Play_Task) {
-    mixer_lock(mixer);
-    defer mixer_unlock(mixer);
+mixer_add_task :: (task: Mixer_Play_Task) {
+    mixer_lock(*g_mixer);
+    defer mixer_unlock(*g_mixer);
     
 }
 
-mixer_get_samples :: (mixer: *Mixer, samples: *float, sampleCount: s32, channelCount: s32) {
-    mixer_lock(mixer);
-    defer mixer_unlock(mixer);
-
-    
+mixer_get_samples :: (samples: *float, sampleCount: s32, channelCount: s32) {
+    mixer_lock(*g_mixer);
+    defer mixer_unlock(*g_mixer);
+   
 }
 
 mixer_lock :: (mixer: *Mixer) {

@@ -28,6 +28,7 @@ stbi   :: #import "stb_image";
 #load "world.jai";
 #load "utils.jai";
 #load "audio/audio.jai";
+#load "assets/asset_manager.jai";
     
 #if USE_SAMPLE_GAME {
     #load "../sample_game/game.jai";
@@ -107,9 +108,10 @@ init :: () {
     state.pass_action_clear_gbuf.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 1000, a = 0 } };
     state.pass_action.colors[0] = .{ load_action = .LOAD };
 
-    init_asset_pack_load();
     useless_mem : [1]u8;
     debug_font = get_font_at_size(useless_mem, 15);
+    load_pack("assets", true, true);
+
 }
 
 init_after_asset_pack :: () {
@@ -153,8 +155,7 @@ frame :: () {
     delta_time = get_time() - last_frame_time;
     last_frame_time = get_time();
 
-
-    sfetch_dowork();
+    asset_manager_tick();
 
     if mandatory_loads_done() && !init_after_mandatory_done {
         init_after_asset_pack();
@@ -162,6 +163,7 @@ frame :: () {
     }
 
     if !mandatory_loads_done() then return;
+
     fonsClearState(state.fons);
     
     frame_start_time := get_time();

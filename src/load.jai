@@ -1,44 +1,8 @@
 g_asset_pack : Load_Package;
 
-#scope_file
-
-MAX_FILE_SIZE :: 2_000_000_000;
-buf : [MAX_FILE_SIZE]u8;
-
-
-mandatory_loads_left      : s32  = 0;
-
-packcb :: (res: *sfetch_response_t) #c_call {
-    push_context,defer_pop default_context;
-    mem : []u8;
-    mem.count = res.data.size.(s64);
-    mem.data = res.data.ptr;
-    print("Mem count %\n", mem.count);
-
-    success := init_from_memory(*g_asset_pack, mem, "main_asset_pack");
-    print("Succesfully loaded main asset pack!\n");
-    mandatory_loads_left -= 1;
-}
-
 #scope_export
 
 init_after_mandatory_done : bool = false;
-
-mandatory_loads_done :: () -> bool {
-    return mandatory_loads_left <= 0;
-}
-
-init_asset_pack_load :: () {
-    mandatory_loads_left += 1;
-    sfetch_send(*(sfetch_request_t.{
-        path = "./packs/assets.pack".data,
-        callback = packcb,
-        buffer = .{
-            ptr = buf.data,
-            size = buf.count
-        }
-    }));
-}
 
 add_font_from_pack :: (path: string) {
     ok, entry := table_find(*g_asset_pack.lookup, path);
