@@ -1,6 +1,6 @@
-should_ignore_file :: (name: string) -> bool {
-    #import "String";
+#import "String";
     
+should_ignore_file :: (name: string) -> bool {
     
     ok, left, right :=  split_from_right(name, #char ".");
     if right == "aseprite" {
@@ -11,48 +11,45 @@ should_ignore_file :: (name: string) -> bool {
     return false;
 }
 
+    
+util :: #import "File_Utilities";
+#import "Hash_Table";
+    
+packs : Table(string, Create_Package);
+    
+file_visit_handler :: (info: *util.File_Visit_Info, user_data: bool) {
+    if should_ignore_file(info.short_name) then return;
+
+    _, _, packPath := split_from_left(info.full_name, "/resources/");
+    _, packName, fileName := split_from_left(packPath, "/");
+
+    if !table_contains(*packs, packName) {
+        package : Create_Package;
+        init(*package);
+        table_set(*packs, packName, package);
+    }
+
+    packPtr := table_find_pointer(*packs, packName);
+        
+    file, ok := read_entire_file(info.full_name);
+    if !ok {
+        print("Failed in loading file to pack: %\n", fileName);
+        return;
+    }
+    filedata : []u8;
+    filedata.count = file.count;
+    filedata.data = file.data;
+    add(packPtr, fileName, filedata);   
+}
+
 create_pack :: () {
     #import "Simple_Package";
     #import "File";
-    util :: #import "File_Utilities";
 
-    files_to_pack := util.file_list("./resources", true);
-    
-    files_to_pack_game := util.file_list("./game/resources", true);
+    util.visit_files("./resources", true, true, file_visit_handler);
+    util.visit_files("./game/resources", true, true, file_visit_handler);
 
-    package: Create_Package;
-    defer deinit(*package);
-    init(*package);
-    
-
-    for files_to_pack {
-        if should_ignore_file(it) then continue;
-        file, ok := read_entire_file(it);
-        if !ok {
-            print("Failed in loading file to pack: %\n", it);
-            continue;
-        }
-        filedata : []u8;
-        filedata.count = file.count;
-        filedata.data = file.data;
-        add(*package, it, filedata);   
+    for pack, key : packs {
+        write(*pack, tprint("./packs/%.pack", key));
     }
-    
-    for files_to_pack_game {
-        if should_ignore_file(it) then continue;
-        file, ok := read_entire_file(it);
-        if !ok {
-            print("Failed in loading file to pack: %\n", it);
-            continue;
-        }
-        filedata : []u8;
-        filedata.count = file.count;
-        filedata.data = file.data;
-        add(*package, it, filedata);   
-    }
-
-    print("Packing % engine files -> ./packs/assets.pack\n", files_to_pack.count);
-    print("Packing % game files -> ./packs/assets.pack\n", files_to_pack_game.count);
-    
-    write(*package, "./packs/assets.pack");
 }

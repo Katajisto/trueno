@@ -92,24 +92,20 @@ Aseprite_Sheet :: struct {
     meta   : Aseprite_Sheet_Info;
 }
 
-init_spritesheets :: () {
-    add_new_spritesheets_from_pack();
-}
-
-add_new_spritesheets_from_pack :: () {
+add_new_spritesheets_from_pack :: (pack: *Load_Package, packName: string) {
     String :: #import "String";
 
-    for v : g_asset_pack.lookup {
-        isSpritesheet, remainder := String.contains(v.name, "/sprites/");
+    for v : pack.lookup {
+        isSpritesheet, remainder := String.contains(v.name, "sprites/");
         isData := String.contains(remainder, ".json");
         if isSpritesheet && isData {
             print("Adding sheet: %\n", remainder);
             is_ok, name_without_fileformat := split_from_right(v.name, #char ".");
             sheet_image_name := sprint("%.png", name_without_fileformat);
-            sheet_image, sheet_w, sheet_h := create_texture_from_pack(sheet_image_name);
+            sheet_image, sheet_w, sheet_h := create_texture_from_pack(packName, sheet_image_name);
             
             
-            s := load_string_from_pack(v.name);
+            s := load_string_from_pack(packName, v.name);
             success, sheet := Jaison.json_parse_string(s, Aseprite_Sheet,, temp);
 
             for sheet.meta.frameTags {

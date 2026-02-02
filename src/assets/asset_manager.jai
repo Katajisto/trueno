@@ -13,8 +13,13 @@ Pack_Request :: struct {
 }
 
 Loaded_Pack :: struct {
+    name     : string;
     nameHash : u32 = 0;
     content  : Load_Package;
+    textures : [..]sg_image;
+    sounds   : [..]Audio_Data;
+    //fonts    : [..]Font??;
+    
 }
 
 Asset_Manager :: struct {
@@ -31,10 +36,30 @@ packcb :: (res: *sfetch_response_t) #c_call {
     mem.data = res.data.ptr;
     pack: Loaded_Pack;
     pack.nameHash = hash.get_hash(g_asset_manager.packQueue[0].name);
+    pack.name = g_asset_manager.packQueue[0].name;
     success := init_from_memory(*pack.content, mem, sprint("%", g_asset_manager.packQueue[0].name));
     if !success then print("Failed to load pack!!\n");
     array_add(*g_asset_manager.loadedPacks, pack);
     array_unordered_remove_by_index(*g_asset_manager.packQueue, 0);
+
+    add_resources_from_pack(*pack);
+}
+
+add_resources_from_pack :: (pack: *Loaded_Pack) {
+    add_new_spritesheets_from_pack(*pack.content, pack.name);
+    load_color_lut_images(*pack.content, pack.name);
+}
+
+find_pack_by_name :: (name: string) -> (bool, Loaded_Pack) {
+    nameHash := get_hash(name);
+    asset_pack : Loaded_Pack;
+    for g_asset_manager.loadedPacks {
+        if it.nameHash == nameHash {
+            return true, it;
+        }
+    }
+    print("Was unable to find pack: %\n", name);
+    return false, .{};
 }
 
 #scope_export
@@ -80,4 +105,77 @@ load_pack :: (name: string, shouldBlock: bool = true, shouldBlockEngine: bool = 
 
 // Asset management:
 
+#scope_file
+#scope_export
 
+create_texture_from_pack :: (pack: string, path: string) -> (sg_image, s32, s32) {
+    pack_ok, pack := find_pack_by_name(pack);
+    ok, entry := table_find(*pack.content.lookup, path);
+    if !ok {
+        print("Failed to find texture % from pack...\n", path);
+        img : sg_image;
+        return img, 0, 0;
+    }
+    
+    x : s32;
+    y : s32;
+    channels : s32;
+    data := stbi.stbi_load_from_memory(entry.data.data, xx entry.data.count, *x, *y, *channels, 4);
+    img := sg_alloc_image();
+
+    subimg : [6][16]sg_range;
+    subimg[0][0] = .{
+        ptr = data,
+        size = xx (x * y * 4)
+    };
+
+    sg_init_image(img, *(sg_image_desc.{
+        width = x,
+        height = y,
+        pixel_format = sg_pixel_format.RGBA8,
+        data = .{
+            subimage = subimg
+        }
+    }));
+
+    stbi.stbi_image_free(data);
+
+    return img, x, y;
+}
+
+
+// get_texture_pointer :: (pack: string, path: string) -> (ready: bool, texture: *sg_image) {
+    
+    
+// }
+
+add_font_from_pack :: (pack: string, path: string) {
+    pack_ok, pack := find_pack_by_name(pack);
+    if !pack_ok then return;
+    for _, key : pack.content.lookup {
+        print("Key: %\n", key);
+    }
+    ok, entry := table_find(*pack.content.lookup, path);
+    if !ok {
+        print("Failed to find font % from pack...\n", path);
+        return;
+    }
+    state.font_default.fons_font = fonsAddFontMem(state.fons, "sans", entry.data.data, xx entry.data.count, 0);
+}
+
+load_string_from_pack :: (pack: string, path: string) -> string {
+    print("Warning: you are circumventing the asset management system....\n");
+    pack_ok, pack := find_pack_by_name(pack);
+    if !pack_ok return "";
+    
+    ok, entry := table_find(*pack.content.lookup, path);
+    if !ok {
+        print("Failed to load string from pack: %\n", path);
+        return "";
+    }
+
+    s: string;
+    s.data = entry.data.data;
+    s.count = entry.data.count;
+    return s;
+}

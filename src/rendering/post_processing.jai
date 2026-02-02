@@ -33,7 +33,7 @@ Post_Process :: struct {
 current_post_process : Post_Process;
 
 load_post_process_from_pack :: () {
-    s := load_string_from_pack("./game/resources/postprocess.json");
+    s := load_string_from_pack("game_core", "postprocess.json");
     success, pp:= Jaison.json_parse_string(s, Post_Process,, temp);
     if success {
         current_post_process = pp;        
@@ -53,15 +53,14 @@ LUT_list      : [..]Color_LUT;
 LUT_name_list : [..]string;
 g_current_lut_texture_index : s32 = 0;
 
-load_color_lut_images :: () {
-    for v : g_asset_pack.lookup {
+load_color_lut_images :: (pack: *Load_Package, packName: string) {
+    for v : pack.lookup {
         isSpritesheet := String.contains(v.name, ".colorgrade.png");
-        noop, remainder := String.contains(v.name, "/resources/");
         if isSpritesheet {
-            print("Adding LUT: %\n", remainder);
-            img, w, h := create_texture_from_pack(v.name);
+            print("Adding LUT: %\n", v.name);
+            img, w, h := create_texture_from_pack(packName, v.name);
             newSheet := Color_LUT.{
-                name  = remainder,
+                name  = v.name,
                 image = img,
             };
             array_add(*LUT_list, newSheet);

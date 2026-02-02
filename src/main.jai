@@ -110,13 +110,19 @@ init :: () {
 
     useless_mem : [1]u8;
     debug_font = get_font_at_size(useless_mem, 15);
-    load_pack("assets", true, true);
+    load_pack("boot", true, true);
+    load_pack("core", true, false);
+    load_pack("game_core", true, false);
 
 }
 
-init_after_asset_pack :: () {
+init_after_mandatory :: () {
+    
+}
+
+init_after_core :: () {
     init_plane_textures();
-    add_font_from_pack("./resources/DroidSerif-Regular.ttf");
+    add_font_from_pack("boot", "DroidSerif-Regular.ttf");
     ui_init_font_fields(*state.font_default);
 
     init_ui();
@@ -133,9 +139,7 @@ init_after_asset_pack :: () {
     }
     init_editor();
     lworlds();
-    init_spritesheets();
     init_rendering();
-    load_color_lut_images();
     load_post_process_from_pack();
 
     audio_init();
@@ -157,12 +161,22 @@ frame :: () {
 
     asset_manager_tick();
 
-    if mandatory_loads_done() && !init_after_mandatory_done {
-        init_after_asset_pack();
+    if !mandatory_loads_done() then return;
+
+    if !init_after_mandatory_done {
+        init_after_mandatory();
         init_after_mandatory_done = true;
     }
 
-    if !mandatory_loads_done() then return;
+    if show_loading_screen() {
+        print("Should show loading screen....\n");
+        return;
+    }
+
+    if !init_after_core_done {
+        init_after_core();
+        init_after_core_done = true;
+    }
 
     fonsClearState(state.fons);
     

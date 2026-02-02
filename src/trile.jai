@@ -95,7 +95,7 @@ striles :: () {
 
 ltriles :: () {
     Jaison :: #import "Jaison";
-    s := load_string_from_pack("./game/resources/triles.json");
+    s := load_string_from_pack("game_core", "triles.json");
     success, triles := Jaison.json_parse_string(s, [..]TrileSerialize,, temp);
     for triles {
         set_trile(sprint("%",it.name), trile_from_serialize_form(it));

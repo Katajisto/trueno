@@ -8,7 +8,7 @@ Wav :: #import "Wav_File";
 audio_info : Wav.Waveformatex;
 
 load_wav_file :: () {
-    audio := load_string_from_pack("./game/resources/sound/music/monoco.wav");    
+    audio := load_string_from_pack("game_core", "sound/music/monoco.wav");    
     format, samples, success := Wav.get_wav_header(audio);
     if !success print("Failed to load wav file!!!!!\n");
     audio_info = format;

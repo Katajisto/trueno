@@ -53,7 +53,7 @@ sworlds :: () {
 } @Command
 
 lworlds :: () {
-    s := load_string_from_pack("./game/resources/worlds.json");
+    s := load_string_from_pack("game_core", "worlds.json");
     success, worlds := Jaison.json_parse_string(s, [..]World_Serialized,, temp);
     for worlds {
         w : World;
