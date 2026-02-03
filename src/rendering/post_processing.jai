@@ -53,18 +53,16 @@ LUT_list      : [..]Color_LUT;
 LUT_name_list : [..]string;
 g_current_lut_texture_index : s32 = 0;
 
-load_color_lut_images :: (pack: *Load_Package, packName: string) {
-    for v : pack.lookup {
-        isSpritesheet := String.contains(v.name, ".colorgrade.png");
-        if isSpritesheet {
-            print("Adding LUT: %\n", v.name);
-            img, w, h := create_texture_from_pack(packName, v.name);
-            newSheet := Color_LUT.{
-                name  = v.name,
-                image = img,
-            };
-            array_add(*LUT_list, newSheet);
-            array_add(*LUT_name_list, newSheet.name);
-        }
+
+add_image_to_lut_list :: (img: sg_image, name: string) {
+    for LUT_list {
+        if it.name == name then return;
     }
+    
+    newSheet := Color_LUT.{
+        name  = sprint("%", name),
+        image = img,
+    };
+    array_add(*LUT_list, newSheet);
+    array_add(*LUT_name_list, newSheet.name);
 }

@@ -3,7 +3,7 @@
 #load "mixer.jai";
 
 audio_init :: () {
-    load_wav_file();
+    // load_wav_file();
 }
 
 audio_cleanup :: () {

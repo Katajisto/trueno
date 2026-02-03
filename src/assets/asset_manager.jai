@@ -1,6 +1,9 @@
 #scope_file
 
+#import "String";
 hash :: #import "Hash";
+
+#load "loaders.jai";
 
 MAX_FILE_SIZE :: 2_000_000_000;
 buf : [MAX_FILE_SIZE]u8;
@@ -12,15 +15,6 @@ Pack_Request :: struct {
     shouldBlockEngine : bool; // Means that the engine loop should do nothing while this is loading...
 }
 
-Loaded_Pack :: struct {
-    name     : string;
-    nameHash : u32 = 0;
-    content  : Load_Package;
-    textures : [..]sg_image;
-    sounds   : [..]Audio_Data;
-    //fonts    : [..]Font??;
-    
-}
 
 Asset_Manager :: struct {
     packQueue   : [..]Pack_Request;
@@ -31,34 +25,124 @@ g_asset_manager : Asset_Manager;
 
 packcb :: (res: *sfetch_response_t) #c_call {
     push_context,defer_pop default_context;
-    mem : []u8;
-    mem.count = res.data.size.(s64);
-    mem.data = res.data.ptr;
+    mem := NewArray(res.data.size.(s64), u8, false);
+    memcpy(mem.data, res.data.ptr, res.data.size.(s64));
+
     pack: Loaded_Pack;
     pack.nameHash = hash.get_hash(g_asset_manager.packQueue[0].name);
     pack.name = g_asset_manager.packQueue[0].name;
     success := init_from_memory(*pack.content, mem, sprint("%", g_asset_manager.packQueue[0].name));
     if !success then print("Failed to load pack!!\n");
+    add_resources_from_pack(*pack);
     array_add(*g_asset_manager.loadedPacks, pack);
     array_unordered_remove_by_index(*g_asset_manager.packQueue, 0);
+}
 
-    add_resources_from_pack(*pack);
+Loaded_Pack :: struct {
+    name       : string;
+    nameHash   : u32 = 0;
+    content    : Load_Package;
+    textures   : Table(string, sg_image);
+    animations : Table(string, Animation);
+    audio      : Table(string, Audio_Data);
+    //fonts    : [..]Font??;
 }
 
 add_resources_from_pack :: (pack: *Loaded_Pack) {
-    add_new_spritesheets_from_pack(*pack.content, pack.name);
-    load_color_lut_images(*pack.content, pack.name);
+    // We need to go trough this at the end.
+    Queued_Sheet_File :: struct {
+        name    : string;
+        image   : sg_image;
+        sheet_w : s32;
+        sheet_h : s32;
+        sheet   : Aseprite_Sheet;
+    }
+    sheets_to_init : Table(string, Queued_Sheet_File);
+    sheets_to_init.allocator = temp;
+
+    for v : pack.content.lookup {
+        _, name, extension := split_from_left(v.name, ".");
+        if extension == {
+            case "png";
+                img, w, h := create_texture_from_memory(v.data);
+                table_set(*pack.textures, sprint("%", v.name), img);
+            case "sheet.png";
+                img, w, h := create_texture_from_memory(v.data);
+                queuedSheet := table_find_pointer(*sheets_to_init, name);
+                if !queuedSheet {
+                    table_set(*sheets_to_init, name, .{ name = name, image = img, sheet_w = w, sheet_h = h }); 
+                } else {
+                    queuedSheet.image = img;
+                    queuedSheet.sheet_w = w;
+                    queuedSheet.sheet_h = h;
+                }
+            case "sheet.json";
+                s := create_string_from_memory(v.data);
+                success, sheet := Jaison.json_parse_string(s, Aseprite_Sheet,, temp);
+                if !success {
+                    print("Failed to parse animation sheet JSON for sheet(%)\n", name);
+                    continue;
+                }
+                queuedSheet := table_find_pointer(*sheets_to_init, name);
+                if !queuedSheet {
+                    table_set(*sheets_to_init, name, .{ name = name, sheet = sheet }); 
+                } else {
+                    queuedSheet.sheet = sheet;                    
+                }
+            case "colorgrade.png";
+                img, x, y := create_texture_from_memory(v.data);
+                add_image_to_lut_list(img, v.name);
+            case "wav";
+                audio := load_wav_from_memory(v.data);
+                table_set(*pack.audio, name, audio);
+            case "ttf";
+            // Load into a font. Add to free list.
+            case;
+                print("There was file(%) in pack(%), that did not match any known fileformat...\n", v.name, pack);
+        }
+        print("% -> %\n", v.name, extension);
+    }
+
+    // Properly initialize animations from the pack now that we have the images
+    // and the JSON files both combined.
+    for qsheet : sheets_to_init {
+        for qsheet.sheet.meta.frameTags {
+            anim : Animation;
+            anim.name = sprint("%", it.name);
+            anim.sheet = qsheet.image;
+            anim.sheet_w = qsheet.sheet_w;
+            anim.sheet_h = qsheet.sheet_h;
+            for idx : it.from..it.to {
+                frameData := qsheet.sheet.frames[idx];
+                array_add(*anim.frames, Frame.{
+                    frameData.frame.x,
+                    frameData.frame.y,
+                    frameData.frame.w,
+                    frameData.frame.h,
+                    frameData.duration
+                });
+            }
+            table_add(*pack.animations, anim.name, anim);
+            print("Added anim(%)\n", anim.name);            
+        }
+    }
+
+    // add_new_spritesheets_from_pack(*pack.content, pack.name);
+    // load_color_lut_images(*pack.content, pack.name);
+}
+
+free_resources_from_pack :: (pack: *Loaded_Pack) {
+    
 }
 
 find_pack_by_name :: (name: string) -> (bool, Loaded_Pack) {
     nameHash := get_hash(name);
-    asset_pack : Loaded_Pack;
     for g_asset_manager.loadedPacks {
         if it.nameHash == nameHash {
             return true, it;
         }
     }
-    print("Was unable to find pack: %\n", name);
+    print("[WARNING] Was unable to find pack: %\n", name);
     return false, .{};
 }
 
@@ -108,53 +192,42 @@ load_pack :: (name: string, shouldBlock: bool = true, shouldBlockEngine: bool = 
 #scope_file
 #scope_export
 
-create_texture_from_pack :: (pack: string, path: string) -> (sg_image, s32, s32) {
-    pack_ok, pack := find_pack_by_name(pack);
-    ok, entry := table_find(*pack.content.lookup, path);
-    if !ok {
-        print("Failed to find texture % from pack...\n", path);
-        img : sg_image;
-        return img, 0, 0;
+get_texture_from_pack :: (pack: string, path: string) -> (sg_image) {
+    found, pack := find_pack_by_name(pack);
+    invalid_img : sg_image;
+
+    if !found {
+        // find_pack_by_name already logs this
+        return invalid_img;
     }
+
+    ok, img := table_find(*pack.textures, path);
     
-    x : s32;
-    y : s32;
-    channels : s32;
-    data := stbi.stbi_load_from_memory(entry.data.data, xx entry.data.count, *x, *y, *channels, 4);
-    img := sg_alloc_image();
+    if !ok {
+        print("[WARNING] Failed to find texture(%) from pack(%)\n", path, pack.name);
+        return invalid_img;
+    }
 
-    subimg : [6][16]sg_range;
-    subimg[0][0] = .{
-        ptr = data,
-        size = xx (x * y * 4)
-    };
-
-    sg_init_image(img, *(sg_image_desc.{
-        width = x,
-        height = y,
-        pixel_format = sg_pixel_format.RGBA8,
-        data = .{
-            subimage = subimg
-        }
-    }));
-
-    stbi.stbi_image_free(data);
-
-    return img, x, y;
+    return img;
 }
 
+get_animation_from_pack :: (pack: string, path: string) -> *Animation {
+    found, pack := find_pack_by_name(pack);
+    if !found then return null;
+    return table_find_pointer(*pack.animations, path);
+}
 
-// get_texture_pointer :: (pack: string, path: string) -> (ready: bool, texture: *sg_image) {
-    
-    
-// }
+get_audio_from_pack :: (pack: string, path: string) -> *Audio_Data {
+    found, pack := find_pack_by_name(pack);
+    if !found then return null;
+    audio := table_find_pointer(*pack.audio, path);
+    if !audio then print("Failed to find audio(%)\n", path);
+    return audio;
+}
 
 add_font_from_pack :: (pack: string, path: string) {
     pack_ok, pack := find_pack_by_name(pack);
     if !pack_ok then return;
-    for _, key : pack.content.lookup {
-        print("Key: %\n", key);
-    }
     ok, entry := table_find(*pack.content.lookup, path);
     if !ok {
         print("Failed to find font % from pack...\n", path);

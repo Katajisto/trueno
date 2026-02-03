@@ -1,5 +1,16 @@
 g_animations: Table(string, Animation);
 
+#scope_file
+get_animation_from_string :: (animation: string) -> *Animation {
+    ok, pack, anim := split_from_left(animation, ".");
+    if !ok {
+        print("Malformed animation query: %\n", animation);
+        return null;
+    }
+    return get_animation_from_pack(pack, anim);
+}
+#scope_export
+
 Animation_Player :: struct {
     current_animation      : *Animation;
     queued_animation       : *Animation = null;
@@ -32,11 +43,11 @@ animation_draw :: (player: *Animation_Player, position: Vector3, flipX: bool = f
 
 animation_set :: (player: *Animation_Player, animation: string) {
     player.current_frame = 0;
-    player.current_animation = table_find_pointer(*g_animations, animation);
+    player.current_animation = get_animation_from_string(animation);
 }
 
 animation_set_queued :: (player: *Animation_Player, animation: string) {
-    player.queued_animation = table_find_pointer(*g_animations, animation);
+    player.queued_animation = get_animation_from_string(animation);
 
 }
 animation_set_if_not :: (player: *Animation_Player, animation: string) {
@@ -46,7 +57,8 @@ animation_set_if_not :: (player: *Animation_Player, animation: string) {
 }
 
 animation_is :: (player: *Animation_Player, animation: string) -> bool {
-    return player.current_animation.name == animation;
+    pack, anim := split_from_left(animation, ".");
+    return player.current_animation.name == anim;
 }
 
 Frame :: struct {
@@ -90,42 +102,4 @@ Aseprite_Sheet_Info :: struct {
 Aseprite_Sheet :: struct {
     frames : [..]Aseprite_Frame;
     meta   : Aseprite_Sheet_Info;
-}
-
-add_new_spritesheets_from_pack :: (pack: *Load_Package, packName: string) {
-    String :: #import "String";
-
-    for v : pack.lookup {
-        isSpritesheet, remainder := String.contains(v.name, "sprites/");
-        isData := String.contains(remainder, ".json");
-        if isSpritesheet && isData {
-            print("Adding sheet: %\n", remainder);
-            is_ok, name_without_fileformat := split_from_right(v.name, #char ".");
-            sheet_image_name := sprint("%.png", name_without_fileformat);
-            sheet_image, sheet_w, sheet_h := create_texture_from_pack(packName, sheet_image_name);
-            
-            
-            s := load_string_from_pack(packName, v.name);
-            success, sheet := Jaison.json_parse_string(s, Aseprite_Sheet,, temp);
-
-            for sheet.meta.frameTags {
-                anim : Animation;
-                anim.name = sprint("%", it.name);
-                anim.sheet = sheet_image;
-                anim.sheet_w = sheet_w;
-                anim.sheet_h = sheet_h;
-                for idx : it.from..it.to {
-                    frameData := sheet.frames[idx];
-                    array_add(*anim.frames, Frame.{
-                        frameData.frame.x,
-                        frameData.frame.y,
-                        frameData.frame.w,
-                        frameData.frame.h,
-                        frameData.duration
-                    });
-                }
-                table_add(*g_animations, anim.name, anim);
-            }
-        }
-    }
 }
