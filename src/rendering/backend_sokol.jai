@@ -143,7 +143,8 @@ backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf
 }
 
 backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *World_Config) {
-	mvp : Matrix4;
+    start_frame_profiling_group("Draw trile positions");
+    mvp : Matrix4;
     if !in_shadowmap_pass {
         mvp = create_viewproj(*camera);
     } else {
@@ -191,7 +192,9 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
     sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
+    add_frame_profiling_point("After drawing setup");
     sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
+    end_frame_profiling_group("Draw trile positions");
 }
 backend_draw_sky :: (wc: *World_Config) {
     mvp := create_viewproj(*camera);
@@ -324,10 +327,13 @@ backend_draw_ground_gbuf :: (wc: *World_Config) {
 
 backend_process_command_buckets :: () {
     // 1. Set up textures and buffers.
+    start_frame_profiling_group("Setup");
     for render_command_buckets.setup {
         backend_handle_command(it);
     } 
+    end_frame_profiling_group("Setup");
 
+    start_frame_profiling_group("Shadow pass");
     // 2. Shadow pass
     if current_world_config != null {
         shadow_mvp = create_shadow_viewproj(*camera, current_world_config);
@@ -340,7 +346,9 @@ backend_process_command_buckets :: () {
         in_shadowmap_pass = false;
     }
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
+    end_frame_profiling_group("Shadow pass");
     
+    start_frame_profiling_group("Reflection pass");
     // 3. Reflection pass
 	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = gPipelines.plane.attachments}));
     in_reflection_pass = true;
@@ -350,8 +358,10 @@ backend_process_command_buckets :: () {
     in_reflection_pass = false;
 	sg_end_pass();
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
+    end_frame_profiling_group("Reflection pass");
     
     // 4. G-Buffer pass
+    start_frame_profiling_group("G-Buffer pass");
     in_gbuffer_pass = true;
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear_gbuf, attachments = g_gbuf_attachments}));
     for render_command_buckets.gbuffer {
@@ -360,7 +370,9 @@ backend_process_command_buckets :: () {
     sg_end_pass();
     in_gbuffer_pass = false;
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
- 
+    end_frame_profiling_group("G-Buffer pass");
+     
+    start_frame_profiling_group("SSAO pass");
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_postprocess_attach_a }));
     sg_apply_pipeline(gPipelines.ssao.pipeline);
     gPipelines.ssao.bind.images[0] = g_gbuf_position;
@@ -375,9 +387,9 @@ backend_process_command_buckets :: () {
     sg_apply_uniforms(UB_ssao_fs_params, *(sg_range.{ ptr = *ssao_fs_uniform, size = size_of(type_of(ssao_fs_uniform)) }));
     sg_draw(0, 6, 1);    
     sg_end_pass();
+    end_frame_profiling_group("SSAO pass");   
 
-    
-
+    start_frame_profiling_group("SSAO blur pass");
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_ssao_attachments }));
     sg_apply_pipeline(gPipelines.op.pipeline);
     op_uniform : Op_Fs_Params;
@@ -388,18 +400,24 @@ backend_process_command_buckets :: () {
     sg_apply_bindings(*gPipelines.op.bind);
     sg_draw(0, 6, 1);    
     sg_end_pass();
+    end_frame_profiling_group("SSAO blur pass");
 
     // 5. Main pass
+    start_frame_profiling_group("Main pass");
 	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_rendertex_attachments}));
     for render_command_buckets.main {
         backend_handle_command(it);
     }
 	sg_end_pass();
     current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
+    end_frame_profiling_group("Main pass");
 
+    start_frame_profiling_group("Postprocess pass");
     bloom_process();
     dof_process();
-   
+    end_frame_profiling_group("Postprocess pass");
+    
+    start_frame_profiling_group("Final pass");
     // Begin drawing to swapchain
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
     
@@ -419,6 +437,7 @@ backend_process_command_buckets :: () {
     arb_tri_flush();
 
 	sg_end_pass();
+    end_frame_profiling_group("Final pass");
 
     sg_commit();
 

@@ -25,6 +25,7 @@ stbi   :: #import "stb_image";
 #load "events.jai";
 #load "load.jai";
 #load "ray.jai";
+#load "profiling.jai";
 #load "world.jai";
 #load "utils.jai";
 #load "audio/audio.jai";
@@ -155,12 +156,15 @@ is_in_reflection_pass : bool = false;
 delta_time_accumulator : float64 = 0;
 
 frame :: () {
+    clear_frame_profiling();
     check_and_handle_window_resize();
     delta_time = get_time() - last_frame_time;
     last_frame_time = get_time();
 
     asset_manager_tick();
 
+    add_frame_profiling_point("After asset manager tick");
+    
     if !mandatory_loads_done() then return;
 
     if !init_after_mandatory_done {
@@ -179,6 +183,8 @@ frame :: () {
     }
 
     fonsClearState(state.fons);
+    
+    add_frame_profiling_point("After loading logic");
     
     frame_start_time := get_time();
     
@@ -200,17 +206,25 @@ frame :: () {
     }
 
 
+    add_frame_profiling_point("After game ticks");
     tick_ui();
+    add_frame_profiling_point("After UI tick");
 
     // This populates our render task queue.
     if !in_editor_view then game_draw();
+    add_frame_profiling_point("After game draw");
 
     ui_clear_mouse_occluders();
     ui_pass();
+    add_frame_profiling_point("After UI draw");
     prepare_text(debug_font, tprint("frametime: % ms", latest_frametime * 1000));
     draw_prepared_text(debug_font, 10, 10, .{0.0, 1.0, 0.0, 1.0});
     draw_editor();
+    add_frame_profiling_point("After editor draw");
     render();
+    add_frame_profiling_point("After rendering");
+
+    end_frame_profiling();
     #if MEM_DEBUG {
         memory_visualizer_per_frame_update();
     }

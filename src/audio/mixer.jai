@@ -50,25 +50,83 @@ Mixer :: struct {
     tasks      : [..]Mixer_Play_Task;
 }
 
-// Removes tasks from the mixer's task list that
-// no longer have a reason to be on the task list.
-// Eg. a sound that is .ONESHOT but has already been played.
-mixer_clean_tasks :: () {
-    mixer_lock(*g_mixer);
-    defer mixer_unlock(*g_mixer);
-    
-}
-
 mixer_add_task :: (task: Mixer_Play_Task) {
     mixer_lock(*g_mixer);
     defer mixer_unlock(*g_mixer);
-    
+    array_add(*g_mixer.tasks, task);
 }
 
-mixer_get_samples :: (samples: *float, sampleCount: s32, channelCount: s32) {
+mixer_add_task :: (audio: *Audio_Data, bus: Mixer_Bus, mode: Play_Mode) {
+    mixer_add_task(.{
+        audio = audio,
+        bus = bus,
+        mode = mode
+    });
+}
+
+mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
     mixer_lock(*g_mixer);
     defer mixer_unlock(*g_mixer);
+
+    total_samples := frame_count * channel_count;
+    memset(buffer, 0, total_samples * size_of(float));
+
+    if g_mixer.tasks.count < 1 then return;
    
+    for < i : 0..g_mixer.tasks.count-1 {
+        task := *g_mixer.tasks[i];
+
+        if !task.audio {
+            array_unordered_remove_by_index(*g_mixer.tasks, i);
+            continue;
+        }
+
+        bus_vol := 1.0;
+        if task.bus == {
+            case .MUSIC;        bus_vol = g_mixer.config.musicVolume;
+            case .SOUND_EFFECT; bus_vol = g_mixer.config.soundEffectVolume;
+            case .DIALOGUE;     bus_vol = g_mixer.config.dialogueVolume;
+        }
+        
+        vol := bus_vol * g_mixer.config.masterVolume;
+        
+        source_data     := task.audio.data; 
+        source_channels := task.audio.channels; 
+
+        task_finished := false;
+
+        for f : 0..frame_count-1 {
+            if task.curSample >= source_data.count {
+                if task.mode == .ONESHOT {
+                    task_finished = true;
+                    break;
+                } else {
+                    task.curSample = 0;
+                }
+            }
+
+            cursor := task.curSample;
+
+            for ch : 0..channel_count-1 {
+                out_index := (f * channel_count) + ch;
+                offset := ifx source_channels == 1 then 0 else ch;
+                
+                sample : float = 0;
+                
+                if cursor + offset < source_data.count {
+                    sample = source_data[cursor + offset];
+                }
+
+                buffer[out_index] += sample * vol;
+            }
+
+            task.curSample += source_channels;
+        }
+
+        if task_finished {
+            array_unordered_remove_by_index(*g_mixer.tasks, i);
+        }
+    }
 }
 
 mixer_lock :: (mixer: *Mixer) {

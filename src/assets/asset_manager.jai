@@ -5,7 +5,7 @@ hash :: #import "Hash";
 
 #load "loaders.jai";
 
-MAX_FILE_SIZE :: 2_000_000_000;
+MAX_FILE_SIZE :: 200_000_000;
 buf : [MAX_FILE_SIZE]u8;
 
 Pack_Request :: struct {

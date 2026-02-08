@@ -46,5 +46,6 @@ load_wav_from_memory :: (data: []u8) -> Audio_Data {
             array_add(*audio.data, cast(float)sample / 32768.0);
         }
     }
+    audio.channels = format.nChannels;
     return audio;
 }

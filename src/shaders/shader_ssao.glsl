@@ -38,7 +38,7 @@ void main() {
     mat3 tbn = mat3(tangent, bitangent, normal);
 
     float occlusion = 0.0;
-    for(int i = 0; i < 64; i++) {
+    for(int i = 0; i < 16; i++) {
         vec3 sample_pos = tbn * samples[i].xyz;
         sample_pos = frag_pos + sample_pos * 0.5;
 

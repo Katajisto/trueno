@@ -1,4 +1,4 @@
 Audio_Data :: struct {
-    channels: u16;
+    channels: s16;
     data: [..]float;
 }
