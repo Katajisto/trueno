@@ -50,6 +50,7 @@ Render_Command_Draw_Trile_Positions :: struct {
     #as using c : Render_Command;
     c.type      = .DRAW_TRILE_POSITIONS;
     trile       : string;
+    chunk_key   : Chunk_Key;
     amount      : s32;
     conf        : *World_Config;
 }

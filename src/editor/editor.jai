@@ -87,6 +87,7 @@ draw_editor :: () {
 tick_editor_ui :: () {
     if input_button_states[Key_Code.F3] & .START {
         in_editor_view = !in_editor_view;
+        g_mixer.paused = in_editor_view;
     }
 
     #if OS != .WASM {

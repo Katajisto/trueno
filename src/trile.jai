@@ -88,7 +88,7 @@ striles :: () {
     #if OS != .WASM {
         file :: #import "File";
         json := Jaison.json_write_string(triles, " ");
-        file.write_entire_file("./game/resources/triles.json", json);
+        file.write_entire_file("./game/resources/game_core/triles.json", json);
         
     }
 } @Command

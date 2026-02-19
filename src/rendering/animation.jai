@@ -57,7 +57,7 @@ animation_set_if_not :: (player: *Animation_Player, animation: string) {
 }
 
 animation_is :: (player: *Animation_Player, animation: string) -> bool {
-    pack, anim := split_from_left(animation, ".");
+    _, pack, anim := split_from_left(animation, ".");
     return player.current_animation.name == anim;
 }
 

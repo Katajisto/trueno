@@ -419,7 +419,7 @@ render_ui :: () {
     my_theme := proc();
     GR.set_default_theme(my_theme);
     draw_editor_ui(*my_theme);
-    game_ui(*my_theme);
+    if !in_editor_view then game_ui(*my_theme);
 }
 
 ui_pass :: () {

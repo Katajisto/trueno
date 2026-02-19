@@ -17,6 +17,7 @@ Mixer_Play_Task :: struct {
     audio     : *Audio_Data;
     bus       : Mixer_Bus;
     mode      : Play_Mode;
+    unique    : bool = true;
     curSample : s64 = 0;
 
     startTime           : float64 = 0;
@@ -28,12 +29,13 @@ Mixer_Config :: struct {
     musicVolume        : float = 0.5; @Slider,0,1,0.1
     masterVolume       : float = 0.5; @Slider,0,1,0.1
     dialogueVolume     : float = 0.5; @Slider,0,1,0.1
-    soundEffectVolume  : float = 0.5; @Slider,0,1,0.1
+    soundEffectVolume  : float = 0.3; @Slider,0,1,0.1
 }
 
 g_mixer : Mixer;
 
 Mixer :: struct {
+    paused : bool = false;
     #if OS != .WASM {
         // If we are on WASM, the Thread module mutex does not work.
         // Fortunately we don't need a mutex for this, since sokol does
@@ -53,6 +55,11 @@ Mixer :: struct {
 mixer_add_task :: (task: Mixer_Play_Task) {
     mixer_lock(*g_mixer);
     defer mixer_unlock(*g_mixer);
+    if task.unique {
+        for g_mixer.tasks {
+            if it.audio == task.audio then return;
+        }
+    }
     array_add(*g_mixer.tasks, task);
 }
 
@@ -71,6 +78,7 @@ mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
     total_samples := frame_count * channel_count;
     memset(buffer, 0, total_samples * size_of(float));
 
+    if g_mixer.paused then return;
     if g_mixer.tasks.count < 1 then return;
    
     for < i : 0..g_mixer.tasks.count-1 {
@@ -105,23 +113,22 @@ mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
                 }
             }
 
-            cursor := task.curSample;
-
             for ch : 0..channel_count-1 {
                 out_index := (f * channel_count) + ch;
                 offset := ifx source_channels == 1 then 0 else ch;
                 
                 sample : float = 0;
                 
-                if cursor + offset < source_data.count {
-                    sample = source_data[cursor + offset];
+                if task.curSample + f + offset < source_data.count {
+                    sample = source_data[task.curSample + f + offset];
                 }
 
                 buffer[out_index] += sample * vol;
             }
 
-            task.curSample += source_channels;
         }
+
+        task.curSample += frame_count;
 
         if task_finished {
             array_unordered_remove_by_index(*g_mixer.tasks, i);

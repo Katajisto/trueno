@@ -123,6 +123,7 @@ init_after_mandatory :: () {
 
 init_after_core :: () {
     init_plane_textures();
+    init_brdf_lut();
     add_font_from_pack("boot", "DroidSerif-Regular.ttf");
     ui_init_font_fields(*state.font_default);
 
@@ -139,7 +140,6 @@ init_after_core :: () {
         }
     }
     init_editor();
-    lworlds();
     init_rendering();
     load_post_process_from_pack();
 
@@ -192,8 +192,8 @@ frame :: () {
 
     #if OS != .WASM { tick_profiler(); }
 
-    delta_time_accumulator += delta_time;
-    
+    if !in_editor_view then delta_time_accumulator += delta_time;
+
     if !in_editor_view {
         while delta_time_accumulator > (1.0/60.0) {
             game_tick(1.0/60.0);

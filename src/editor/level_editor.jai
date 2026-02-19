@@ -178,15 +178,30 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	#if HAS_TACOMA {
 		if GR.button(r, "Render with Tacoma", *theme.button_theme) {
 			cam := get_level_editor_camera();
-			gen_reference(tacomaResolution, tacomaResolution, .{cam.target, cam.position, tacomaSamples, true}, curworld.world.*);
+			gen_reference(tacomaResolution, tacomaResolution, cam.position, cam.target, tacomaSamples, true, curworld.world);
 		}
 		r.y += r.h;
+		if GR.button(r, "Render a RDM", *theme.button_theme) {
+			gen_rdm(tacomaSamples, true, curworld.world);
+		}
+		r.y += r.h;
+		if GR.button(r, "Bake all chunk RDMs", *theme.button_theme) {
+			if curworld.valid then rdm_bake_all_chunks(curworld.world, tacomaSamples, true);
+		}
+		r.y += r.h;
+		if rdm_bake.active {
+			total := cast(s32) rdm_bake.jobs.count;
+			done  := rdm_bake.current_job;
+			pct   := ifx total > 0 then done * 100 / total else 0;
+			GR.label(r, tprint("Baking RDMs: %/% (\%%)", done, total, pct), *t_label_left(theme));
+			r.y += r.h;
+		}
 		if current_screenshot.valid {
 			aspect := cast(float)current_screenshot.width / cast(float)current_screenshot.height;
 			
 			r.h = r.w / aspect;
 			uiTex := New(Ui_Texture,, temp);
-			uiTex.tex = *current_screenshot.image;
+			uiTex.tex = current_screenshot.image;
 			set_shader_for_images(uiTex);
 		    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h});
 			set_shader_for_color();
@@ -239,61 +254,58 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 handle_tool_click :: (x: int, y: int, z: int, delete: bool = false) {
 	curworld := get_current_world();
 	if delete {
-		remove_trile(cast(float)x, cast(float)y, cast(float)z);
+		remove_trile(cast(s32)x, cast(s32)y, cast(s32)z);
 	} else {
-		if editor_current_trile != null then add_trile(editor_current_trile.name, cast(float)x, cast(float)y, cast(float)z);
+		if editor_current_trile != null then add_trile(editor_current_trile.name, cast(s32)x, cast(s32)y, cast(s32)z);
 	}
-} 
+}
 
-add_trile :: (name: string, x: float, y: float, z: float) {
+add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 	curworld := get_current_world();
 
-	loose_float_comp :: (a: float, b: float) -> bool {
-		return abs(a-b) < 0.001;
+	// Remove any existing trile at this position first.
+	remove_trile(x, y, z);
+
+	// Find or create the chunk.
+	key := world_to_chunk_coord(x, y, z);
+	chunk := table_find_pointer(*curworld.world.chunks, key);
+	if !chunk {
+		new_chunk: Chunk;
+		new_chunk.coord = key;
+		table_set(*curworld.world.chunks, key, new_chunk);
+		chunk = table_find_pointer(*curworld.world.chunks, key);
 	}
 
-	// Check if the position is already occupied. @ToDo: we would probably like to
-	// have some acceleration structure like a hashmap to speed up this check when
-	// we are checking for collisions.
-	for curworld.world.positions {
-		for v, idx: it.positions {
-			if loose_float_comp(v.x, x)
-			&& loose_float_comp(v.y, y)
-			&& loose_float_comp(v.z, z) {
-				array_unordered_remove_by_index(*it.positions, idx);
-				break;
-			}
-		}
-	}
-	
-	for curworld.world.positions {
-		if it.trileName == name {
-			array_add(*it.positions, Vector4.{x,y,z,1});
+	lx, ly, lz := world_to_local(x, y, z);
+	inst := Trile_Instance.{x = lx, y = ly, z = lz, orientation = orientation};
+
+	// Find existing group for this trile type, or create one.
+	for *group: chunk.groups {
+		if group.trile_name == name {
+			array_add(*group.instances, inst);
 			return;
 		}
 	}
-	poses := TrilePositions.{
-		trileName = sprint("%", name),
-	};
-	
-	array_add(*poses.positions, Vector4.{x,y,z,1});
-	array_add(*curworld.world.positions, poses);
+	group: Chunk_Trile_Group;
+	group.trile_name = sprint("%", name);
+	array_add(*group.instances, inst);
+	array_add(*chunk.groups, group);
 } @Command
 
-remove_trile :: (x: float, y: float, z: float) {
+remove_trile :: (x: s32, y: s32, z: s32) {
 	curworld := get_current_world();
 
-	loose_float_comp :: (a: float, b: float) -> bool {
-		return abs(a-b) < 0.001;
-	}
+	key := world_to_chunk_coord(x, y, z);
+	chunk := table_find_pointer(*curworld.world.chunks, key);
+	if !chunk then return;
 
-	for curworld.world.positions {
-		for v, idx: it.positions {
-			if loose_float_comp(v.x, x)
-			&& loose_float_comp(v.y, y)
-			&& loose_float_comp(v.z, z) {
-				array_unordered_remove_by_index(*it.positions, idx);
-				break;
+	lx, ly, lz := world_to_local(x, y, z);
+
+	for *group: chunk.groups {
+		for inst, idx: group.instances {
+			if inst.x == lx && inst.y == ly && inst.z == lz {
+				array_unordered_remove_by_index(*group.instances, idx);
+				return;
 			}
 		}
 	}
@@ -302,6 +314,7 @@ remove_trile :: (x: float, y: float, z: float) {
 
 
 tick_level_editor :: () {
+	#if HAS_TACOMA { rdm_bake_tick(); }
 	tick_level_editor_camera();
 	ray := get_mouse_ray(*get_level_editor_camera());
 	hit, point := ray_plane_collision_point(ray, xx editY, 20);
@@ -326,7 +339,7 @@ draw_level_editor :: () {
 	curworld := get_current_world();
 	if !curworld.valid then return;
 	create_set_cam_rendering_task(get_level_editor_camera(), curworld.world.conf.planeHeight);
-	create_world_rendering_tasks(curworld.world);
+	create_world_rendering_tasks(*curworld.world);
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {

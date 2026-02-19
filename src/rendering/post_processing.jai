@@ -27,16 +27,44 @@ Post_Process :: struct {
     film_grain_intensity: float = 0.0; @Slider,0,0.5,0.001;
     barrel_distortion_intensity: float = 0.0; @Slider,-2,2,0.1;
     lut_mode: s32 = 0; @Slider,0,2,1; // 0 -> no LUT, 1 -> LUT with interpolation 2 -> LUT no iterpolate
+    dither_intensity: float = 0.0; @Slider,0,1,0.05;
 }
 
 
 current_post_process : Post_Process;
 
+Post_Process_Save :: struct {
+    #as using pp: Post_Process;
+    lut_name: string;
+}
+
 load_post_process_from_pack :: () {
     s := load_string_from_pack("game_core", "postprocess.json");
-    success, pp:= Jaison.json_parse_string(s, Post_Process,, temp);
+    success, save := Jaison.json_parse_string(s, Post_Process_Save,, temp);
     if success {
-        current_post_process = pp;        
+        current_post_process = save.pp;
+        // Restore LUT selection by name.
+        if save.lut_name.count > 0 {
+            for LUT_list {
+                if it.name == save.lut_name {
+                    g_current_lut_texture_index = cast(s32) it_index;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+save_post_process :: () {
+    #if OS != .WASM {
+        file :: #import "File";
+        save: Post_Process_Save;
+        save.pp = current_post_process;
+        if g_current_lut_texture_index >= 0 && g_current_lut_texture_index < LUT_list.count {
+            save.lut_name = LUT_list[g_current_lut_texture_index].name;
+        }
+        json := Jaison.json_write_string(save, " ");
+        file.write_entire_file("./game/resources/game_core/postprocess.json", json);
     }
 }
 

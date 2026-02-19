@@ -6,7 +6,8 @@ hash :: #import "Hash";
 #load "loaders.jai";
 
 MAX_FILE_SIZE :: 200_000_000;
-buf : [MAX_FILE_SIZE]u8;
+buf       : [MAX_FILE_SIZE]u8;
+world_buf : [MAX_FILE_SIZE]u8;
 
 Pack_Request :: struct {
     name              : string;
@@ -15,10 +16,16 @@ Pack_Request :: struct {
     shouldBlockEngine : bool; // Means that the engine loop should do nothing while this is loading...
 }
 
+World_Load_Request :: struct {
+    name    : string;
+    pending : bool = false;
+    loading : bool = false;
+}
 
 Asset_Manager :: struct {
-    packQueue   : [..]Pack_Request;
-    loadedPacks : [..]Loaded_Pack;
+    packQueue    : [..]Pack_Request;
+    loadedPacks  : [..]Loaded_Pack;
+    worldRequest : World_Load_Request;
 }
 
 g_asset_manager : Asset_Manager;
@@ -36,6 +43,26 @@ packcb :: (res: *sfetch_response_t) #c_call {
     add_resources_from_pack(*pack);
     array_add(*g_asset_manager.loadedPacks, pack);
     array_unordered_remove_by_index(*g_asset_manager.packQueue, 0);
+}
+
+worldcb :: (res: *sfetch_response_t) #c_call {
+    push_context,defer_pop default_context;
+    if res.failed {
+        print("Failed to load world '%'\n", g_asset_manager.worldRequest.name);
+        g_asset_manager.worldRequest = .{};
+        return;
+    }
+    data: []u8;
+    data.data = res.data.ptr;
+    data.count = res.data.size.(s64);
+    world, ok := load_world_from_data(data);
+    if ok {
+        set_loaded_world(world);
+        print("Loaded world: %\n", world.name);
+    } else {
+        print("Failed to parse world '%'\n", g_asset_manager.worldRequest.name);
+    }
+    g_asset_manager.worldRequest = .{};
 }
 
 Loaded_Pack :: struct {
@@ -158,6 +185,7 @@ mandatory_loads_done :: () -> bool {
 }
 
 show_loading_screen :: () -> bool {
+    if g_asset_manager.worldRequest.pending return true;
     for g_asset_manager.packQueue {
         if it.shouldBlock return true;
     }
@@ -176,7 +204,28 @@ asset_manager_tick :: () {
         }));
         g_asset_manager.packQueue[0].loading = true;
     }
+
+    if g_asset_manager.worldRequest.pending && !g_asset_manager.worldRequest.loading {
+        sfetch_send(*(sfetch_request_t.{
+            path = to_c_string(tprint("./game/resources/worlds/%/index.world", g_asset_manager.worldRequest.name)),
+            callback = worldcb,
+            buffer = .{
+                ptr = world_buf.data,
+                size = world_buf.count
+            }
+        }));
+        g_asset_manager.worldRequest.loading = true;
+    }
+
     sfetch_dowork();
+}
+
+load_world :: (name: string) {
+    unload_current_world();
+    g_asset_manager.worldRequest = .{
+        name = name,
+        pending = true,
+    };
 }
 
 load_pack :: (name: string, shouldBlock: bool = true, shouldBlockEngine: bool = false) {

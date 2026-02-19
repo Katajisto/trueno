@@ -10,7 +10,7 @@ theme_ptr         : GR.Overall_Theme;
 
 current_pipeline : s32 = 0;
 current_slot     : s32 = 0;
-pipeline_names   : []string = .["shadowmap", "reflection", "main", "position", "normal", "ssao"];
+pipeline_names   : []string = .["shadowmap", "reflection", "main", "position", "normal", "ssao", "rdm_atlas (chunk)", "rdm_lookup (chunk)"];
 
 draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *void) {
     r2 := r;
@@ -33,6 +33,16 @@ draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *
         case 3; image = g_gbuf_position;
         case 4; image = g_gbuf_normal;
         case 5; image = g_ssaobuf;
+        case 6; #through;
+        case 7;
+            cw := get_current_world();
+            for chunk: cw.world.chunks {
+                if chunk.rdm_valid {
+                    if current_pipeline == 6 then image = chunk.rdm_atlas;
+                    else                          image = chunk.rdm_lookup;
+                    break;
+                }
+            }
     }
     
     uiTex.tex = image; 
@@ -55,8 +65,7 @@ draw_subwindow_post_process :: (state: *GR.Subwindow_State, r: GR.Rect, data: *v
     if GR.button(r3, "Save postprocessing", *theme_ptr.button_theme) {
         #if OS != .WASM {
             file :: #import "File";
-            json := Jaison.json_write_string(current_post_process, " ");
-            file.write_entire_file("./game/resources/postprocess.json", json);
+            save_post_process();
         }
     }
     r3.y += r3.h;

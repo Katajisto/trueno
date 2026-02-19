@@ -16,16 +16,18 @@ out vec3 to_center;
 out vec3 vpos; // The actual position;
 out vec3 ipos; // Trile space position;
 out vec4 fnormal;
-out vec4 light_proj_pos;
+out vec3 trileCenter;
+out vec3 cv;
 
 void main() {
     gl_Position = mvp * vec4(position.xyz + instance.xyz, 1.0);
-    light_proj_pos = mvp_shadow * vec4(position.xyz + instance.xyz, 1.0);
     fnormal = normal;
     to_center = centre.xyz - position.xyz;
     vpos = position.xyz + instance.xyz;
     ipos = position.xyz;
     cam = camera;
+    cv = normalize(camera - vpos);
+    trileCenter = vpos - ipos + vec3(0.5);
 }
 @end
 
@@ -57,7 +59,8 @@ in vec3 to_center;
 in vec3 vpos;
 in vec3 ipos;
 in vec4 fnormal;
-in vec4 light_proj_pos;
+in vec3 trileCenter;
+in vec3 cv;
 out vec4 frag_color;
 
 layout(binding=3) uniform trile_fs_params {
@@ -73,6 +76,10 @@ layout(binding = 1) uniform texture2D ssaotex;
 layout(binding = 1) uniform sampler ssaosmp;
 layout(binding = 2) uniform texture2D shadowtex;
 layout(binding = 2) uniform sampler shadowsmp;
+layout(binding = 3) uniform texture2D rdm_lookup;
+layout(binding = 4) uniform texture2D rdm_atlas;
+layout(binding = 5) uniform texture2D brdf_lut;
+layout(binding = 3) uniform sampler rdmsmp;
 
 const float PI = 3.1412854;
 
@@ -150,7 +157,7 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
     final = vec3(final);
 
     // Cirrus Clouds
-    if(hasClouds == 1) { 
+    if(hasClouds == 1) {
         float density = smoothstep(1.0 - cirrus, 1.0, fbm(npos.xyz / npos.y * 2.0 + time * 0.05)) * 0.3;
         final.rgb = mix(final.rgb, vec3(1.0, 1.0, 1.0), max(0.0, npos.y) * density * 2.0);
     }
@@ -159,6 +166,8 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
 }
 
 // ---- SKY END ----
+
+// ---- PBR FUNCTIONS ----
 
 float DistributionGGX(vec3 N, vec3 H, float roughness) {
     float a      = roughness*roughness;
@@ -187,16 +196,250 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
     return ggx1 * ggx2;
 }
 
-
 vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+// ---- RDM FUNCTIONS ----
+
+float roughness_to_rdm_size(int roughness) {
+    return pow(2.0, float((7 - roughness) + 1));
+}
+
+int rdm_index_from_normal(vec3 N) {
+    vec3 n_leftright = vec3(0.0, 0.0, 1.0);
+    vec3 n_updown = vec3(0.0, 1.0, 0.0);
+    vec3 n_frontback = vec3(1.0, 0.0, 0.0);
+
+    int res = 0;
+    // res += int(dot(n_updown, N) >= 0.98) * 0; unnecessary
+    res += int(dot(-n_updown, N) >= 0.98) * 1;
+    res += int(dot(n_leftright, N) >= 0.98) * 2;
+    res += int(dot(-n_leftright, N) >= 0.98) * 3;
+    res += int(dot(n_frontback, N) >= 0.98) * 4;
+    res += int(dot(-n_frontback, N) >= 0.98) * 5;
+
+    return res;
+}
+
+// Taken from Cigolle2014Vector.pdf
+vec2 rdm_get_hemioct(vec3 v, int index, vec2 off) {
+    vec3 vc = v;
+    if(index / 2 == 0) {
+        vc.z = v.y;
+        vc.y = v.z;
+    }
+    if(index / 2 == 2) {
+        vc.z = v.x;
+        vc.x = v.z;
+    }
+    if(index % 2 == 1) {
+        vc.z *= -1.0;
+    }
+
+    vc.x += off.x;
+    vc.y += off.y;
+
+    normalize(vc);
+    
+    vec2 p = vc.xy * (1.0 / (abs(vc.x) + abs(vc.y) + vc.z));
+    // Rotate and scale the center diamond to the unit square
+    vec2 res = vec2(p.x + p.y, p.x - p.y);
+    res.x = (res.x + 1.0) * 0.5;
+    res.y = (res.y + 1.0) * 0.5;
+    // res.y = clamp(res.y, 0.0, 1.0);
+    // res.x = clamp(res.x, 0.0, 1.0);
+    return res;
+}
+
+float rdm_offset_y(int index) {
+    return float((index / 2)) * (1.0/3.0);
+}
+
+float rdm_offset_x(int index) {
+    return float((index % 2)) * (1.0/2.0);
+}
+
+// Look up atlas rect from the lookup texture for a given chunk-local position and roughness.
+// Returns atlas_rect: xy = UV offset, zw = UV size. z > 0 means valid.
+vec4 rdm_get_atlas_rect(ivec3 local_pos, int roughness) {
+    int rdm_index = local_pos.x + local_pos.y * 32 + local_pos.z * 1024 + roughness * 32768;
+    int tx = rdm_index % 512;
+    int ty = rdm_index / 512;
+    return texelFetch(sampler2D(rdm_lookup, trilesmp), ivec2(tx, ty), 0);
+}
+
+// Compute pixel offset in the atlas for a given face within an atlas rect.
+// Returns ivec2(ox, oy) — the top-left pixel of this face's sub-image.
+ivec2 rdm_face_pixel_offset(vec4 atlas_rect, int face, int rdmSize) {
+    ivec2 atlasSize = textureSize(sampler2D(rdm_atlas, rdmsmp), 0);
+    int col = face % 2;
+    int row = face / 2;
+    int ox = int(atlas_rect.x * float(atlasSize.x)) + col * rdmSize;
+    int oy = int(atlas_rect.y * float(atlasSize.y)) + row * rdmSize;
+    return ivec2(ox, oy);
+}
+
+vec3 sample_rdm(vec3 N, vec3 V, vec3 rdm_center, vec3 diff, int roughness, ivec3 local_pos) {
+    int face = rdm_index_from_normal(N);
+    int rdmSizeInt = int(roughness_to_rdm_size(roughness));
+    float rdmSize = float(rdmSizeInt);
+    vec4 atlas_rect = rdm_get_atlas_rect(local_pos, roughness);
+    if (atlas_rect.z <= 0.0) return vec3(1.0, 0.0, 1.0); // No data - magenta
+
+    ivec2 faceOffset = rdm_face_pixel_offset(atlas_rect, face, rdmSizeInt);
+
+    // Get 2D UV on this face from the fragment's trile-space position
+    vec2 uv;
+    if (face == 0 || face == 1) {       // +Y / -Y
+        uv = vec2(ipos.x, ipos.z);
+    } else if (face == 2 || face == 3) { // +Z / -Z
+        uv = vec2(ipos.x, ipos.y);
+    } else {                             // +X / -X
+        uv = vec2(ipos.z, ipos.y);
+    }
+
+    // Step 1: flat UV sampling (known working)
+    // ivec2 texCoord = ivec2(faceOffset.x + int(uv.x * rdmSize),
+    //                        faceOffset.y + int(uv.y * rdmSize));
+    // vec4 rdmSample = texelFetch(sampler2D(rdm_atlas, rdmsmp), texCoord, 0);
+    // return vec3(rdmSample.a * 0.2);
+
+    vec3 reflected = normalize(reflect(V, N));
+
+    if (roughness > 1) {
+        // Low-res mips: sample at fixed distance with bilinear filtering
+        vec3 samplePos = normalize(diff + 2.0 * reflected);
+        vec2 hemiUV = rdm_get_hemioct(samplePos, face, vec2(0.0));
+        vec2 atlasSize = vec2(textureSize(sampler2D(rdm_atlas, rdmsmp), 0));
+        vec2 texUV = (vec2(faceOffset) + hemiUV * rdmSize) / atlasSize;
+        return texture(sampler2D(rdm_atlas, rdmsmp), texUV).rgb;
+    }
+
+    // High-res: ray march with depth comparison
+    float maxDist = 20.0;
+    int steps = 40;
+    for (int i = 0; i < steps; i++) {
+        float t = maxDist * float(i + 1) / float(steps);
+        vec3 samplePos = diff + t * reflected;
+        if (dot(samplePos, N) < 0.0) continue;
+
+        vec2 hemiUV = rdm_get_hemioct(normalize(samplePos), face, vec2(0.0));
+        ivec2 texCoord = ivec2(faceOffset.x + int(hemiUV.x * rdmSize),
+                               faceOffset.y + int(hemiUV.y * rdmSize));
+        vec4 rdmSample = texelFetch(sampler2D(rdm_atlas, rdmsmp), texCoord, 0);
+        float depth = rdmSample.a;
+        float dist = length(samplePos);
+        float stepSize = maxDist / float(steps);
+
+        if (depth > 0.0 && depth < dist && depth + stepSize > dist) {
+            return rdmSample.rgb;
+        }
+    }
+
+    vec3 skyDir = reflected;
+    if (skyDir.y < 0.0) skyDir = reflect(skyDir, vec3(0.0, 1.0, 0.0));
+    return sky(skyDir, sunPosition);
+}
+
+
+
+
+
+// Sample diffuse irradiance from a single probe (roughness=7 RDM face)
+vec3 sample_rdm_diff_map(vec3 N, ivec3 local_pos, vec3 fallback) {
+    vec4 atlas_rect = rdm_get_atlas_rect(local_pos, 7);
+    if (atlas_rect.z <= 0.0) return fallback;
+
+    int face = rdm_index_from_normal(N);
+    int rdmSize = int(roughness_to_rdm_size(7));
+    ivec2 faceOffset = rdm_face_pixel_offset(atlas_rect, face, rdmSize);
+    vec2 pos = rdm_get_hemioct(N, face, vec2(0.0));
+    ivec2 texCoord = ivec2(faceOffset.x + int(pos.x * float(rdmSize)),
+                           faceOffset.y + int(pos.y * float(rdmSize)));
+    return texelFetch(sampler2D(rdm_atlas, rdmsmp), texCoord, 0).rgb;
+}
+
+int isign(float f) {
+    return f < 0.0 ? -1 : 1;
+}
+
+vec3 smix(vec3 a, vec3 b, float t) {
+    float power = 1.6;
+    float smoothT = pow(t, power) / (pow(t, power) + pow(1.0 - t, power));
+    return mix(a, b, smoothT);
+}
+
+// Interpolated diffuse irradiance from 4 nearest neighbor probes
+vec3 sample_rdm_diff(vec3 N, vec3 diff, ivec3 local_pos) {
+    int face = rdm_index_from_normal(N);
+    vec3 ambientPlaceholder = vec3(0.3, 0.3, 0.4);
+
+    // Determine the 2D delta in the face plane
+    vec2 delta = vec2(0.0);
+    if (face == 0 || face == 1) {
+        delta = vec2(diff.x, diff.z);
+    } else if (face == 2 || face == 3) {
+        delta = vec2(diff.x, diff.y);
+    } else {
+        delta = vec2(diff.z, diff.y);
+    }
+
+    // Compute neighbor offsets in 3D
+    ivec3 s0 = ivec3(0, 0, 0);
+    ivec3 s1, s2, s3;
+    if (face == 0 || face == 1) {
+        s1 = ivec3(isign(delta.x), 0, 0);
+        s2 = ivec3(0, 0, isign(delta.y));
+        s3 = ivec3(isign(delta.x), 0, isign(delta.y));
+    } else if (face == 2 || face == 3) {
+        s1 = ivec3(isign(delta.x), 0, 0);
+        s2 = ivec3(0, isign(delta.y), 0);
+        s3 = ivec3(isign(delta.x), isign(delta.y), 0);
+    } else {
+        s1 = ivec3(0, 0, isign(delta.x));
+        s2 = ivec3(0, isign(delta.y), 0);
+        s3 = ivec3(0, isign(delta.y), isign(delta.x));
+    }
+
+    // // Swizzle offsets based on face orientation
+    // if (face == 2 || face == 3) {
+    //     int temp;
+    //     temp = s1.y; s1.y = s1.z; s1.z = temp;
+    //     temp = s2.y; s2.y = s2.z; s2.z = temp;
+    //     temp = s3.y; s3.y = s3.z; s3.z = temp;
+    // }
+    // if (face == 4 || face == 5) {
+    //     int temp;
+    //     temp = s1.y; s1.y = s1.x; s1.x = temp;
+    //     temp = s2.y; s2.y = s2.x; s2.x = temp;
+    //     temp = s3.y; s3.y = s3.x; s3.x = temp;
+    // }
+
+    // Sample the four nearest probes using offset local positions
+    vec3 p0 = sample_rdm_diff_map(N, ivec3(mod(vec3(local_pos + s0), 32.0)), ambientPlaceholder);
+    vec3 p1 = sample_rdm_diff_map(N, ivec3(mod(vec3(local_pos + s1), 32.0)), ambientPlaceholder);
+    vec3 p2 = sample_rdm_diff_map(N, ivec3(mod(vec3(local_pos + s2), 32.0)), ambientPlaceholder);
+    vec3 p3 = sample_rdm_diff_map(N, ivec3(mod(vec3(local_pos + s3), 32.0)), ambientPlaceholder);
+
+    // Bilinear blend with smooth interpolation
+    return smix(
+        smix(p0, p1, abs(delta.x)),
+        smix(p2, p3, abs(delta.x)),
+        abs(delta.y)
+    );
 }
 
 void main() {
     if (vpos.y < planeHeight - 0.01 && is_reflection == 1) {
         discard;
     }
-    //frag_color = vec4((fnormal.xyz + vec3(1.0, 1.0, 1.0)) * 0.5, 1.0);
+
+    // Trixel material sampling
     vec3 pos_after_adjust = ipos - fnormal.xyz * 0.02;
     int count = 0;
     vec4 trixel_material;
@@ -206,58 +449,89 @@ void main() {
         int zpos = int(clamp(pos_after_adjust.x, 0.0001, 0.99999) * 16.0);
 
         trixel_material = texelFetch(sampler2D(triletex, trilesmp), ivec2(xpos, ypos + zpos * 16), 0);
-        if (length(trixel_material) > 0.01) break; // @ToDo: Replace with proper null trixel check.
+        if (length(trixel_material) > 0.01) break;
         pos_after_adjust += to_center * 0.1;
         count++;
     }
-    
+
     vec3 albedo = trixel_material.xyz;
-    int packedMaterial = int(round(trixel_material.w*255.0));
+    int packedMaterial = int(round(trixel_material.w * 255.0));
     float emittance = float((packedMaterial >> 1) & 0x3) / 3.0;
     int roughnessInt = (packedMaterial >> 5) & 0x7;
     float roughness = max(float(roughnessInt) / 7.0, 0.05);
     float metallic = float((packedMaterial >> 3) & 0x3) / 3.0;
-    
-    // Ambient light.
-    float ssao_sample = texture(sampler2D(ssaotex, trilesmp), vec2(gl_FragCoord.x/screen_w, gl_FragCoord.y/screen_h), 0).r;
-    vec3 light = 0.35 * albedo * ssao_sample;
 
-    vec3 N = normalize(fnormal.xyz);
+    // Snap normal to nearest axis to avoid interpolation noise
+    vec3 absN = abs(fnormal.xyz);
+    vec3 N;
+    if (absN.x >= absN.y && absN.x >= absN.z) {
+        N = vec3(sign(fnormal.x), 0.0, 0.0);
+    } else if (absN.y >= absN.x && absN.y >= absN.z) {
+        N = vec3(0.0, sign(fnormal.y), 0.0);
+    } else {
+        N = vec3(0.0, 0.0, sign(fnormal.z));
+    }
+
     vec3 V = normalize(cam - vpos.xyz);
     vec3 L = normalize(sunPosition);
     vec3 H = normalize(V + L);
 
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
-    vec3 F = fresnelSchlick(max(dot(H,V), 0.0), F0);
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
     float NDF = DistributionGGX(N, H, roughness);
     float G = GeometrySmith(N, V, L, roughness);
     vec3 numerator = NDF * G * F;
-    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0)  + 0.0001;
+    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
     vec3 specular = numerator / denominator;
     float NdotL = max(dot(N, L), 0.0);
     vec3 kD = vec3(1.0) - F;
     kD *= 1.0 - metallic;
 
+    // Shadow
+    vec4 light_proj_pos = mvp_shadow * vec4(floor(vpos.xyz * 16.0) / 16.0, 1.0);
     vec3 light_pos = light_proj_pos.xyz / light_proj_pos.w;
     light_pos = light_pos * 0.5 + 0.5;
-    light_pos.z -= 0.0009;
+    light_pos.z -= 0.001;
     float shadowp = texture(sampler2DShadow(shadowtex, shadowsmp), light_pos);
-    
-    light += shadowp * (kD * albedo / PI + specular) * NdotL * sunLightColor * sunIntensity;
 
-    vec3 R = reflect(-V, N);
-    vec3 modifier = vec3(1.0);
-    if(R.y < 0.0) {
-        R = reflect(R, vec3(0.0,1.0,0.0));
-        modifier = vec3(0.7, 0.9, 0.7);
+    // Direct lighting
+    // vec3 light = shadowp * (kD * albedo / PI + specular) * NdotL * sunLightColor * sunIntensity;
+    vec3 light = vec3(0.0);
+
+    // RDM indirect lighting
+    // vec3 trileCenter = floor(vpos - ipos) + vec3(0.5);
+    vec3 hemispherePos = trileCenter + N * 0.49;
+    ivec3 local = ivec3(mod(floor(trileCenter), 32.0));
+    vec4 atlas_rect_check = rdm_get_atlas_rect(local, roughnessInt);
+
+    if (true) {
+        vec3 indirectSpec = sample_rdm(N, -cv,
+            hemispherePos, vpos - hemispherePos, roughnessInt, local);
+        vec3 Frough = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+        vec2 envBRDF = texture(sampler2D(brdf_lut, rdmsmp), vec2(max(dot(N, V), 0.0), roughness)).rg;
+        // light += indirectSpec * (Frough * envBRDF.x + envBRDF.y);
+        light += indirectSpec;
+
+        // Indirect diffuse (interpolated from neighbor probes)
+        vec3 indirectDiff = sample_rdm_diff(N, vpos - hemispherePos, local);
+        vec3 kS = fresnelSchlick(max(dot(N, V), 0.0), F0);
+        vec3 kDiff = 1.0 - Frough;
+        kDiff *= 1.0 - metallic;
+        float ssao_sample = texture(sampler2D(ssaotex, trilesmp), vec2(gl_FragCoord.x / float(screen_w), gl_FragCoord.y / float(screen_h)), 0).r;
+        // light += (kDiff * indirectDiff / PI * albedo) * ssao_sample;
+        // light += indirectDiff * albedo;
+    } else {
+        float ssao_sample = texture(sampler2D(ssaotex, trilesmp), vec2(gl_FragCoord.x / float(screen_w), gl_FragCoord.y / float(screen_h)), 0).r;
+        // Fallback: ambient + sky reflection when no RDM data
+        light += 0.35 * albedo * ssao_sample;
+        vec3 R = reflect(-V, N);
+        if (R.y < 0.0) R = reflect(R, vec3(0.0, 1.0, 0.0));
+        light += F * sky(R, sunPosition) * 0.1;
+        
     }
-    vec3 samp = sky(R, sunPosition);
-    // light += F * samp * modifier;
-
 
     frag_color = vec4(mix(deepColor, light, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
-
 }
 @end
 

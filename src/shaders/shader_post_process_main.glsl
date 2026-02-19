@@ -33,6 +33,7 @@ layout(binding=0) uniform post_process_config {
     float film_grain_intensity;
     float barrel_distortion_intensity;
     int   lut_mode;
+    float dither_intensity;
 };
 
 vec3 aces(vec3 x) {
@@ -46,6 +47,23 @@ vec3 aces(vec3 x) {
 
 float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
+float bayer8(vec2 pos) {
+    ivec2 p = ivec2(pos) % 8;
+    int index = p.x + p.y * 8;
+    // Bayer 8x8 matrix, normalized to [0,1]
+    const int bayer[64] = int[64](
+         0, 32,  8, 40,  2, 34, 10, 42,
+        48, 16, 56, 24, 50, 18, 58, 26,
+        12, 44,  4, 36, 14, 46,  6, 38,
+        60, 28, 52, 20, 62, 30, 54, 22,
+         3, 35, 11, 43,  1, 33,  9, 41,
+        51, 19, 59, 27, 49, 17, 57, 25,
+        15, 47,  7, 39, 13, 45,  5, 37,
+        63, 31, 55, 23, 61, 29, 53, 21
+    );
+    return (float(bayer[index]) / 64.0) - 0.5;
 }
 
 void main() {
@@ -84,7 +102,12 @@ void main() {
     color_ldr_linear = mix(brtColor, color_ldr_linear, saturation);
 
     color_ldr_linear = clamp(color_ldr_linear, 0.0, 1.0);
-    
+
+    if(dither_intensity > 0.0) {
+        float dither = bayer8(gl_FragCoord.xy) * dither_intensity * (1.0 / 15.0);
+        color_ldr_linear = clamp(color_ldr_linear + dither, 0.0, 1.0);
+    }
+
     if(lut_mode != 0) {
         if(lut_mode == 2) {
             float u = floor(color_ldr_linear.b * 15.0) * (1.0/16.0);

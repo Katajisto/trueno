@@ -8,6 +8,7 @@ Pipeline_Binding :: struct {
 }
 
 g_specular_lut  : sg_image;
+g_brdf_lut      : sg_image;
 
 g_shadowmap             : sg_image;
 g_shadowmap_img         : sg_image;
@@ -398,6 +399,12 @@ create_trile_pipeline :: () {
         mag_filter = .NEAREST,
     }));
     gPipelines.trile.bind.vertex_buffers[3] = sg_make_buffer(*instance_buffer);
+    gPipelines.trile.bind.samplers[3] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
+    }));
 }
 
 create_sky_pipeline :: () {
@@ -579,8 +586,8 @@ create_plane_pipeline :: () {
     g_shadowmap_sampler = sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .CLAMP_TO_EDGE,
         wrap_v = .CLAMP_TO_EDGE,
-        min_filter = .LINEAR,
-        mag_filter = .LINEAR,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
         compare    = .LESS,
     }));
     
@@ -1064,6 +1071,23 @@ create_ssao_pipeline :: () {
 
 init_plane_textures :: () {
     gPipelines.plane.bind.images[2] = get_texture_from_pack("core", "utiltex/water_small.png");
+}
+
+init_brdf_lut :: () {
+    g_brdf_lut = get_texture_from_pack("core", "utiltex/lut.png");
+    if g_brdf_lut.id == INVALID_ID {
+        // Create a 1x1 fallback so sokol doesn't drop draw calls
+        pixels : [4]u8 = .[255, 255, 255, 255];
+        imgdata : sg_image_data;
+        imgdata.subimage[0][0] = .{ pixels.data, 4 };
+        desc := sg_image_desc.{
+            width = 1,
+            height = 1,
+            pixel_format = .RGBA8,
+            data = imgdata,
+        };
+        g_brdf_lut = sg_make_image(*desc);
+    }
 }
 
 g_plane_gbuffer_vertex_buffer : sg_buffer;

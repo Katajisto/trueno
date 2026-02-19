@@ -53,6 +53,7 @@ Rendering_Task_Trile :: struct {
     #as using t : Rendering_Task;
     t.type      = .TRILE;
     trile       : string;
+    chunk_key   : Chunk_Key;
     positions   : []Vector4;
     worldConf   : *World_Config;
 }
@@ -109,6 +110,7 @@ tasks_to_commands :: () {
                 array_add(*render_command_buckets.setup, addPositionsCmd);
                 drawPositionsCmd := New(Render_Command_Draw_Trile_Positions,, temp);
                 drawPositionsCmd.trile = trileTask.trile;
+                drawPositionsCmd.chunk_key = trileTask.chunk_key;
                 drawPositionsCmd.amount = cast(s32)trileTask.positions.count;
                 drawPositionsCmd.conf = trileTask.worldConf;
                 array_add(*render_command_buckets.reflection, drawPositionsCmd);

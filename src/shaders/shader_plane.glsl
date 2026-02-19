@@ -138,12 +138,13 @@ void main() {
         vec2 screen_uv = gl_FragCoord.xy / vec2(screen_w, screen_h);
         screen_uv.y = 1.0 - screen_uv.y;
         vec3 reflected_color = texture(sampler2D(reftex, refsmp), screen_uv).rgb;
-
-        vec3 surface_color = mix(refracted_color, reflected_color, min(1.0, fresnel * 1.8));
-        vec3 final_color = (surface_color + specular_highlight) * shadow_factor;
-        float refraction_alpha = 0.3;
-        float reflection_alpha = 0.5;
+        vec3 surface_color = mix(refracted_color, reflected_color, min(1.0, fresnel * 1.0));
+        vec3 final_color = reflected_color +  specular_highlight * 0.2 + diffuse * 0.2 + 0.00001 * surface_color;
+        // vec3 final_color = (surface_color + specular_highlight) * shadow_factor;
+        float refraction_alpha = 0.4;
+        float reflection_alpha = 1.0;
         float alpha = mix(refraction_alpha, reflection_alpha, fresnel);
+        // float alpha = 1.0;
         
         vec3 fog = skyIntensity * sky(normalize(pos.xyz), sunPosition);
         float fogFactor = smoothstep(750.0, 1000.0, length(pos.xz));

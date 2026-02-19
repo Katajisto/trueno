@@ -1,13 +1,18 @@
 #import "String";
     
 should_ignore_file :: (name: string) -> bool {
-    
+
     ok, left, right :=  split_from_right(name, #char ".");
     if right == "aseprite" {
         print("Ignoring % as aseprite file...\n", name);
         return true;
     }
-    
+
+    return false;
+}
+
+should_ignore_path :: (full_name: string) -> bool {
+    if contains(full_name, "/worlds/") return true;
     return false;
 }
 
@@ -19,6 +24,7 @@ packs : Table(string, Create_Package);
     
 file_visit_handler :: (info: *util.File_Visit_Info, user_data: bool) {
     if should_ignore_file(info.short_name) then return;
+    if should_ignore_path(info.full_name) then return;
 
     _, _, packPath := split_from_left(info.full_name, "/resources/");
     _, packName, fileName := split_from_left(packPath, "/");

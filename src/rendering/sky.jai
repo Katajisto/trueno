@@ -50,7 +50,7 @@ create_shadow_viewproj :: (cam: *Camera, conf: *World_Config) -> Matrix4 {
 		avg += it;
 	}
 	avg /= 8.0;
-    sunCameraPosition := avg + 30*A;
+    sunCameraPosition := -targetToPos * 50.0;
 
 	view := Matrix4.{
 		B.x, C.x, A.x, 0,
@@ -58,23 +58,7 @@ create_shadow_viewproj :: (cam: *Camera, conf: *World_Config) -> Matrix4 {
 		B.z, C.z, A.z, 0,
 		-dot(B, sunCameraPosition), -dot(C, sunCameraPosition), -dot(A, sunCameraPosition), 1
 	};
-
-    min_v := Vector3.{ 9999,  9999,  9999};
-    max_v := Vector3.{-9999, -9999, -9999};
-
-    for corner: frustum_corners {
-        transformed_corner := (view * Vector4.{corner.x, corner.y, corner.z, 1.0}).xyz;
-        min_v.x = min(min_v.x, transformed_corner.x);
-        min_v.y = min(min_v.y, transformed_corner.y);
-        min_v.z = min(min_v.z, transformed_corner.z);
-        max_v.x = max(max_v.x, transformed_corner.x);
-        max_v.y = max(max_v.y, transformed_corner.y);
-        max_v.z = max(max_v.z, transformed_corner.z);
-    }
-	max_v.xy = avg.xy + Vector2.{20, 20};
-	min_v.xy = avg.xy - Vector2.{20, 20};
-
-    proj := matrix_ortho(min_v.x, max_v.x, min_v.y, max_v.y, -max_v.z-100, -min_v.z);
+    proj := matrix_ortho(-15, 15, -15, 15, 0, 100);
     return view*proj;
 }
 
