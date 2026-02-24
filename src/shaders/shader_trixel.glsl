@@ -101,8 +101,8 @@ void main() {
     // Ambient light.
     vec3 light = 0.3 * albedo;
 
-    // // Make emitting things look bright.
-    // if(emittance > 0.01) return vec4(albedo, 1.0);
+    // Emissive — applied after lighting so emissive surfaces glow.
+    vec3 emissive = albedo * emittance * 5.0;
 
     vec3 N = normalize(fnormal.xyz);
     vec3 V = normalize(cam - pos.xyz);
@@ -123,7 +123,7 @@ void main() {
 
     light += (kD * albedo / PI + specular) * NdotL * vec3(1.0, 1.0, 1.0);
 
-    frag_color = vec4(vec3(light), 1.0);
+    frag_color = vec4(light + emissive, 1.0);
 }
 @end
 

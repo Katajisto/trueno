@@ -33,6 +33,17 @@ Post_Process :: struct {
 
 current_post_process : Post_Process;
 
+Lighting_Config :: struct {
+    rdm_enabled       : s32   = 1;              @Slider,0,1,1
+    ambient_intensity : float = 0.35;           @Slider,0,2,0.05
+    emissive_scale    : float = 5.0;            @Slider,0,20,0.5
+    rdm_diff_scale    : float = 1.0;            @Slider,0,3,0.1
+    rdm_spec_scale    : float = 1.0;            @Slider,0,3,0.1
+    ambient_color     : Vector3 = .{0.3,0.3,0.4}; @Color
+}
+
+current_lighting_config : Lighting_Config;
+
 Post_Process_Save :: struct {
     #as using pp: Post_Process;
     lut_name: string;

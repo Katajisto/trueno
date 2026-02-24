@@ -9,6 +9,7 @@ Pipeline_Binding :: struct {
 
 g_specular_lut  : sg_image;
 g_brdf_lut      : sg_image;
+g_rdm_fallback  : sg_image; // 1x1 black image used when a chunk has no baked RDM data
 
 g_shadowmap             : sg_image;
 g_shadowmap_img         : sg_image;
@@ -1087,6 +1088,22 @@ init_brdf_lut :: () {
             data = imgdata,
         };
         g_brdf_lut = sg_make_image(*desc);
+    }
+
+    // 1x1 black image for RDM slots when no baked data is present.
+    // The lookup texture returning all zeros makes atlas_rect.z == 0,
+    // so the shader's fallback ambient path is taken.
+    {
+        pixels : [4]u8 = .[0, 0, 0, 0];
+        imgdata : sg_image_data;
+        imgdata.subimage[0][0] = .{ pixels.data, 4 };
+        desc := sg_image_desc.{
+            width = 1,
+            height = 1,
+            pixel_format = .RGBA8,
+            data = imgdata,
+        };
+        g_rdm_fallback = sg_make_image(*desc);
     }
 }
 

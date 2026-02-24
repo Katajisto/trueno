@@ -44,9 +44,19 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
 
     make_directory_if_it_does_not_exist("dist", recursive = true);
     {
-        process_result, output, error := run_command("cp", "-r", "./resources", "./dist/", working_directory=tprint("%", #filepath));
-        
-    
+        // Copy compiled packs (produced by create_pack above).
+        if is_directory("./packs") {
+            run_command("cp", "-r", "./packs", "./dist/", working_directory=tprint("%", #filepath));
+        }
+
+        // Copy only the worlds subtree — not the whole game dir (avoids .git etc.).
+        worlds_src := "./game/resources/worlds";
+        if is_directory(worlds_src) {
+            make_directory_if_it_does_not_exist("./dist/game/resources", recursive = true);
+            run_command("cp", "-r", worlds_src, "./dist/game/resources/", working_directory=tprint("%", #filepath));
+        }
+
+
         w := compiler_create_workspace("Wasm");
 
         options := get_build_options(w);

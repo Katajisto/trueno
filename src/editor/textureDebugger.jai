@@ -5,6 +5,9 @@ subwindow_initted : bool = false;
 
 pp_subwindow         : GR.Subwindow_Info;
 pp_subwindow_initted : bool = false;
+
+lighting_subwindow         : GR.Subwindow_Info;
+lighting_subwindow_initted : bool = false;
 // @Hack: This is probably kinda a bad idea, I don't really know atm how else to get the theme into the subwindow.
 theme_ptr         : GR.Overall_Theme;
 
@@ -55,6 +58,11 @@ draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *
     immediate_flush();
 }
 
+draw_subwindow_lighting :: (state: *GR.Subwindow_State, r: GR.Rect, data: *void) {
+    ui_add_mouse_occluder(r);
+    autoedit(r, *current_lighting_config, *theme_ptr);
+}
+
 draw_subwindow_post_process :: (state: *GR.Subwindow_State, r: GR.Rect, data: *void) {
     r2 := r;
 	ui_add_mouse_occluder(r);
@@ -91,6 +99,10 @@ toggle_pp :: () {
     pp_subwindow.open = !pp_subwindow.open;
 } @Command
 
+toggle_lighting :: () {
+    lighting_subwindow.open = !lighting_subwindow.open;
+} @Command
+
 draw_postprocess_popup :: (theme: *GR.Overall_Theme) {
     if !pp_subwindow.open then return;
     if !pp_subwindow_initted {
@@ -104,6 +116,22 @@ draw_postprocess_popup :: (theme: *GR.Overall_Theme) {
     }
     if pp_subwindow.open {  // The Subwindow starts open, but pressing the Close button can close it.
         pp_subwindow_state := GR.add_subwindow(*pp_subwindow, *theme.subwindow_theme);
+    }
+}
+
+draw_lighting_popup :: (theme: *GR.Overall_Theme) {
+    if !lighting_subwindow.open then return;
+    if !lighting_subwindow_initted {
+        theme_ptr = theme;
+        r := GR.get_rect(ui_w(55, 0), ui_w(40, 0), ui_h(50,0), ui_h(40,0));
+        lighting_subwindow.rect       = r;
+        lighting_subwindow.draw       = draw_subwindow_lighting;
+        lighting_subwindow.title_text = "Lighting";
+        lighting_subwindow.open       = false;
+        lighting_subwindow_initted = true;
+    }
+    if lighting_subwindow.open {
+        GR.add_subwindow(*lighting_subwindow, *theme.subwindow_theme);
     }
 }
 

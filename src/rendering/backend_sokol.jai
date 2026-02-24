@@ -181,12 +181,18 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
         bindings.images[2]                 = g_rendertex_depth;
     }
 
-    // Bind RDM textures for this chunk
+    // Bind RDM textures for this chunk. Fall back to a 1x1 black image when
+    // no baked data is available so sokol doesn't drop the draw call.
+    // The shader gates all RDM sampling on atlas_rect.z > 0, which the
+    // fallback texture returns as 0, so the ambient fallback path is taken.
     curworld := get_current_world();
     rdm_chunk := table_find_pointer(*curworld.world.chunks, chunk_key);
     if rdm_chunk != null && rdm_chunk.rdm_valid {
         bindings.images[3] = rdm_chunk.rdm_lookup;
         bindings.images[4] = rdm_chunk.rdm_atlas;
+    } else {
+        bindings.images[3] = g_rdm_fallback;
+        bindings.images[4] = g_rdm_fallback;
     }
     bindings.images[5] = g_brdf_lut;
     bindings.samplers[3] = gPipelines.trile.bind.samplers[3];
@@ -197,6 +203,13 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     w, h := get_render_size();
     fs_params.screen_w = w;
     fs_params.screen_h = h;
+    lc := *current_lighting_config;
+    fs_params.rdm_enabled       = lc.rdm_enabled;
+    fs_params.ambient_intensity = lc.ambient_intensity;
+    fs_params.emissive_scale    = lc.emissive_scale;
+    fs_params.rdm_diff_scale    = lc.rdm_diff_scale;
+    fs_params.rdm_spec_scale    = lc.rdm_spec_scale;
+    fs_params.ambient_color     = lc.ambient_color.component;
     
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));

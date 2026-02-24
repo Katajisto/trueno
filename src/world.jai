@@ -115,8 +115,16 @@ lworld :: (name: string) {
 
 unload_current_world :: () {
     if current_world.valid {
-        // Free chunk data.
+        rdm_loader_cancel_all();
         for *chunk: current_world.world.chunks {
+            // Release RDM GPU resources.
+            if chunk.rdm_valid {
+                sg_destroy_image(chunk.rdm_atlas);
+                sg_destroy_image(chunk.rdm_lookup);
+                chunk.rdm_atlas  = .{};
+                chunk.rdm_lookup = .{};
+                chunk.rdm_valid  = false;
+            }
             for *group: chunk.groups {
                 array_free(group.instances);
             }
@@ -134,7 +142,7 @@ set_loaded_world :: (world: World) {
     unload_current_world();
     current_world.world = world;
     current_world.valid = true;
-    #if HAS_TACOMA { rdm_load_from_disk(); }
+    // RDM loading is kicked off by the asset manager after calling this.
 }
 
 clear_world :: () {

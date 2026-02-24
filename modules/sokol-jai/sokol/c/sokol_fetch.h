@@ -2217,7 +2217,7 @@ EM_JS(void, sfetch_js_send_get_request, (uint32_t slot_id, const char* path_cstr
             response.arrayBuffer().then((data) => {
                 const u8_data = new Uint8Array(data);
                 if (u8_data.length <= buf_size) {
-                    HEAPU8.set(u8_data, buf_ptr);
+                    HEAPU8.set(u8_data, Number(buf_ptr)); // MEMORY64: buf_ptr is BigInt, typed array offset must be Number
                     __sfetch_emsc_get_response(slot_id, bytes_to_read, u8_data.length);
                 } else {
                     __sfetch_emsc_failed_buffer_too_small(slot_id);

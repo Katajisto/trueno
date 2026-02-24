@@ -68,6 +68,12 @@ layout(binding=3) uniform trile_fs_params {
     int   is_reflection;
     int   screen_h;
     int   screen_w;
+    int   rdm_enabled;
+    float ambient_intensity;
+    float emissive_scale;
+    float rdm_diff_scale;
+    float rdm_spec_scale;
+    vec3  ambient_color;
 };
 
 layout(binding = 0) uniform texture2D triletex;
@@ -504,29 +510,32 @@ void main() {
     vec4 atlas_rect_check = rdm_get_atlas_rect(local, roughnessInt);
     float ssao_sample = texture(sampler2D(ssaotex, trilesmp), vec2(gl_FragCoord.x / float(screen_w), gl_FragCoord.y / float(screen_h)), 0).r;
 
-    if (atlas_rect_check.z > 0.0) {
+    // Emissive — self-lit, not shadowed.
+    vec3 emissive = albedo * emittance * emissive_scale;
+
+    if (rdm_enabled == 1 && atlas_rect_check.z > 0.0) {
         vec3 Frough = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
 
         // Indirect specular
         vec3 indirectSpec = sample_rdm(N, -cv,
             hemispherePos, vpos - hemispherePos, roughnessInt, local);
         vec2 envBRDF = texture(sampler2D(brdf_lut, rdmsmp), vec2(max(dot(N, V), 0.0), roughness)).rg;
-        light += indirectSpec * (Frough * envBRDF.x + envBRDF.y);
+        light += indirectSpec * (Frough * envBRDF.x + envBRDF.y) * rdm_spec_scale;
 
         // Indirect diffuse (interpolated from neighbor probes)
         vec3 indirectDiff = sample_rdm_diff(N, vpos - hemispherePos, local);
         vec3 kDiff = 1.0 - Frough;
         kDiff *= 1.0 - metallic;
-        light += (kDiff * indirectDiff / PI * albedo) * ssao_sample;
+        light += (kDiff * indirectDiff / PI * albedo) * ssao_sample * rdm_diff_scale;
     } else {
-        // Fallback: ambient + sky reflection when no RDM data
-        light += 0.35 * albedo * ssao_sample;
+        // Fallback: ambient + sky reflection when no RDM data (or RDM disabled).
+        light += ambient_color * ambient_intensity * albedo * ssao_sample;
         vec3 R = reflect(-V, N);
         if (R.y < 0.0) R = reflect(R, vec3(0.0, 1.0, 0.0));
         light += F * sky(R, sunPosition) * 0.1;
     }
 
-    frag_color = vec4(mix(deepColor, light, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
+    frag_color = vec4(mix(deepColor, light + emissive, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
 }
 @end
 

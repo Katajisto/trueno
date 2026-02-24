@@ -5,8 +5,12 @@ get_apollo_time :: () -> Apollo_Time {
         // since this could make a delta time negative and that would be bad.
         return current_time_monotonic();
     } else {
-        // Implement a WASM Apollo_Time backend here.
-        #assert false;
+        // stm_now() returns uint64 nanoseconds since sokol time init.
+        // Apollo_Time is S128 nanoseconds; we fill only the low word since
+        // the elapsed time will never overflow 64 bits.
+        result: Apollo_Time;
+        result.low = stm_now();
+        return result;
     }
     
 }

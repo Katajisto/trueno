@@ -535,22 +535,8 @@ gen_rdm :: (quality: s32, include_water: bool, world: World) {
 }
 
 // --- RDM disk persistence ---
-
-#if OS != .WASM {
-    rdm_file :: #import "File";
-}
-
-RDM_File_Header :: struct {
-    magic:  u32;
-    width:  s32;
-    height: s32;
-}
-
-RDM_FILE_MAGIC :: u32.[0x4D445254][0]; // "TRDM" as little-endian u32
-
-rdm_chunk_filename :: (world_name: string, chunk_key: Chunk_Key, suffix: string) -> string {
-    return tprint("./game/resources/worlds/%/%_%_%.%", world_name, chunk_key.x, chunk_key.y, chunk_key.z, suffix);
-}
+// (RDM_File_Header, RDM_FILE_MAGIC, rdm_chunk_filename, rdm_load_from_disk
+//  are defined in rdm_disk.jai which is always loaded on non-WASM builds.)
 
 rdm_save_image_to_file :: (path: string, data: *float, width: s32, height: s32) {
     #if OS != .WASM {
@@ -608,63 +594,4 @@ rdm_save_all_chunks_to_disk :: () {
     }
 }
 
-rdm_load_from_disk :: () {
-    #if OS != .WASM {
-        curworld := get_current_world();
-        if !curworld.valid then return;
-        world_name := curworld.world.name;
-
-        for *chunk: curworld.world.chunks {
-            if chunk.rdm_valid then continue;
-
-            atlas_path := rdm_chunk_filename(world_name, chunk.coord, "rdm_atlas");
-            lookup_path := rdm_chunk_filename(world_name, chunk.coord, "rdm_lookup");
-
-            atlas_data, atlas_ok := rdm_file.read_entire_file(atlas_path);
-            if !atlas_ok then continue;
-            lookup_data, lookup_ok := rdm_file.read_entire_file(lookup_path);
-            if !lookup_ok then continue;
-
-            header_size := cast(s64) size_of(RDM_File_Header);
-
-            if atlas_data.count < header_size || lookup_data.count < header_size then continue;
-
-            atlas_header := cast(*RDM_File_Header) atlas_data.data;
-            lookup_header := cast(*RDM_File_Header) lookup_data.data;
-
-            if atlas_header.magic != RDM_FILE_MAGIC || lookup_header.magic != RDM_FILE_MAGIC then continue;
-
-            // Create atlas GPU image.
-            atlas_imgdata : sg_image_data;
-            atlas_pixel_bytes := cast(u64) atlas_header.width * cast(u64) atlas_header.height * 4 * size_of(float);
-            atlas_imgdata.subimage[0][0] = .{atlas_data.data + header_size, atlas_pixel_bytes};
-            atlas_desc : sg_image_desc = .{
-                render_target = false,
-                width         = atlas_header.width,
-                height        = atlas_header.height,
-                pixel_format  = sg_pixel_format.RGBA32F,
-                sample_count  = 1,
-                data          = atlas_imgdata,
-            };
-            chunk.rdm_atlas = sg_make_image(*atlas_desc);
-
-            // Create lookup GPU image.
-            lookup_imgdata : sg_image_data;
-            lookup_pixel_bytes := cast(u64) lookup_header.width * cast(u64) lookup_header.height * 4 * size_of(float);
-            lookup_imgdata.subimage[0][0] = .{lookup_data.data + header_size, lookup_pixel_bytes};
-            lookup_desc : sg_image_desc = .{
-                render_target = false,
-                width         = lookup_header.width,
-                height        = lookup_header.height,
-                pixel_format  = sg_pixel_format.RGBA32F,
-                sample_count  = 1,
-                data          = lookup_imgdata,
-            };
-            chunk.rdm_lookup = sg_make_image(*lookup_desc);
-
-            chunk.rdm_valid = true;
-            print("Loaded RDM data for chunk % from disk\n", chunk.coord);
-        }
-    }
-}
 

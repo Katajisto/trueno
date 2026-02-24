@@ -1,3 +1,4 @@
+#load "rdm_disk.jai";
 #if OS != .WASM {
     #load "iprof.jai";
     #load "picker.jai";
@@ -67,6 +68,7 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
     draw_console(theme);
     draw_texture_debugger(theme);
     draw_postprocess_popup(theme);
+    draw_lighting_popup(theme);
     GR.draw_popups();
     immediate_flush();
 }
