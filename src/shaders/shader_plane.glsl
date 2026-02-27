@@ -29,12 +29,6 @@ in flat int idx;
 in float depth;
 out vec4 frag_color;
 
-// Uniform bindings from the original shader
-layout(binding=3) uniform plane_fs_params {
-    mat4 mvp_shadow;
-    int  is_reflection;
-};
-
 layout(binding=1) uniform plane_world_config {
     vec3 skyBase;
     vec3 skyTop;
@@ -54,6 +48,7 @@ layout(binding=1) uniform plane_world_config {
 };
 
 layout(binding=2) uniform plane_data {
+    mat4 mvp_shadow;
     int screen_w;
     int screen_h;
     int is_reflection_pass;
@@ -69,7 +64,7 @@ layout(binding = 2) uniform texture2D normal_map;
 
 // Sampler bindings
 layout(binding = 0) uniform sampler refsmp;
-layout(binding = 1) uniform sampler shadowsmp;
+layout(binding = 1) uniform sampler plane_shadowsmp;
 layout(binding = 2) uniform sampler normalsmp;
 
 vec3 fresnelSchlick(float cosTheta) {
@@ -120,35 +115,37 @@ void main() {
         vec3 normal3 = texture(sampler2D(normal_map, normalsmp), uv3).xzy * 2.0 - 1.0;
         vec3 normal4 = texture(sampler2D(normal_map, normalsmp), uv4).xzy * 2.0 - 1.0;
 
-        // vec3 normal = normalize(vec3(0.0, 1.0, 0.0));
         vec3 normal = normalize(normal1 + normal2 + normal3 + normal4);
 
         vec3 view_dir = normalize(cameraPosition - pos.xyz);
         vec3 light_dir = normalize(sunPosition);
         vec3 halfway_dir = normalize(light_dir + view_dir);
-        float shadow_factor = 1.0; // shadowmap to be implemented
 
-        vec3 base_water_color = waterColor;
-        float diffuse = (dot(normal, light_dir)) + 0.000001 * is_reflection * shininess;
+        float diffuse = max(0.0, dot(normal, light_dir));
         float spec = pow(max(0.0, dot(halfway_dir, normal)), 32);
         float fresnel = min(1.0, fresnelSchlick(dot(view_dir, vec3(0.0, 1.0, 0.0))).x + 0.3);
-        vec3 refracted_color = base_water_color * diffuse * sunLightColor * sunIntensity;
-        vec3 specular_highlight = sunLightColor * sunIntensity * spec;
-        
+
+        vec4 shadow_proj_pos = mvp_shadow * vec4(pos.xyz, 1.0);
+        vec3 shadow_pos = shadow_proj_pos.xyz / shadow_proj_pos.w;
+        shadow_pos = shadow_pos * 0.5 + 0.5;
+        shadow_pos.z -= 0.001;
+        float shadowp = texture(sampler2DShadow(shadow, plane_shadowsmp), shadow_pos);
+
+        vec3 refracted_color = waterColor * diffuse * sunLightColor * sunIntensity * shadowp;
+        vec3 specular_highlight = sunLightColor * sunIntensity * spec * shadowp;
+
         vec2 screen_uv = gl_FragCoord.xy / vec2(screen_w, screen_h);
         screen_uv.y = 1.0 - screen_uv.y;
-        vec3 reflected_color = texture(sampler2D(reftex, refsmp), screen_uv).rgb;
-        vec3 surface_color = mix(refracted_color, reflected_color, min(1.0, fresnel * 1.0));
-        vec3 final_color = reflected_color +  specular_highlight * 0.2 + diffuse * 0.2 + 0.00001 * surface_color;
-        // vec3 final_color = (surface_color + specular_highlight) * shadow_factor;
-        float refraction_alpha = 0.4;
-        float reflection_alpha = 1.0;
-        float alpha = mix(refraction_alpha, reflection_alpha, fresnel);
-        // float alpha = 1.0;
-        
+        vec2 distortion = normal.xz * 0.005;
+        vec3 reflected_color = texture(sampler2D(reftex, refsmp), screen_uv + distortion).rgb;
+
+        vec3 surface_color = mix(refracted_color, reflected_color, fresnel);
+        vec3 final_color = surface_color + specular_highlight;
+        float alpha = mix(0.3, 0.5, fresnel);
+
         vec3 fog = skyIntensity * sky(normalize(pos.xyz), sunPosition);
         float fogFactor = smoothstep(750.0, 1000.0, length(pos.xz));
-        
+
         frag_color = vec4(mix(final_color, fog, fogFactor), mix(alpha, 1.0, fogFactor));
 
     } else { // Deep water plane

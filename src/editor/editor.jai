@@ -77,6 +77,8 @@ draw_editor :: () {
     #if OS != .WASM {
         if !in_editor_view then return;
 
+        bypass_postprocess = (current_editor_view == .Trile_Editor);
+
         if current_editor_view == {
             case .Trile_Editor;
                 draw_trile_editor();

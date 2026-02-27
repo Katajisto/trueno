@@ -1,6 +1,8 @@
 camera: Camera;
 
-trixel_count : s32 = 0;
+trixel_count        : s32     = 0;
+trixel_view_mode    : s32     = 0;
+bypass_postprocess  : bool    = false;
 
 trile_offsets : [..]s32;
 current_trile_offset_index : s32 = 0;
@@ -64,8 +66,11 @@ backend_update_trixels :: (cmd: Render_Command_Update_Trixels) {
                 trixels[trixel_count].pos.x = x * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
                 trixels[trixel_count].pos.y = y * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
                 trixels[trixel_count].pos.z = z * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                trixels[trixel_count].pos.w = 1.0;
-                trixel_color := cmd.trile.trixels[x][y][z].material.color * (cmd.colMultipliers.*)[x][y][z];
+                cm := (cmd.colMultipliers.*)[x][y][z];
+                // Encode highlight state in inst.w: non-identity colorMul means highlighted.
+                // 0=normal, 1=hovered, (future: 2=selected, 3=in-brush).
+                trixels[trixel_count].pos.w = ifx (cm.x == 1.0 && cm.y == 1.0 && cm.z == 1.0) then 0.0 else 1.0;
+                trixel_color := cmd.trile.trixels[x][y][z].material.color * cm;
                 
                 trixels[trixel_count].col = .{trixel_color.x, trixel_color.y, trixel_color.z, material_encode_to_float(cmd.trile.trixels[x][y][z].material)};
                 trixel_count += 1;
@@ -91,10 +96,14 @@ backend_draw_trixels :: () {
     wc : *World_Config = *(World_Config.{});
     world_config_to_shader_type(wc, *world_conf);
     
+    fs_params : Trixel_Fs_Params;
+    fs_params.view_mode = trixel_view_mode;
+
     sg_apply_pipeline(gPipelines.trixel.pipeline);
     sg_apply_bindings(*gPipelines.trixel.bind);
     sg_apply_uniforms(UB_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
     sg_apply_uniforms(UB_trixel_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
+    sg_apply_uniforms(UB_trixel_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_draw(0, 36, trixel_count);
 }
 
@@ -210,6 +219,7 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params.rdm_diff_scale    = lc.rdm_diff_scale;
     fs_params.rdm_spec_scale    = lc.rdm_spec_scale;
     fs_params.ambient_color     = lc.ambient_color.component;
+    fs_params.rdm_tint          = lc.rdm_tint.component;
     
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
@@ -241,6 +251,7 @@ backend_draw_ground :: (wc: *World_Config) {
     world_conf : Plane_World_Config;
     plane_data : Plane_Data;
     w, h := get_render_size();
+    plane_data.mvp_shadow = shadow_mvp.floats;
     plane_data.screen_w = w;
     plane_data.screen_h = h;
     plane_data.cameraPosition = camera.position.component;
@@ -249,9 +260,6 @@ backend_draw_ground :: (wc: *World_Config) {
 
     world_config_to_shader_type(wc, *world_conf);
 
-    fs_params : Plane_Fs_Params;
-    fs_params.mvp_shadow = shadow_mvp.floats;
-    fs_params.is_reflection = ifx in_reflection_pass then cast(s32)1 else cast(s32)0;
     vs_params.mvp = mvp.floats;
     vs_params.planeHeight = wc.planeHeight;
     sg_apply_pipeline(gPipelines.plane.pipeline);
@@ -259,7 +267,6 @@ backend_draw_ground :: (wc: *World_Config) {
     gPipelines.plane.bind.images[1] = g_shadowmap;
     sg_apply_bindings(*gPipelines.plane.bind);
     sg_apply_uniforms(UB_plane_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
-    sg_apply_uniforms(UB_plane_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_apply_uniforms(UB_plane_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
     sg_apply_uniforms(UB_plane_data, *(sg_range.{ptr = *plane_data, size = size_of(type_of(plane_data))}));
     sg_draw(0, 6, 2);    
@@ -436,21 +443,28 @@ backend_process_command_buckets :: () {
     end_frame_profiling_group("Main pass");
 
     start_frame_profiling_group("Postprocess pass");
-    bloom_process();
-    dof_process();
+    if !bypass_postprocess {
+        bloom_process();
+        dof_process();
+    }
     end_frame_profiling_group("Postprocess pass");
-    
+
     start_frame_profiling_group("Final pass");
     // Begin drawing to swapchain
     sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, swapchain = cast,force(sg_swapchain) sglue_swapchain() }));
-    
+
     // Draw the render texture and do post processing:
     sg_apply_pipeline(gPipelines.postprocess.pipeline);
-    gPipelines.postprocess.bind.images[0] = g_postprocess_a;
+    gPipelines.postprocess.bind.images[0] = ifx bypass_postprocess then g_rendertex else g_postprocess_a;
     gPipelines.postprocess.bind.images[1] = LUT_list[g_current_lut_texture_index].image;
     sg_apply_bindings(*gPipelines.postprocess.bind);
     post_process_config_uniform : Post_Process_Config;
-    fill_uniform_with_engine_data(*post_process_config_uniform , *current_post_process);
+    if bypass_postprocess {
+        neutral : Post_Process;
+        fill_uniform_with_engine_data(*post_process_config_uniform, *neutral);
+    } else {
+        fill_uniform_with_engine_data(*post_process_config_uniform, *current_post_process);
+    }
     sg_apply_uniforms(UB_post_process_config, *(sg_range.{ ptr = *post_process_config_uniform, size = size_of(type_of(post_process_config_uniform)) }));
     sg_draw(0, 6, 1);    
 

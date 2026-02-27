@@ -74,6 +74,7 @@ layout(binding=3) uniform trile_fs_params {
     float rdm_diff_scale;
     float rdm_spec_scale;
     vec3  ambient_color;
+    vec3  rdm_tint;
 };
 
 layout(binding = 0) uniform texture2D triletex;
@@ -518,12 +519,18 @@ void main() {
 
         // Indirect specular
         vec3 indirectSpec = sample_rdm(N, -cv,
-            hemispherePos, vpos - hemispherePos, roughnessInt, local);
+            hemispherePos, vpos - hemispherePos, roughnessInt, local) * rdm_tint;
+
+        // For metallic surfaces: desaturate the reflection so Frough (which uses albedo
+        // as F0 for metals) applies the metal tint cleanly without double-tinting.
+        float specLum = dot(indirectSpec, vec3(0.2126, 0.7152, 0.0722));
+        indirectSpec = mix(indirectSpec, vec3(specLum), metallic);
+
         vec2 envBRDF = texture(sampler2D(brdf_lut, rdmsmp), vec2(max(dot(N, V), 0.0), roughness)).rg;
         light += indirectSpec * (Frough * envBRDF.x + envBRDF.y) * rdm_spec_scale;
 
         // Indirect diffuse (interpolated from neighbor probes)
-        vec3 indirectDiff = sample_rdm_diff(N, vpos - hemispherePos, local);
+        vec3 indirectDiff = sample_rdm_diff(N, vpos - hemispherePos, local) * rdm_tint;
         vec3 kDiff = 1.0 - Frough;
         kDiff *= 1.0 - metallic;
         light += (kDiff * indirectDiff / PI * albedo) * ssao_sample * rdm_diff_scale;

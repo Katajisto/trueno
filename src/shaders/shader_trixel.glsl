@@ -14,6 +14,7 @@ out vec4 color;
 out vec4 fnormal;
 out vec4 pos;
 out vec3 cam;
+out float vtrixel_state;
 
 void main() {
     vec3 instancepos = inst.xyz;
@@ -22,10 +23,15 @@ void main() {
     color = inst_col;
     pos = gl_Position;
     cam = camera;
+    vtrixel_state = inst.w;
 }
 @end
 
 @fs fs_trixel
+
+layout(binding=2) uniform trixel_fs_params {
+    int   view_mode;
+};
 
 layout(binding=1) uniform trixel_world_config {
     vec3 skyBase;
@@ -52,6 +58,7 @@ in vec4 color;
 in vec4 fnormal;
 in vec4 pos;
 in vec3 cam;
+in float vtrixel_state;
 out vec4 frag_color;
 
 const float PI = 3.1412854;
@@ -123,7 +130,28 @@ void main() {
 
     light += (kD * albedo / PI + specular) * NdotL * vec3(1.0, 1.0, 1.0);
 
-    frag_color = vec4(light + emissive, 1.0);
+    if (view_mode == 1) {
+        // Normals: map face normals to RGB so each axis gets a distinct color.
+        frag_color = vec4(N * 0.5 + 0.5, 1.0);
+    } else if (view_mode == 2) {
+        // Albedo: simple diffuse shading, no specular/roughness/metallic eval.
+        float diffuse = max(dot(N, L), 0.0) * 0.6 + 0.4;
+        frag_color = vec4(albedo * diffuse + emissive, 1.0);
+    } else if (view_mode == 3) {
+        // Normal+Albedo: normal color used as a per-face tint on the albedo.
+        // Shows paint color and face orientation simultaneously.
+        vec3 normal_tint = N * 0.5 + 0.5;
+        float diffuse = max(dot(N, L), 0.0) * 0.4 + 0.6;
+        frag_color = vec4(albedo * normal_tint * diffuse + emissive, 1.0);
+    } else {
+        frag_color = vec4(light + emissive, 1.0);
+    }
+
+    // Overlay highlight for hovered / selected / brush-radius trixels in all view modes.
+    // State is encoded per-instance in inst.w: 0=normal, 1=hovered, 2=selected, 3=in-brush.
+    if (vtrixel_state > 0.5) {
+        frag_color.rgb = mix(frag_color.rgb, vec3(1.0, 1.0, 0.5), 0.5);
+    }
 }
 @end
 

@@ -277,7 +277,11 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
 }
 
 free_resources_from_pack :: (pack: *Loaded_Pack) {
-
+    for pack.textures  sg_destroy_image(it);
+    for *pack.audio    array_free(it.data);
+    table_reset(*pack.textures);
+    table_reset(*pack.audio);
+    table_reset(*pack.animations);
 }
 
 find_pack_by_name :: (name: string) -> (bool, Loaded_Pack) {

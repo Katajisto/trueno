@@ -376,4 +376,33 @@ draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
     }
 
     draw_picker(theme);
+
+    // View mode buttons — bottom center of the 3D viewport.
+    btn_w  := 11.0 * vw;
+    btn_h  := cast(float) ui_h(4, 0);
+    bar_w  := btn_w * 4.0;
+    bar_x  := 100.0 * vw / 2.0 - bar_w / 2.0;
+    bar_y  := 100.0 * vh - btn_h - 1.5 * vh;
+
+    bar_r : GR.Rect;
+    bar_r.x = bar_x; bar_r.y = bar_y; bar_r.w = bar_w; bar_r.h = btn_h;
+    ui_add_mouse_occluder(bar_r);
+
+    r2 : GR.Rect;
+    r2.x = bar_x; r2.y = bar_y; r2.w = btn_w; r2.h = btn_h;
+    if GR.button(r2, "Lit", *t_button_selectable(theme, trixel_view_mode == 0)) {
+        trixel_view_mode = 0;
+    }
+    r2.x += btn_w;
+    if GR.button(r2, "Normals", *t_button_selectable(theme, trixel_view_mode == 1)) {
+        trixel_view_mode = 1;
+    }
+    r2.x += btn_w;
+    if GR.button(r2, "Albedo", *t_button_selectable(theme, trixel_view_mode == 2)) {
+        trixel_view_mode = 2;
+    }
+    r2.x += btn_w;
+    if GR.button(r2, "Mixed", *t_button_selectable(theme, trixel_view_mode == 3)) {
+        trixel_view_mode = 3;
+    }
 }

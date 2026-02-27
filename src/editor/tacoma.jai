@@ -540,6 +540,7 @@ gen_rdm :: (quality: s32, include_water: bool, world: World) {
 
 rdm_save_image_to_file :: (path: string, data: *float, width: s32, height: s32) {
     #if OS != .WASM {
+        file :: #import "File";
         builder: String_Builder;
         header := RDM_File_Header.{
             magic = RDM_FILE_MAGIC,
@@ -549,7 +550,7 @@ rdm_save_image_to_file :: (path: string, data: *float, width: s32, height: s32) 
         write_bytes(*builder, *header, size_of(RDM_File_Header));
         pixel_bytes := cast(s64) width * cast(s64) height * 4 * size_of(float);
         write_bytes(*builder, data, pixel_bytes);
-        rdm_file.write_entire_file(path, builder_to_string(*builder));
+        file.write_entire_file(path, builder_to_string(*builder));
     }
 }
 
