@@ -268,6 +268,7 @@ draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r.y += r.h * 2;
     if GR.button(r, "Save and gen", *theme.button_theme) {
         set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
+        striles();
     };
 }
 

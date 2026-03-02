@@ -58,7 +58,22 @@ set_trile_gfx :: (name: string, gfx: Trile_GFX, skip_preexist_check: bool = fals
 
 set_trile :: (name: string, trile: Trile) {
     print("Setting trile with name: %\n",name);
+    // Destroy and remove any cached GFX so it gets regenerated from new data.
+    gfx_exists, old_gfx := table_find(*trile_gfx_table, name);
+    if gfx_exists {
+        sg_destroy_buffer(old_gfx.vertex_buffer);
+        sg_destroy_buffer(old_gfx.normal_buffer);
+        sg_destroy_buffer(old_gfx.centre_buffer);
+        sg_destroy_image(old_gfx.trixel_colors);
+        array_reset(*old_gfx.vertices);
+        table_remove(*trile_gfx_table, name);
+    }
+    saved_editor_name: string;
+    if editor_current_trile then saved_editor_name = editor_current_trile.name;
     table_set(*trile_table, name, trile);
+    if saved_editor_name.count > 0 {
+        editor_current_trile = table_find_pointer(*trile_table, saved_editor_name);
+    }
 }
 
 get_trile :: (name: string) -> (*Trile, success: bool) {
