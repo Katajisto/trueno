@@ -53,6 +53,7 @@ Render_Command_Draw_Trile_Positions :: struct {
     chunk_key   : Chunk_Key;
     amount      : s32;
     conf        : *World_Config;
+    is_preview  : bool = false;
 }
 
 Render_Command_Update_Trixels :: struct {

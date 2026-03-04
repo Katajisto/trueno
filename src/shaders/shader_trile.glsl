@@ -16,18 +16,43 @@ out vec3 to_center;
 out vec3 vpos; // The actual position;
 out vec3 ipos; // Trile space position;
 out vec4 fnormal;
+out vec3 orig_normal; // Unrotated object-space normal, used for trixel lookup
 out vec3 trileCenter;
 out vec3 cv;
 
+mat3 rot_x(float a) { float c=cos(a),s=sin(a); return mat3(1,0,0, 0,c,-s, 0,s,c); }
+mat3 rot_z(float a) { float c=cos(a),s=sin(a); return mat3(c,-s,0, s,c,0, 0,0,1); }
+mat3 rot_y(float a) { float c=cos(a),s=sin(a); return mat3(c,0,s, 0,1,0, -s,0,c); }
+
+mat3 get_orientation_matrix(int ori) {
+    int face  = ori / 4;
+    int twist = ori % 4;
+    float PI  = 3.1415927;
+    mat3 base;
+    if      (face == 0) base = mat3(1.0);
+    else if (face == 1) base = rot_x(PI);
+    else if (face == 2) base = rot_z(-PI*0.5);
+    else if (face == 3) base = rot_z( PI*0.5);
+    else if (face == 4) base = rot_x( PI*0.5);
+    else                base = rot_x(-PI*0.5);
+    return base * rot_y(float(twist) * PI * 0.5);
+}
+
 void main() {
-    gl_Position = mvp * vec4(position.xyz + instance.xyz, 1.0);
-    fnormal = normal;
-    to_center = centre.xyz - position.xyz;
-    vpos = position.xyz + instance.xyz;
-    ipos = position.xyz;
-    cam = camera;
-    cv = normalize(camera - vpos);
-    trileCenter = vpos - ipos + vec3(0.5);
+    int ori      = int(round(instance.w));
+    mat3 rot     = get_orientation_matrix(ori);
+    vec3 local   = position.xyz - 0.5;
+    vec3 rotated = rot * local + 0.5;
+
+    gl_Position = mvp * vec4(rotated + instance.xyz, 1.0);
+    fnormal     = vec4(rot * normal.xyz, 0.0);
+    orig_normal = normal.xyz;                    // unrotated, for trixel lookup
+    to_center   = centre.xyz - position.xyz;     // unrotated, for trixel lookup
+    vpos        = rotated + instance.xyz;
+    ipos        = position.xyz;
+    cam         = camera;
+    cv          = normalize(camera - vpos);
+    trileCenter = instance.xyz + vec3(0.5);
 }
 @end
 
@@ -59,6 +84,7 @@ in vec3 to_center;
 in vec3 vpos;
 in vec3 ipos;
 in vec4 fnormal;
+in vec3 orig_normal;
 in vec3 trileCenter;
 in vec3 cv;
 out vec4 frag_color;
@@ -74,6 +100,7 @@ layout(binding=3) uniform trile_fs_params {
     float rdm_diff_scale;
     float rdm_spec_scale;
     vec3  ambient_color;
+    int   is_preview;
     vec3  rdm_tint;
 };
 
@@ -447,7 +474,7 @@ void main() {
     }
 
     // Trixel material sampling
-    vec3 pos_after_adjust = ipos - fnormal.xyz * 0.02;
+    vec3 pos_after_adjust = ipos - orig_normal * 0.02;
     int count = 0;
     vec4 trixel_material;
     while (count < 5) {
@@ -543,6 +570,9 @@ void main() {
     }
 
     frag_color = vec4(mix(deepColor, light + emissive, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
+    if (is_preview == 1) {
+        frag_color.rgb = mix(frag_color.rgb, vec3(0.3, 0.7, 1.0), 0.5);
+    }
 }
 @end
 

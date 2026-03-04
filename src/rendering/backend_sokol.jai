@@ -20,7 +20,7 @@ backend_handle_command :: (cmd: *Render_Command) {
             backend_add_trile_positions(add_command.positions);
         case .DRAW_TRILE_POSITIONS;
             draw_command := cast(*Render_Command_Draw_Trile_Positions)cmd;
-            backend_draw_trile_positions(draw_command.trile, draw_command.amount, draw_command.conf, draw_command.chunk_key);
+            backend_draw_trile_positions(draw_command.trile, draw_command.amount, draw_command.conf, draw_command.chunk_key, draw_command.is_preview);
         case .DRAW_SKY;
             sky_command := cast(*Render_Command_Sky)cmd;
             backend_draw_sky(sky_command.worldConfig);
@@ -115,11 +115,11 @@ backend_add_trile_positions :: (positions : []Vector4) {
     array_add(*trile_offsets, offset);
 }
 
-backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key) {
+backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, is_preview: bool = false) {
     if in_gbuffer_pass {
         backend_draw_trile_positions_gbuffer(trile, amount, worldConf);
     } else {
-        backend_draw_trile_positions_main(trile, amount, worldConf, chunk_key);
+        backend_draw_trile_positions_main(trile, amount, worldConf, chunk_key, is_preview);
     }
 }
 
@@ -151,7 +151,7 @@ backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf
     sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
 }
 
-backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key) {
+backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, is_preview: bool = false) {
     start_frame_profiling_group("Draw trile positions");
     mvp : Matrix4;
     if !in_shadowmap_pass {
@@ -220,6 +220,7 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params.rdm_diff_scale    = lc.rdm_diff_scale;
     fs_params.rdm_spec_scale    = lc.rdm_spec_scale;
     fs_params.ambient_color     = lc.ambient_color.component;
+    fs_params.is_preview        = ifx is_preview then cast(s32)1 else cast(s32)0;
     fs_params.rdm_tint          = lc.rdm_tint.component;
     
     sg_apply_bindings(*bindings);

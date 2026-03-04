@@ -56,6 +56,7 @@ Rendering_Task_Trile :: struct {
     chunk_key   : Chunk_Key;
     positions   : []Vector4;
     worldConf   : *World_Config;
+    is_preview  : bool = false;
 }
 
 Rendering_Task_Trixels :: struct {
@@ -113,10 +114,15 @@ tasks_to_commands :: () {
                 drawPositionsCmd.chunk_key = trileTask.chunk_key;
                 drawPositionsCmd.amount = cast(s32)trileTask.positions.count;
                 drawPositionsCmd.conf = trileTask.worldConf;
-                array_add(*render_command_buckets.reflection, drawPositionsCmd);
-                array_add(*render_command_buckets.main, drawPositionsCmd);
-                array_add(*render_command_buckets.gbuffer, drawPositionsCmd);
-                array_add(*render_command_buckets.shadow, drawPositionsCmd);
+                drawPositionsCmd.is_preview = trileTask.is_preview;
+                if trileTask.is_preview {
+                    array_add(*render_command_buckets.main, drawPositionsCmd);
+                } else {
+                    array_add(*render_command_buckets.reflection, drawPositionsCmd);
+                    array_add(*render_command_buckets.main, drawPositionsCmd);
+                    array_add(*render_command_buckets.gbuffer, drawPositionsCmd);
+                    array_add(*render_command_buckets.shadow, drawPositionsCmd);
+                }
             case .SKY;
                 command := New(Render_Command_Sky,, temp);
                 command.worldConfig = (cast(*Rendering_Task_Sky)it).worldConfig;

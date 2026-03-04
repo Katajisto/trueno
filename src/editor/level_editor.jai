@@ -20,6 +20,34 @@ cameraCenter      : Vector2;
 
 trile_preview_disabled : bool = false;
 
+Level_Editor_Tool_Mode :: enum {
+    POINT;
+    BRUSH;
+    AREA;
+    LINE;
+}
+
+current_tool_mode : Level_Editor_Tool_Mode = .POINT;
+brush_radius      : int = 2;
+brush_height      : int = 0;
+
+area_active  : bool;
+area_start_x : int;
+area_start_y : int;
+area_start_z : int;
+
+line_active  : bool;
+line_start_x : int;
+line_start_y : int;
+line_start_z : int;
+
+current_orientation_face  : u8 = 0;
+current_orientation_twist : u8 = 0;
+
+get_current_orientation :: () -> u8 {
+    return current_orientation_face * 4 + current_orientation_twist;
+}
+
 #scope_export
 
 toggle_preview :: () {
@@ -248,7 +276,74 @@ editMode : Edit_Mode;
 
 draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	r := total_r;
-	r.h = ui_h(3,0);
+	r.h = ui_h(4, 0);
+
+	// Tool mode buttons
+	if GR.button(r, "Point", *t_button_selectable(theme, current_tool_mode == .POINT)) {
+		current_tool_mode = .POINT;
+	}
+	r.y += r.h;
+	if GR.button(r, "Brush", *t_button_selectable(theme, current_tool_mode == .BRUSH)) {
+		current_tool_mode = .BRUSH;
+	}
+	r.y += r.h;
+	if GR.button(r, "Area", *t_button_selectable(theme, current_tool_mode == .AREA)) {
+		current_tool_mode = .AREA;
+		area_active = false;
+	}
+	r.y += r.h;
+	if GR.button(r, "Line", *t_button_selectable(theme, current_tool_mode == .LINE)) {
+		current_tool_mode = .LINE;
+		line_active = false;
+	}
+	r.y += r.h;
+
+	// Brush radius/height (only for brush mode)
+	if current_tool_mode == .BRUSH {
+		r.h = ui_h(3, 2);
+		GR.label(r, "Brush Radius", *t_label_left(theme));
+		r.y += r.h;
+		r.h = ui_h(4, 0);
+		GR.slider(r, *brush_radius, 1, 8, 1, *theme.slider_theme);
+		r.y += r.h;
+		r.h = ui_h(3, 2);
+		GR.label(r, "Brush Height (±Y layers)", *t_label_left(theme));
+		r.y += r.h;
+		r.h = ui_h(4, 0);
+		GR.slider(r, *brush_height, 0, 8, 1, *theme.slider_theme);
+		r.y += r.h * 2;
+	} else {
+		r.y += r.h;
+	}
+
+	// Status hints for multi-click tools
+	r.h = ui_h(3, 2);
+	if current_tool_mode == .AREA {
+		if area_active {
+			GR.label(r, "Click second corner to fill", *t_label_left(theme));
+		} else {
+			GR.label(r, "Click first corner to start", *t_label_left(theme));
+		}
+		r.y += r.h;
+	} else if current_tool_mode == .LINE {
+		if line_active {
+			GR.label(r, "Click endpoint to draw line", *t_label_left(theme));
+		} else {
+			GR.label(r, "Click start of line", *t_label_left(theme));
+		}
+		r.y += r.h;
+	}
+
+	// Orientation controls
+	r.y += r.h;
+	r.h = ui_h(3, 2);
+	GR.label(r, "-- Orientation --", *t_label_left(theme));
+	r.y += r.h;
+	twist_angle := current_orientation_twist * 90;
+	GR.label(r, tprint("Face: %  Twist: %°", current_orientation_face, twist_angle), *t_label_left(theme));
+	r.y += r.h;
+	GR.label(r, "Q/E: twist   R: face", *t_label_left(theme));
+	r.y += r.h;
 }
 
 handle_tool_click :: (x: int, y: int, z: int, delete: bool = false) {
@@ -256,8 +351,51 @@ handle_tool_click :: (x: int, y: int, z: int, delete: bool = false) {
 	if delete {
 		remove_trile(cast(s32)x, cast(s32)y, cast(s32)z);
 	} else {
-		if editor_current_trile != null then add_trile(editor_current_trile.name, cast(s32)x, cast(s32)y, cast(s32)z);
+		if editor_current_trile != null then add_trile(editor_current_trile.name, cast(s32)x, cast(s32)y, cast(s32)z, get_current_orientation());
 	}
+}
+
+apply_brush :: (cx: int, cy: int, cz: int, delete: bool) {
+    for dy: -brush_height..brush_height {
+        for dx: -brush_radius..brush_radius {
+            for dz: -brush_radius..brush_radius {
+                dist := sqrt(cast(float)(dx*dx + dz*dz));
+                if dist <= cast(float)brush_radius {
+                    handle_tool_click(cx + dx, cy + dy, cz + dz, delete);
+                }
+            }
+        }
+    }
+}
+
+apply_area :: (x2: int, y2: int, z2: int, delete: bool) {
+    for x: min(area_start_x, x2)..max(area_start_x, x2) {
+        for y: min(area_start_y, y2)..max(area_start_y, y2) {
+            for z: min(area_start_z, z2)..max(area_start_z, z2) {
+                handle_tool_click(x, y, z, delete);
+            }
+        }
+    }
+}
+
+apply_line :: (x2: int, y2: int, z2: int, delete: bool) {
+    x1 := line_start_x; y1 := line_start_y; z1 := line_start_z;
+    dx := abs(x2 - x1); dy := abs(y2 - y1); dz := abs(z2 - z1);
+    sx := ifx x1 < x2 then 1 else -1;
+    sy := ifx y1 < y2 then 1 else -1;
+    sz := ifx z1 < z2 then 1 else -1;
+    // 3D Bresenham: drive along the longest axis
+    dm := max(dx, max(dy, dz));
+    x := x1; y := y1; z := z1;
+    ex := dm / 2; ey := dm / 2; ez := dm / 2;
+    count := 0;
+    while count <= dm && count < 2000 {
+        handle_tool_click(x, y, z, delete);
+        ex -= dx; if ex < 0 { x += sx; ex += dm; }
+        ey -= dy; if ey < 0 { y += sy; ey += dm; }
+        ez -= dz; if ez < 0 { z += sz; ez += dm; }
+        count += 1;
+    }
 }
 
 add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
@@ -316,9 +454,25 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 tick_level_editor :: () {
 	#if HAS_TACOMA { rdm_bake_tick(); }
 	tick_level_editor_camera();
+
+	if !console_open_ignore_input {
+		if input_button_states[#char "Q"] & .START {
+			lastInputTime = get_time();
+			current_orientation_twist = (current_orientation_twist + 1) % 4;
+		}
+		if input_button_states[#char "E"] & .START {
+			lastInputTime = get_time();
+			current_orientation_twist = (current_orientation_twist + 3) % 4;
+		}
+		if input_button_states[#char "R"] & .START {
+			lastInputTime = get_time();
+			current_orientation_face = (current_orientation_face + 1) % 6;
+		}
+	}
+
 	ray := get_mouse_ray(*get_level_editor_camera());
 	hit, point := ray_plane_collision_point(ray, xx editY, 20);
-	
+
 	show_trile_preview = false;
 	if hit {
 		show_trile_preview = true;
@@ -326,13 +480,128 @@ tick_level_editor :: () {
 		trile_preview_y = editY;
 		trile_preview_z = xx floor(point.y);
 
-		if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
-			handle_tool_click(xx floor(point.x), xx editY, xx floor(point.y));
-		}
-		if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .START {
-			handle_tool_click(xx floor(point.x), xx editY, xx floor(point.y), true);
+		px := trile_preview_x;
+		py := trile_preview_y;
+		pz := trile_preview_z;
+
+		if current_tool_mode == .POINT {
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
+				handle_tool_click(px, py, pz);
+			}
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .START {
+				handle_tool_click(px, py, pz, true);
+			}
+		} else if current_tool_mode == .BRUSH {
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .DOWN {
+				apply_brush(px, py, pz, false);
+			}
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .DOWN {
+				apply_brush(px, py, pz, true);
+			}
+		} else if current_tool_mode == .AREA {
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
+				if !area_active {
+					area_active  = true;
+					area_start_x = px;
+					area_start_y = py;
+					area_start_z = pz;
+				} else {
+					apply_area(px, py, pz, false);
+					area_active = false;
+				}
+			}
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .START {
+				if area_active then area_active = false;
+				else handle_tool_click(px, py, pz, true);
+			}
+		} else if current_tool_mode == .LINE {
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
+				if !line_active {
+					line_active  = true;
+					line_start_x = px;
+					line_start_y = py;
+					line_start_z = pz;
+				} else {
+					apply_line(px, py, pz, false);
+					line_active = false;
+				}
+			}
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .START {
+				if line_active then line_active = false;
+				else handle_tool_click(px, py, pz, true);
+			}
 		}
 	}
+}
+
+create_level_editor_preview_tasks :: () {
+	curworld := get_current_world();
+	if !curworld.valid then return;
+	if !editor_current_trile then return;
+
+	positions: [..]Vector4;
+	positions.allocator = temp;
+	ori := cast(float) get_current_orientation();
+
+	px := trile_preview_x; py := trile_preview_y; pz := trile_preview_z;
+
+	if current_tool_mode == .POINT {
+		array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, ori});
+	} else if current_tool_mode == .BRUSH {
+		for dy: -brush_height..brush_height {
+			for dx: -brush_radius..brush_radius {
+				for dz: -brush_radius..brush_radius {
+					dist := sqrt(cast(float)(dx*dx + dz*dz));
+					if dist <= cast(float)brush_radius {
+						array_add(*positions, .{cast(float)(px+dx), cast(float)(py+dy), cast(float)(pz+dz), ori});
+					}
+				}
+			}
+		}
+	} else if current_tool_mode == .AREA {
+		if area_active {
+			for x: min(area_start_x, px)..max(area_start_x, px) {
+				for y: min(area_start_y, py)..max(area_start_y, py) {
+					for z: min(area_start_z, pz)..max(area_start_z, pz) {
+						array_add(*positions, .{cast(float)x, cast(float)y, cast(float)z, ori});
+					}
+				}
+			}
+		} else {
+			array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, ori});
+		}
+	} else if current_tool_mode == .LINE {
+		if line_active {
+			x1 := line_start_x; y1 := line_start_y; z1 := line_start_z;
+			x2 := px; y2 := py; z2 := pz;
+			dx := abs(x2-x1); dy := abs(y2-y1); dz := abs(z2-z1);
+			sx := ifx x1 < x2 then 1 else -1;
+			sy := ifx y1 < y2 then 1 else -1;
+			sz := ifx z1 < z2 then 1 else -1;
+			dm := max(dx, max(dy, dz));
+			x := x1; y := y1; z := z1;
+			ex := dm/2; ey := dm/2; ez := dm/2;
+			count := 0;
+			while count <= dm && count < 2000 {
+				array_add(*positions, .{cast(float)x, cast(float)y, cast(float)z, ori});
+				ex -= dx; if ex < 0 { x += sx; ex += dm; }
+				ey -= dy; if ey < 0 { y += sy; ey += dm; }
+				ez -= dz; if ez < 0 { z += sz; ez += dm; }
+				count += 1;
+			}
+		} else {
+			array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, ori});
+		}
+	}
+
+	if positions.count == 0 then return;
+
+	task: Rendering_Task_Trile;
+	task.trile      = editor_current_trile.name;
+	task.positions  = positions;
+	task.worldConf  = *curworld.world.conf;
+	task.is_preview = true;
+	add_rendering_task(task);
 }
 
 draw_level_editor :: () {
@@ -340,6 +609,9 @@ draw_level_editor :: () {
 	if !curworld.valid then return;
 	create_set_cam_rendering_task(get_level_editor_camera(), effective_plane_height(*curworld.world.conf));
 	create_world_rendering_tasks(*curworld.world);
+	if show_trile_preview && !trile_preview_disabled {
+		create_level_editor_preview_tasks();
+	}
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {

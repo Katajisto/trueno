@@ -74,6 +74,59 @@ get_trile_roughness_set :: (trile_name: string) -> u8 {
     return mask;
 }
 
+// Predicted pixel dimensions of a single RDM entry at a given roughness level.
+// roughness 0 → 512×768, roughness 1 → 256×384, ..., roughness 7 → 4×6.
+rdm_entry_predicted_size :: (roughness: s32) -> (w: s32, h: s32) {
+    size : s32 = cast(s32)(1 << (8 - roughness));
+    return 2 * size, 3 * size;
+}
+
+// Simulate shelf-pack of jobs into a canvas of given width; return total height used.
+rdm_simulate_pack_height :: (jobs: []RDM_Bake_Job, canvas_w: s32) -> s32 {
+    cx : s32 = 0;
+    cy : s32 = 0;
+    rh : s32 = 0;
+    for job: jobs {
+        w, h := rdm_entry_predicted_size(job.roughness);
+        if cx + w > canvas_w { cy += rh; cx = 0; rh = 0; }
+        cx += w;
+        if h > rh  rh = h;
+    }
+    cy += rh;
+    return cy;
+}
+
+// Simulate shelf-packing for a chunk's sorted job list and return minimum
+// power-of-2 atlas dimensions, capped at RDM_ATLAS_SIZE.
+rdm_calc_chunk_atlas_size :: (jobs: []RDM_Bake_Job) -> (s32, s32) {
+    if jobs.count == 0  return 16, 16;
+
+    // Estimate canvas width from sqrt(total pixel area).
+    total_area : s64 = 0;
+    for job: jobs {
+        w, h := rdm_entry_predicted_size(job.roughness);
+        total_area += cast(s64) w * cast(s64) h;
+    }
+    target_w : s32 = 16;
+    sqrt_area := cast(s32) sqrt(cast(float) total_area) + 1;
+    while target_w < sqrt_area  target_w *= 2;
+
+    // Widen until the packed height fits within the width (roughly square).
+    while target_w < RDM_ATLAS_SIZE {
+        if rdm_simulate_pack_height(jobs, target_w) <= target_w  break;
+        target_w *= 2;
+    }
+
+    // Round height up to next power of 2.
+    final_height := rdm_simulate_pack_height(jobs, target_w);
+    target_h : s32 = 16;
+    while target_h < final_height  target_h *= 2;
+
+    if target_w > RDM_ATLAS_SIZE  target_w = RDM_ATLAS_SIZE;
+    if target_h > RDM_ATLAS_SIZE  target_h = RDM_ATLAS_SIZE;
+    return target_w, target_h;
+}
+
 // Build the Tacoma scene from the world, and emit bake jobs for selected chunks.
 // If chunk_keys is null, all chunks are queued.
 rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: []Chunk_Key = .[]) {
@@ -205,15 +258,38 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
         }
     }
 
-    // Pre-allocate per-chunk atlas CPU buffers.
-    atlas_bytes := cast(s64) RDM_ATLAS_SIZE * cast(s64) RDM_ATLAS_SIZE * 4 * size_of(float);
-    for job: rdm_bake.jobs {
-        chunk_key := world_to_chunk_coord(cast(s32) job.world_pos.x, cast(s32) job.world_pos.y, cast(s32) job.world_pos.z);
-        if !table_contains(*rdm_chunk_bakes, chunk_key) {
+    // Pre-allocate per-chunk atlas CPU buffers with optimal (minimum) sizes.
+    {
+        // Collect unique chunk keys.
+        unique_chunk_keys : [..]Chunk_Key;
+        unique_chunk_keys.allocator = temp;
+        for job: rdm_bake.jobs {
+            ck := world_to_chunk_coord(cast(s32) job.world_pos.x, cast(s32) job.world_pos.y, cast(s32) job.world_pos.z);
+            already := false;
+            for unique_chunk_keys { if it == ck { already = true; break; } }
+            if !already  array_add(*unique_chunk_keys, ck);
+        }
+
+        for chunk_key: unique_chunk_keys {
+            // Collect this chunk's jobs (already sorted by roughness ascending).
+            this_jobs : [..]RDM_Bake_Job;
+            this_jobs.allocator = temp;
+            for job: rdm_bake.jobs {
+                ck := world_to_chunk_coord(cast(s32) job.world_pos.x, cast(s32) job.world_pos.y, cast(s32) job.world_pos.z);
+                if ck == chunk_key  array_add(*this_jobs, job);
+            }
+
+            atlas_w, atlas_h := rdm_calc_chunk_atlas_size(this_jobs);
+            print("RDM atlas for chunk %: %x% (%.1f MB, was % MB)\n",
+                chunk_key, atlas_w, atlas_h,
+                cast(float)(cast(s64) atlas_w * atlas_h * 4 * size_of(float)) / (1024.0 * 1024.0),
+                RDM_ATLAS_SIZE * RDM_ATLAS_SIZE * 4 * size_of(float) / (1024 * 1024));
+
+            atlas_bytes := cast(s64) atlas_w * cast(s64) atlas_h * 4 * size_of(float);
             bake : RDM_Chunk_Bake;
-            bake.width = RDM_ATLAS_SIZE;
-            bake.height = RDM_ATLAS_SIZE;
-            bake.data = cast(*float) alloc(atlas_bytes);
+            bake.width  = atlas_w;
+            bake.height = atlas_h;
+            bake.data   = cast(*float) alloc(atlas_bytes);
             memset(bake.data, 0, atlas_bytes);
             table_set(*rdm_chunk_bakes, chunk_key, bake);
         }
