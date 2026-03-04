@@ -180,7 +180,7 @@ World_Config_Binary :: struct {
     sky_intensity:   float;
     has_clouds:      s32;
     plane_height:    float;
-    plane_type:      s32;
+    animate_plane_height: s32;
     water_color:     [3]float;
     deep_color:      [3]float;
 }
@@ -198,7 +198,7 @@ world_config_to_binary :: (conf: *World_Config) -> World_Config_Binary {
     b.sky_intensity   = conf.skyIntensity;
     b.has_clouds      = conf.hasClouds;
     b.plane_height    = conf.planeHeight;
-    b.plane_type      = conf.planeType;
+    b.animate_plane_height = conf.animatePlaneHeight;
     b.water_color     = conf.waterColor.component;
     b.deep_color      = conf.deepColor.component;
     return b;
@@ -217,7 +217,7 @@ world_config_from_binary :: (b: *World_Config_Binary) -> World_Config {
     conf.skyIntensity            = b.sky_intensity;
     conf.hasClouds               = b.has_clouds;
     conf.planeHeight             = b.plane_height;
-    conf.planeType               = b.plane_type;
+    conf.animatePlaneHeight      = b.animate_plane_height;
     conf.waterColor.component    = b.water_color;
     conf.deepColor.component     = b.deep_color;
     return conf;
@@ -435,7 +435,7 @@ World_Config :: struct {
     hasClouds     : s32 = 1; @Slider,0,1,1
 
     planeHeight   : float = 0.0; @Slider,0,3,0.1
-    planeType     : s32   = 1; @Slider,0,1,1
+    animatePlaneHeight : s32 = 1; @Slider,0,1,1
     waterColor    : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
     deepColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
 
@@ -458,6 +458,13 @@ world_config_to_shader_type :: (wc: *World_Config, data: *$T) {
     }
     data.time = xx get_time();
     #insert #run,stallable generate_copy_code();
+}
+
+effective_plane_height :: (wc: *World_Config) -> float {
+    if wc.animatePlaneHeight {
+        return wc.planeHeight * (1.0 + sin(cast(float)get_time() * 0.5) * 0.1);
+    }
+    return wc.planeHeight;
 }
 
 draw_world_picker :: (r_in: GR.Rect, theme: *GR.Overall_Theme) {

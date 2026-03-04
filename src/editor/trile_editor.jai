@@ -138,9 +138,24 @@ handle_tool_click :: () {
 current_color : Vector3 = .{1.0, 0.0, 0.0};
 
 reset_trile :: () {
-    newt : Trile;
-    set_trile("test", newt);
-    editor_current_trile = get_trile("test");
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                editor_current_trile.trixels[x][y][z].empty = false;
+            }
+        }
+    }
+} @Command
+
+trile_copy :: (from: string) {
+    src := get_trile(from);
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                editor_current_trile.trixels[x][y][z] = src.trixels[x][y][z];
+            }
+        }
+    }
 } @Command
 
 tick_trile_editor :: () {

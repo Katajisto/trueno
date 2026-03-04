@@ -30,7 +30,8 @@ stbi   :: #import "stb_image";
 #load "utils.jai";
 #load "audio/audio.jai";
 #load "assets/asset_manager.jai";
-    
+#load "pack_hotreload.jai";
+
 #if USE_SAMPLE_GAME {
     #load "../sample_game/game.jai";
 } else {

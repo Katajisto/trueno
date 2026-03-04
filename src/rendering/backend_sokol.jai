@@ -166,6 +166,7 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     sg_apply_pipeline(gPipelines.trile.pipeline);
     world_conf : Trile_World_Config;
     world_config_to_shader_type(worldConf, *world_conf);
+    world_conf.planeHeight = effective_plane_height(worldConf);
 
     offset := trile_offsets[current_trile_offset_index];
     current_trile_offset_index += 1;
@@ -261,7 +262,7 @@ backend_draw_ground :: (wc: *World_Config) {
     world_config_to_shader_type(wc, *world_conf);
 
     vs_params.mvp = mvp.floats;
-    vs_params.planeHeight = wc.planeHeight;
+    vs_params.planeHeight = effective_plane_height(wc);
     sg_apply_pipeline(gPipelines.plane.pipeline);
     gPipelines.plane.bind.samplers[1] = g_shadowmap_sampler;
     gPipelines.plane.bind.images[1] = g_shadowmap;
@@ -341,7 +342,7 @@ backend_draw_ground_gbuf :: (wc: *World_Config) {
     vs_params.mvp = mvp.floats;
     vs_params.view_matrix = view.floats;
     vs_params.isGround = 1;
-    vs_params.planeHeight = wc.planeHeight;
+    vs_params.planeHeight = effective_plane_height(wc);
     sg_apply_pipeline(gPipelines.gbuffer.pipeline);
 
     bindings : sg_bindings;

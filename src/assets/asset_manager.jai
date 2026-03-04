@@ -31,10 +31,12 @@ Fetch_Request :: struct {
 }
 
 Asset_Manager :: struct {
-    fetch_queue   : [..]Fetch_Request;
-    is_fetching   : bool;
-    current_fetch : Fetch_Request;
-    loadedPacks   : [..]Loaded_Pack;
+    fetch_queue                 : [..]Fetch_Request;
+    is_fetching                 : bool;
+    current_fetch               : Fetch_Request;
+    loadedPacks                 : [..]Loaded_Pack;
+    pending_hot_reload          : bool;
+    hot_reload_unpause_pending  : bool;
 }
 
 g_asset_manager : Asset_Manager;
@@ -276,14 +278,6 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
     // load_color_lut_images(*pack.content, pack.name);
 }
 
-free_resources_from_pack :: (pack: *Loaded_Pack) {
-    for pack.textures  sg_destroy_image(it);
-    for *pack.audio    array_free(it.data);
-    table_reset(*pack.textures);
-    table_reset(*pack.audio);
-    table_reset(*pack.animations);
-}
-
 find_pack_by_name :: (name: string) -> (bool, Loaded_Pack) {
     nameHash := get_hash(name);
     for g_asset_manager.loadedPacks {
@@ -296,6 +290,14 @@ find_pack_by_name :: (name: string) -> (bool, Loaded_Pack) {
 }
 
 #scope_export
+
+free_resources_from_pack :: (pack: *Loaded_Pack) {
+    for pack.textures  sg_destroy_image(it);
+    for *pack.audio    array_free(it.data);
+    table_reset(*pack.textures);
+    table_reset(*pack.audio);
+    table_reset(*pack.animations);
+}
 
 mandatory_loads_done :: () -> bool {
     if g_asset_manager.is_fetching && g_asset_manager.current_fetch.should_block_engine then return false;
@@ -314,6 +316,17 @@ show_loading_screen :: () -> bool {
 }
 
 asset_manager_tick :: () {
+    #if !RELEASE_BUILD && OS != .WASM {
+        if g_asset_manager.pending_hot_reload && !g_asset_manager.is_fetching && g_asset_manager.fetch_queue.count == 0 {
+            g_asset_manager.pending_hot_reload = false;
+            hot_reload_all_packs();
+        }
+        if g_asset_manager.hot_reload_unpause_pending && !show_loading_screen() {
+            g_mixer.paused = false;
+            g_asset_manager.hot_reload_unpause_pending = false;
+        }
+    }
+
     if !g_asset_manager.is_fetching && g_asset_manager.fetch_queue.count > 0 {
         req := g_asset_manager.fetch_queue[0];
         // Ordered remove from front to preserve queue priority.

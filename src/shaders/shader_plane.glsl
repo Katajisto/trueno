@@ -41,7 +41,7 @@ layout(binding=1) uniform plane_world_config {
     float skyIntensity;
     int hasClouds;
     float planeHeight;
-    int planeType;
+    int animatePlaneHeight;
     vec3 waterColor;
     vec3 deepColor;
     float time;

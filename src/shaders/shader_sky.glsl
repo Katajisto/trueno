@@ -32,7 +32,7 @@ layout(binding=1) uniform sky_world_config {
     int hasClouds;
 
     float planeHeight;
-    int planeType;
+    int animatePlaneHeight;
     vec3 waterColor;
     vec3 deepColor;
 

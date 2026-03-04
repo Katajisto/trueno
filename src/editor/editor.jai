@@ -94,6 +94,13 @@ tick_editor_ui :: () {
         g_mixer.paused = in_editor_view;
     }
 
+    #if !RELEASE_BUILD && OS != .WASM {
+        if input_button_states[Key_Code.F5] & .START {
+            g_asset_manager.pending_hot_reload = true;
+            print("Hot-reload: queued, waiting for in-flight loads to finish...\n");
+        }
+    }
+
     #if OS != .WASM {
         if in_editor_view {
             if current_editor_view == {
