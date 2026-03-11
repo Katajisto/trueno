@@ -203,7 +203,7 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	curworld := get_current_world();
 	r := total_r;
 	r.h = ui_h(3,0);
-	#if HAS_TACOMA {
+	#if FLAG_TACOMA_ENABLED {
 		if GR.button(r, "Render with Tacoma", *theme.button_theme) {
 			cam := get_level_editor_camera();
 			gen_reference(tacomaResolution, tacomaResolution, cam.position, cam.target, tacomaSamples, true, curworld.world);
@@ -452,7 +452,7 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 
 
 tick_level_editor :: () {
-	#if HAS_TACOMA { rdm_bake_tick(); }
+	#if FLAG_TACOMA_ENABLED { rdm_bake_tick(); }
 	tick_level_editor_camera();
 
 	if !console_open_ignore_input {
