@@ -31,11 +31,7 @@ stbi   :: #import "stb_image";
 #load "audio/audio.jai";
 #load "assets/asset_manager.jai";
     
-#if USE_SAMPLE_GAME {
-    #load "../sample_game/game.jai";
-} else {
-    #load "../game/game.jai";
-}
+#load "../game/game.jai";
 
 last_frame_time : float64; // timestamp of the last frame
 delta\    _time : float64;

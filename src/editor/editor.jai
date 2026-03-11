@@ -5,7 +5,7 @@
     #load "trile_editor.jai";
     #load "level_editor.jai";
 }
-#if HAS_TACOMA { #load "tacoma.jai"; }
+#if FLAG_TACOMA_ENABLED { #load "tacoma.jai"; }
 #load "console.jai";
 #load "textureDebugger.jai";
 
