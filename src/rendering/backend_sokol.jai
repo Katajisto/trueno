@@ -153,12 +153,29 @@ backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf
 
 backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, is_preview: bool = false) {
     start_frame_profiling_group("Draw trile positions");
-    mvp : Matrix4;
-    if !in_shadowmap_pass {
-        mvp = create_viewproj(*camera);
-    } else {
-        mvp = shadow_mvp;
+
+    trilegfx := get_trile_gfx(trile);
+    offset := trile_offsets[current_trile_offset_index];
+    current_trile_offset_index += 1;
+
+    if in_shadowmap_pass {
+        vs_params : Trile_Shadow_Vs_Params;
+        vs_params.mvp = shadow_mvp.floats;
+        bindings : sg_bindings;
+        bindings.vertex_buffers[0]        = trilegfx.vertex_buffer;
+        bindings.vertex_buffers[1]        = trilegfx.normal_buffer;
+        bindings.vertex_buffers[2]        = trilegfx.centre_buffer;
+        bindings.vertex_buffers[3]        = gPipelines.trile.bind.vertex_buffers[3];
+        bindings.vertex_buffer_offsets[3] = offset;
+        sg_apply_pipeline(gPipelines.trile_shadow.pipeline);
+        sg_apply_bindings(*bindings);
+        sg_apply_uniforms(UB_trile_shadow_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
+        sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
+        end_frame_profiling_group("Draw trile positions");
+        return;
     }
+
+    mvp := create_viewproj(*camera);
 	vs_params : Trile_Vs_Params;
 	vs_params.mvp = mvp.floats;
 	vs_params.mvp_shadow = shadow_mvp.floats;
@@ -168,10 +185,6 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     world_config_to_shader_type(worldConf, *world_conf);
     world_conf.planeHeight = effective_plane_height(worldConf);
 
-    offset := trile_offsets[current_trile_offset_index];
-    current_trile_offset_index += 1;
-
-    trilegfx := get_trile_gfx(trile);
     bindings : sg_bindings;
     bindings.vertex_buffers[0]         = trilegfx.vertex_buffer;
     bindings.vertex_buffers[1]         = trilegfx.normal_buffer;
@@ -182,14 +195,7 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     bindings.images[0]                 = trilegfx.trixel_colors;
     bindings.images[1]                 = g_ssaobuf;
     bindings.samplers[2]               = g_shadowmap_sampler;
-    if !in_shadowmap_pass {
-        bindings.images[2]                 = g_shadowmap;
-    } else {
-        // Just put something in this slot instead of the shadowmap
-        // so we don't have a circular shadowmap drawing situation.
-        // The texture is not used in shadowmap pass.
-        bindings.images[2]                 = g_rendertex_depth;
-    }
+    bindings.images[2]                 = g_shadowmap;
 
     // Bind RDM textures for this chunk. Fall back to a 1x1 black image when
     // no baked data is available so sokol doesn't drop the draw call.
@@ -222,7 +228,7 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params.ambient_color     = lc.ambient_color.component;
     fs_params.is_preview        = ifx is_preview then cast(s32)1 else cast(s32)0;
     fs_params.rdm_tint          = lc.rdm_tint.component;
-    
+
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));

@@ -56,6 +56,9 @@ gPipelines : struct {
     // Renders sets of triles
     trile  : Pipeline_Binding;
 
+    // Depth-only shadow pass for triles (no lighting/RDM)
+    trile_shadow : Pipeline_Binding;
+
     // Renders the ground plane. (just water)
     plane  : Pipeline_Binding;
 
@@ -140,6 +143,7 @@ create_pipelines :: () {
     create_arbtri_pipeline();
     create_trixel_pipeline();
     create_trile_pipeline();
+    create_trile_shadow_pipeline();
     create_sky_pipeline();
     create_plane_pipeline();
     create_postprocess_pipeline();
@@ -406,6 +410,28 @@ create_trile_pipeline :: () {
         min_filter = .LINEAR,
         mag_filter = .LINEAR,
     }));
+}
+
+create_trile_shadow_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := trile_shadow_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.buffers[0].stride = 4*3;
+    pipeline.layout.buffers[1].stride = 4*3;
+    pipeline.layout.buffers[3].step_func = .PER_INSTANCE;
+    // Explicit locations matching layout(location=N) in the shader.
+    pipeline.layout.attrs[0] = .{ format = .FLOAT3, buffer_index = 0 }; // position
+    pipeline.layout.attrs[1] = .{ format = .FLOAT3, buffer_index = 1 }; // normal (slot match)
+    pipeline.layout.attrs[2] = .{ format = .FLOAT3, buffer_index = 2 }; // centre (slot match)
+    pipeline.layout.attrs[3] = .{ format = .FLOAT4, buffer_index = 3 }; // instance
+    pipeline.depth = .{
+        write_enabled = true,
+        compare       = .LESS_EQUAL,
+        pixel_format  = .DEPTH,
+    };
+    pipeline.color_count = 1;
+    pipeline.colors[0].pixel_format = .RGBA32F;
+    gPipelines.trile_shadow.pipeline = sg_make_pipeline(*pipeline);
 }
 
 create_sky_pipeline :: () {

@@ -196,10 +196,10 @@ frame :: () {
     if !in_editor_view then delta_time_accumulator += delta_time;
 
     if !in_editor_view {
-        while delta_time_accumulator > (1.0/60.0) {
-            game_tick(1.0/60.0);
-            delta_time_accumulator -= (1.0/60.0);
-        }
+        // while delta_time_accumulator > (1.0/60.0) {
+            game_tick(1.0/144.0);
+            // delta_time_accumulator -= (1.0/60.0);
+        // }
     }
     fonsClearState(state.fons);
     for event: Input.events_this_frame {

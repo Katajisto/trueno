@@ -18,43 +18,105 @@ Gathered_Positions :: struct {
     positions: [..]Vector4;
 }
 
-create_world_rendering_tasks :: (world: *World) {
+// Extract 6 frustum planes from an MVP matrix using the Gribb-Hartmann method.
+// Each plane is vec4(A,B,C,D) where dot(plane.xyz, point) + plane.w >= 0 means inside.
+// Accounts for Jai row-major storage being transposed when uploaded to OpenGL.
+extract_frustum_planes :: (mvp: Matrix4) -> [6]Vector4 {
+    planes : [6]Vector4;
+    m := mvp;
+    planes[0] = .{m._14+m._11, m._24+m._21, m._34+m._31, m._44+m._41}; // left
+    planes[1] = .{m._14-m._11, m._24-m._21, m._34-m._31, m._44-m._41}; // right
+    planes[2] = .{m._14+m._12, m._24+m._22, m._34+m._32, m._44+m._42}; // bottom
+    planes[3] = .{m._14-m._12, m._24-m._22, m._34-m._32, m._44-m._42}; // top
+    planes[4] = .{m._14+m._13, m._24+m._23, m._34+m._33, m._44+m._43}; // near
+    planes[5] = .{m._14-m._13, m._24-m._23, m._34-m._33, m._44-m._43}; // far
+    return planes;
+}
+
+// Returns false if the AABB is completely outside any single frustum plane (fast rejection).
+aabb_in_frustum :: (planes: [6]Vector4, bmin: Vector3, bmax: Vector3) -> bool {
+    for plane: planes {
+        px := ifx plane.x >= 0 then bmax.x else bmin.x;
+        py := ifx plane.y >= 0 then bmax.y else bmin.y;
+        pz := ifx plane.z >= 0 then bmax.z else bmin.z;
+        if plane.x*px + plane.y*py + plane.z*pz + plane.w < 0  return false;
+    }
+    return true;
+}
+
+create_world_rendering_tasks :: (world: *World, camera: Camera) {
     create_sky_rendering_task(*world.conf);
     create_set_light_rendering_task(*world.conf);
 
-    // Gather all trile positions from chunks, grouped by trile type.
-    gathered: [..]Gathered_Positions;
+    cam_mvp    := create_viewproj(*camera);
+    shadow_mvp := create_shadow_viewproj(*camera, *world.conf);
+    cam_planes    := extract_frustum_planes(cam_mvp);
+    shadow_planes := extract_frustum_planes(shadow_mvp);
+
+    // Gather positions for camera-visible instances (all passes) and
+    // shadow-only instances (chunks visible from sun but not camera).
+    gathered      : [..]Gathered_Positions;
     gathered.allocator = temp;
+    shad_gathered : [..]Gathered_Positions;
+    shad_gathered.allocator = temp;
+
+    find_or_create :: (list: *[..]Gathered_Positions, name: string, chunk_key: Chunk_Key) -> *Gathered_Positions {
+        for *g: list.* {
+            if g.name == name && g.chunk_key == chunk_key  return g;
+        }
+        array_add(list, .{name = name, chunk_key = chunk_key});
+        g := *list.*[list.count - 1];
+        g.positions.allocator = temp;
+        return g;
+    }
 
     for chunk: world.chunks {
+        bmin := Vector3.{chunk.coord.x * 32.0, chunk.coord.y * 32.0, chunk.coord.z * 32.0};
+        bmax := bmin + .{32, 32, 32};
+
+        in_cam  := aabb_in_frustum(cam_planes,    bmin, bmax);
+        in_shad := aabb_in_frustum(shadow_planes, bmin, bmax);
+        if !in_cam && !in_shad  continue;
+
         for group: chunk.groups {
-            // Find or create the gathered entry for this (chunk, trile_type) pair.
-            target: *Gathered_Positions = null;
-            for *g: gathered {
-                if g.name == group.trile_name && g.chunk_key == chunk.coord {
-                    target = g;
-                    break;
-                }
-            }
-            if !target {
-                array_add(*gathered, .{name = group.trile_name, chunk_key = chunk.coord});
-                target = *gathered[gathered.count - 1];
-                target.positions.allocator = temp;
-            }
             for inst: group.instances {
                 wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
-                array_add(*target.positions, Vector4.{cast(float) wx, cast(float) wy, cast(float) wz, cast(float) inst.orientation});
+                imin := Vector3.{cast(float)wx, cast(float)wy, cast(float)wz};
+                imax := imin + .{1, 1, 1};
+
+                inst_cam  := in_cam  && aabb_in_frustum(cam_planes,    imin, imax);
+                inst_shad := in_shad && aabb_in_frustum(shadow_planes, imin, imax);
+                if !inst_cam && !inst_shad  continue;
+
+                pos := Vector4.{cast(float)wx, cast(float)wy, cast(float)wz, cast(float)inst.orientation};
+                if inst_cam {
+                    target := find_or_create(*gathered, group.trile_name, chunk.coord);
+                    array_add(*target.positions, pos);
+                } else {
+                    target := find_or_create(*shad_gathered, group.trile_name, chunk.coord);
+                    array_add(*target.positions, pos);
+                }
             }
         }
     }
 
     for g: gathered {
-        if g.positions.count < 1 then continue;
-        triletask := Rendering_Task_Trile.{};
-        triletask.trile = g.name;
+        if g.positions.count < 1  continue;
+        triletask : Rendering_Task_Trile;
+        triletask.trile     = g.name;
         triletask.chunk_key = g.chunk_key;
         triletask.positions = g.positions;
         triletask.worldConf = *world.conf;
+        add_rendering_task(triletask);
+    }
+    for g: shad_gathered {
+        if g.positions.count < 1  continue;
+        triletask : Rendering_Task_Trile;
+        triletask.trile       = g.name;
+        triletask.chunk_key   = g.chunk_key;
+        triletask.positions   = g.positions;
+        triletask.worldConf   = *world.conf;
+        triletask.shadow_only = true;
         add_rendering_task(triletask);
     }
 

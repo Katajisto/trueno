@@ -57,6 +57,7 @@ Rendering_Task_Trile :: struct {
     positions   : []Vector4;
     worldConf   : *World_Config;
     is_preview  : bool = false;
+    shadow_only : bool = false; // only submit to shadow bucket (frustum-culled from camera)
 }
 
 Rendering_Task_Trixels :: struct {
@@ -115,7 +116,9 @@ tasks_to_commands :: () {
                 drawPositionsCmd.amount = cast(s32)trileTask.positions.count;
                 drawPositionsCmd.conf = trileTask.worldConf;
                 drawPositionsCmd.is_preview = trileTask.is_preview;
-                if trileTask.is_preview {
+                if trileTask.shadow_only {
+                    array_add(*render_command_buckets.shadow, drawPositionsCmd);
+                } else if trileTask.is_preview {
                     array_add(*render_command_buckets.main, drawPositionsCmd);
                 } else {
                     array_add(*render_command_buckets.reflection, drawPositionsCmd);

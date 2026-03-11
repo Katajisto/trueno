@@ -607,8 +607,9 @@ create_level_editor_preview_tasks :: () {
 draw_level_editor :: () {
 	curworld := get_current_world();
 	if !curworld.valid then return;
-	create_set_cam_rendering_task(get_level_editor_camera(), effective_plane_height(*curworld.world.conf));
-	create_world_rendering_tasks(*curworld.world);
+	cam := get_level_editor_camera();
+	create_set_cam_rendering_task(cam, effective_plane_height(*curworld.world.conf));
+	create_world_rendering_tasks(*curworld.world, cam);
 	if show_trile_preview && !trile_preview_disabled {
 		create_level_editor_preview_tasks();
 	}
