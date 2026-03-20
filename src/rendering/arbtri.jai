@@ -132,7 +132,7 @@ flush_arb_commands :: () {
                 sg_apply_scissor_rect(s.x, s.y, s.w, s.h, true);
             case .REMOVE_SCISSOR;
                 w,h := get_window_size();
-                sg_apply_scissor_rect(0, 0, w, w, true);
+                sg_apply_scissor_rect(0, 0, w, h, true);
             case .DRAW_TEXT;
                 sgl_draw_layer(it.layer);
         }
