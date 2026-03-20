@@ -83,13 +83,16 @@ does_ray_hit_cube :: (og_ray: Ray, cube: Collision_Cube) -> Ray_Collision {
     collision.distance = t[6];
     collision.point    = ray.origin + ray.direction * collision.distance;
 
-    collision.normal = lerp(bmin, bmax, 0.5);
-    collision.normal = collision.point - collision.normal;
-
-    collision.normal.x = cast(float) cast(s64) collision.normal.x;
-    collision.normal.y = cast(float) cast(s64) collision.normal.y;
-    collision.normal.z = cast(float) cast(s64) collision.normal.z;
-    collision.normal   = normalize(collision.normal);
+    tx := min(t[0], t[1]);
+    ty := min(t[2], t[3]);
+    tz := min(t[4], t[5]);
+    if tx >= ty && tx >= tz {
+        collision.normal = .{ifx t[0] < t[1] then -1.0 else 1.0, 0, 0};
+    } else if ty >= tx && ty >= tz {
+        collision.normal = .{0, ifx t[2] < t[3] then -1.0 else 1.0, 0};
+    } else {
+        collision.normal = .{0, 0, ifx t[4] < t[5] then -1.0 else 1.0};
+    }
 
     if insideBox {
         ray.direction      = -1.0 * ray.direction;
@@ -179,4 +182,138 @@ unproject :: (source: Vector3, projection: Matrix4, view: Matrix4) -> Vector3 {
     result.z = qtransformed.z/qtransformed.w;
 
     return result;
+}
+
+#if FLAG_TEST_ENGINE {
+    eps :: 0.001;
+    approx  :: (a: float,   b: float)   -> bool { return abs(a - b) < eps; }
+    approx3 :: (a: Vector3, b: Vector3) -> bool {
+        return abs(a.x - b.x) < eps && abs(a.y - b.y) < eps && abs(a.z - b.z) < eps;
+    }
+
+    test_ray_cube_hit :: () {
+        s := begin_suite("ray cube hit");
+        ray  := Ray.{ origin = .{0, 0, -5}, direction = .{0, 0, 1} };
+        cube := Collision_Cube.{ position = .{-1, -1, -1}, size = .{2, 2, 2} };
+        col  := does_ray_hit_cube(ray, cube);
+        check(*s, "ray along +Z hits cube",          col.hit);
+        check(*s, "distance to front face is 4.0",   approx(col.distance, 4.0));
+        check(*s, "hit point lands on front face",   approx3(col.point, .{0, 0, -1}));
+        end_suite(s);
+    }
+
+    test_ray_cube_miss :: () {
+        s := begin_suite("ray cube miss");
+        {
+            ray  := Ray.{ origin = .{3, 0, -5}, direction = .{0, 0, 1} };
+            cube := Collision_Cube.{ position = .{-1, -1, -1}, size = .{2, 2, 2} };
+            col  := does_ray_hit_cube(ray, cube);
+            check(*s, "ray offset in X misses cube", !col.hit);
+        }
+        {
+            ray  := Ray.{ origin = .{0, 0, 5}, direction = .{0, 0, 1} };
+            cube := Collision_Cube.{ position = .{-1, -1, -1}, size = .{2, 2, 2} };
+            col  := does_ray_hit_cube(ray, cube);
+            check(*s, "ray pointing away misses cube", !col.hit);
+        }
+        end_suite(s);
+    }
+
+    // Face normals using size-2 cubes centered at origin.
+    // NOTE: the current integer-truncation normal computation breaks for cubes
+    // smaller than size 2 (e.g. trixel-sized cubes). Fix does_ray_hit_cube to
+    // use the entry-face t-value comparison instead of truncating to s64.
+    test_ray_cube_normals :: () {
+        s    := begin_suite("ray cube face normals");
+        cube := Collision_Cube.{ position = .{-1, -1, -1}, size = .{2, 2, 2} };
+
+        col_neg_z := does_ray_hit_cube(Ray.{ origin = .{0, 0, -5}, direction = .{0,  0,  1} }, cube);
+        col_pos_z := does_ray_hit_cube(Ray.{ origin = .{0, 0,  5}, direction = .{0,  0, -1} }, cube);
+        col_pos_y := does_ray_hit_cube(Ray.{ origin = .{0, 5,  0}, direction = .{0, -1,  0} }, cube);
+        col_neg_y := does_ray_hit_cube(Ray.{ origin = .{0,-5,  0}, direction = .{0,  1,  0} }, cube);
+        col_pos_x := does_ray_hit_cube(Ray.{ origin = .{ 5, 0, 0}, direction = .{-1, 0,  0} }, cube);
+        col_neg_x := does_ray_hit_cube(Ray.{ origin = .{-5, 0, 0}, direction = .{ 1, 0,  0} }, cube);
+
+        check(*s, "-Z face normal is ( 0, 0,-1)", col_neg_z.hit && approx3(col_neg_z.normal, .{ 0,  0, -1}));
+        check(*s, "+Z face normal is ( 0, 0, 1)", col_pos_z.hit && approx3(col_pos_z.normal, .{ 0,  0,  1}));
+        check(*s, "+Y face normal is ( 0, 1, 0)", col_pos_y.hit && approx3(col_pos_y.normal, .{ 0,  1,  0}));
+        check(*s, "-Y face normal is ( 0,-1, 0)", col_neg_y.hit && approx3(col_neg_y.normal, .{ 0, -1,  0}));
+        check(*s, "+X face normal is ( 1, 0, 0)", col_pos_x.hit && approx3(col_pos_x.normal, .{ 1,  0,  0}));
+        check(*s, "-X face normal is (-1, 0, 0)", col_neg_x.hit && approx3(col_neg_x.normal, .{-1,  0,  0}));
+        end_suite(s);
+    }
+
+    // ray_plane_collision_point returns Vector2.{world_x, world_z}
+    test_ray_plane :: () {
+        s := begin_suite("ray plane collision");
+        {
+            ray := Ray.{ origin = .{3, 5, 2}, direction = .{0, -1, 0} };
+            hit, point := ray_plane_collision_point(ray, 0.0);
+            check(*s, "downward ray hits horizontal plane", hit);
+            check(*s, "hit world-X matches ray origin X",  approx(point.x, 3.0));
+            check(*s, "hit world-Z matches ray origin Z",  approx(point.y, 2.0));
+        }
+        {
+            ray := Ray.{ origin = .{0, 0, 0}, direction = .{0, 1, 0} };
+            hit, point := ray_plane_collision_point(ray, 10.0);
+            check(*s, "upward ray hits plane above",  hit);
+            check(*s, "hit world-X is 0",             approx(point.x, 0.0));
+            check(*s, "hit world-Z is 0",             approx(point.y, 0.0));
+        }
+        {
+            ray := Ray.{ origin = .{0, 5, 0}, direction = .{1, 0, 0} };
+            hit, _ := ray_plane_collision_point(ray, 0.0);
+            check(*s, "ray parallel to plane misses", !hit);
+        }
+        {
+            ray := Ray.{ origin = .{0, 5, 0}, direction = .{0, 1, 0} };
+            hit, _ := ray_plane_collision_point(ray, 0.0);
+            check(*s, "ray pointing away misses", !hit);
+        }
+        // acceptable_radius is XZ distance from ray origin to hit point — needs a diagonal ray
+        {
+            ray := Ray.{ origin = .{0, 5, 0}, direction = normalize(Vector3.{0.1, -1, 0}) };
+            hit, _ := ray_plane_collision_point(ray, 0.0, acceptable_radius = 10.0);
+            check(*s, "hit within acceptable_radius succeeds", hit);
+        }
+        {
+            ray := Ray.{ origin = .{0, 1, 0}, direction = normalize(Vector3.{100, -1, 0}) };
+            hit, _ := ray_plane_collision_point(ray, 0.0, acceptable_radius = 1.0);
+            check(*s, "hit outside acceptable_radius fails", !hit);
+        }
+        end_suite(s);
+    }
+
+    test_ray_trixel_normals :: () {
+        s    := begin_suite("ray trixel-sized cube face normals");
+        TS   : float : 1.0/16.0;  // TRIXEL_SIZE
+        // Trixel at grid position (4,7,3): position = (4*TS, 7*TS, 3*TS)
+        cube := Collision_Cube.{ position = .{4*TS, 7*TS, 3*TS}, size = .{TS, TS, TS} };
+        cx   := 4*TS + TS*0.5;
+        cy   := 7*TS + TS*0.5;
+        cz   := 3*TS + TS*0.5;
+
+        col_neg_z := does_ray_hit_cube(Ray.{ origin = .{cx, cy, cz - 1}, direction = .{0,  0,  1} }, cube);
+        col_pos_z := does_ray_hit_cube(Ray.{ origin = .{cx, cy, cz + 1}, direction = .{0,  0, -1} }, cube);
+        col_pos_y := does_ray_hit_cube(Ray.{ origin = .{cx, cy + 1, cz}, direction = .{0, -1,  0} }, cube);
+        col_neg_y := does_ray_hit_cube(Ray.{ origin = .{cx, cy - 1, cz}, direction = .{0,  1,  0} }, cube);
+        col_pos_x := does_ray_hit_cube(Ray.{ origin = .{cx + 1, cy, cz}, direction = .{-1, 0,  0} }, cube);
+        col_neg_x := does_ray_hit_cube(Ray.{ origin = .{cx - 1, cy, cz}, direction = .{ 1, 0,  0} }, cube);
+
+        check(*s, "-Z face normal is ( 0, 0,-1)", col_neg_z.hit && approx3(col_neg_z.normal, .{ 0,  0, -1}));
+        check(*s, "+Z face normal is ( 0, 0, 1)", col_pos_z.hit && approx3(col_pos_z.normal, .{ 0,  0,  1}));
+        check(*s, "+Y face normal is ( 0, 1, 0)", col_pos_y.hit && approx3(col_pos_y.normal, .{ 0,  1,  0}));
+        check(*s, "-Y face normal is ( 0,-1, 0)", col_neg_y.hit && approx3(col_neg_y.normal, .{ 0, -1,  0}));
+        check(*s, "+X face normal is ( 1, 0, 0)", col_pos_x.hit && approx3(col_pos_x.normal, .{ 1,  0,  0}));
+        check(*s, "-X face normal is (-1, 0, 0)", col_neg_x.hit && approx3(col_neg_x.normal, .{-1,  0,  0}));
+        end_suite(s);
+    }
+
+    #run {
+        test_ray_cube_hit();
+        test_ray_cube_miss();
+        test_ray_cube_normals();
+        test_ray_trixel_normals();
+        test_ray_plane();
+    }
 }
