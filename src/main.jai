@@ -15,7 +15,11 @@ String :: #import "String";
 Jaison :: #import "Jaison";
 stbi   :: #import "stb_image";
 
+#if FLAG_TEST_ENGINE { #load "tests/index.jai"; }
+
+#load "logging.jai";
 #load "pseudophysics/core.jai";
+#load "pack_hotreload.jai";
 #load "trile.jai";
 #load "rendering/rendering.jai";
 #load "input/hotkeys.jai";
@@ -30,6 +34,8 @@ stbi   :: #import "stb_image";
 #load "utils.jai";
 #load "audio/audio.jai";
 #load "assets/asset_manager.jai";
+#load "settings_menu.jai";
+#load "ui/demo.jai";
     
 #load "../game/game.jai";
 
@@ -39,7 +45,7 @@ delta\    _time : float64;
 latest_frametime : float64; // latest frame generation duration
 
 V_MAJOR :: 0;
-V_MINOR :: 6;
+V_MINOR :: 7;
 
 state: struct {
     pass_action_clear : sg_pass_action;
@@ -113,16 +119,12 @@ init :: () {
 
 }
 
-init_after_mandatory :: () {
-    
-}
-
 init_after_core :: () {
     init_plane_textures();
     init_brdf_lut();
+
     add_font_from_pack("boot", "DroidSerif-Regular.ttf");
     ui_init_font_fields(*state.font_default);
-
     init_ui();
     ltriles();
     tt := get_trile_table_ptr();
@@ -163,13 +165,7 @@ frame :: () {
     
     if !mandatory_loads_done() then return;
 
-    if !init_after_mandatory_done {
-        init_after_mandatory();
-        init_after_mandatory_done = true;
-    }
-
     if show_loading_screen() {
-        print("Should show loading screen....\n");
         return;
     }
 
@@ -190,11 +186,11 @@ frame :: () {
 
     if !in_editor_view then delta_time_accumulator += delta_time;
 
-    if !in_editor_view {
-        // while delta_time_accumulator > (1.0/60.0) {
-            game_tick(1.0/144.0);
-            // delta_time_accumulator -= (1.0/60.0);
-        // }
+    if !in_editor_view && !settings_menu_blocks_game() {
+        while delta_time_accumulator > (1.0/480.0) {
+            game_tick(1.0/480.0);
+            delta_time_accumulator -= (1.0/480.0);
+        }
     }
     fonsClearState(state.fons);
     for event: Input.events_this_frame {

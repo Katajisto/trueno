@@ -27,6 +27,8 @@ in_editor_view : bool = false;
 init_editor :: () {
     #if OS != .WASM {init_profiler();}
     init_console();
+    init_keybinds();
+    init_settings_menu();
 }
 
 // Used when the console is open, so typing doesn't cause all sorts of stuff.
@@ -44,16 +46,11 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
             GR.label(r, tprint("Trueno v%.%", V_MAJOR, V_MINOR), *t_label_left(theme));
 
             r.x = 100*vw - r.w;
-            if GR.button(r, "Level studio", *t_button_selectable(theme, current_editor_view == .Level_Editor)) 
-                then current_editor_view = .Level_Editor;
-
+            if keybind_button(r, "Level studio",    .STUDIO_LEVEL,    *t_button_selectable(theme, current_editor_view == .Level_Editor))    then current_editor_view = .Level_Editor;
             r.x -= r.w;
-            if GR.button(r, "Trile studio", *t_button_selectable(theme, current_editor_view == .Trile_Editor)) 
-                then current_editor_view = .Trile_Editor;
-        
+            if keybind_button(r, "Trile studio",    .STUDIO_TRILE,    *t_button_selectable(theme, current_editor_view == .Trile_Editor))    then current_editor_view = .Trile_Editor;
             r.x -= r.w;
-            if GR.button(r, "Material studio", *t_button_selectable(theme, current_editor_view == .Material_Editor)) 
-                then current_editor_view = .Material_Editor;
+            if keybind_button(r, "Material studio", .STUDIO_MATERIAL, *t_button_selectable(theme, current_editor_view == .Material_Editor)) then current_editor_view = .Material_Editor;
     
 
             if current_editor_view == {
@@ -65,7 +62,6 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
         }
         draw_profiler();
     }
-    draw_console(theme);
     draw_texture_debugger(theme);
     draw_postprocess_popup(theme);
     draw_lighting_popup(theme);
@@ -89,15 +85,16 @@ draw_editor :: () {
 }
 
 tick_editor_ui :: () {
-    if input_button_states[Key_Code.F3] & .START {
+    if is_action_start(Editor_Action.TOGGLE_EDITOR) {
         in_editor_view = !in_editor_view;
         g_mixer.paused = in_editor_view;
+        if !in_editor_view then bypass_postprocess = false;
     }
 
-    #if !RELEASE_BUILD && OS != .WASM {
-        if input_button_states[Key_Code.F5] & .START {
+    #if !FLAG_RELEASE_BUILD && OS != .WASM {
+        if is_action_start(Editor_Action.HOT_RELOAD) {
             g_asset_manager.pending_hot_reload = true;
-            print("Hot-reload: queued, waiting for in-flight loads to finish...\n");
+            log_info("Hot-reload: queued, waiting for in-flight loads to finish...");
         }
     }
 
@@ -113,4 +110,5 @@ tick_editor_ui :: () {
     }
 
     tick_console();
+    tick_settings_menu();
 }

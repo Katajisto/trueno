@@ -5,14 +5,6 @@ main :: () {
     sapp_init();
 }
 
-log_warn :: (format_string: string, args: .. Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags : u32 = 0, section : *Log_Section = null) {
-    log(format_string, ..args, loc = loc, flags = flags | .WARNING, user_flags = user_flags, section = section);
-} @PrintLike
-
-log_content :: (format_string: string, args: .. Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags : u32 = 0, section : *Log_Section = null) {
-    log(format_string, ..args, loc = loc, flags = flags | .CONTENT, user_flags = user_flags, section = section);
-} @PrintLike
-
 logger :: (message: string, data: *void, info: Log_Info) {
-    print("% % %\n", message, data, info);
+    _logger_proc(message, data, info);
 }

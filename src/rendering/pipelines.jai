@@ -83,7 +83,7 @@ create_final_image :: () {
 
 
     if g_rendertex.id != INVALID_ID then sg_destroy_image(g_rendertex);
-    if g_rendertex_depth.id != INVALID_ID then sg_destroy_image(g_rendertex);
+    if g_rendertex_depth.id != INVALID_ID then sg_destroy_image(g_rendertex_depth);
 
     img_desc := sg_image_desc.{
         width = w,

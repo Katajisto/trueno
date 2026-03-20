@@ -37,15 +37,14 @@ load_wav_from_memory :: (data: []u8) -> Audio_Data {
     dataString.data = data.data;
     dataString.count = data.count;
     format, samples, success := Wav.get_wav_header(dataString);
-    if !success print("Failed to load wav file!\n");
+    if !success log_error("Failed to load wav file!");
     audio_samples : []s16;
     audio_samples.data = cast(*s16)samples.data;
     audio_samples.count = samples.count / 2;
-    for sample, i:  audio_samples {
-        if i % 2 == 0 {
-            array_add(*audio.data, cast(float)sample / 32768.0);
-        }
+    for sample: audio_samples {
+        array_add(*audio.data, cast(float)sample / 32768.0);
     }
-    audio.channels = format.nChannels;
+    audio.channels     = format.nChannels;
+    audio.sample_rate  = format.nSamplesPerSec;
     return audio;
 }

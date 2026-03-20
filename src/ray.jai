@@ -40,15 +40,14 @@ Ray_Collision :: struct {
     normal   : Vector3;
 }
 
-// At which 2D XZ point does a ray hit the ground plane at a height of
-// plane_height. Used for the level editor and maybe later the trile editor as well.
+// At which 2D XZ point does a ray hit the horizontal plane at plane_height.
+// Works whether the camera is above or below the plane.
 ray_plane_collision_point :: (ray: Ray, plane_height: float, acceptable_radius: float = -1) -> (bool, Vector2) {
-    dist_to_plane := ray.origin.y - plane_height;
-    if ray.direction.y >= 0 then return false, .{0,0};
-    multi := dist_to_plane / abs(ray.direction.y);
-    ray_to_plane := ray.direction * multi;
-    planePoint := ray_to_plane + ray.origin;
-    if acceptable_radius > 0 && abs(length(Vector2.{planePoint.x, planePoint.z} - Vector2.{ray.origin.x, ray.origin.z})) > acceptable_radius {
+    if abs(ray.direction.y) < 0.0001 then return false, .{0,0};  // parallel to plane
+    multi := (plane_height - ray.origin.y) / ray.direction.y;
+    if multi < 0 then return false, .{0,0};  // plane is behind the camera
+    planePoint := ray.origin + ray.direction * multi;
+    if acceptable_radius > 0 && length(Vector2.{planePoint.x, planePoint.z} - Vector2.{ray.origin.x, ray.origin.z}) > acceptable_radius {
         return false, .{};
     }
     return true, .{planePoint.x, planePoint.z};

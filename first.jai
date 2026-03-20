@@ -6,8 +6,12 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
 Trueno_Build_Options :: struct {
     wasm_build     : bool;
     release_build  : bool;
-    tacoma_enabled : bool;   
-    iprof_enabled  : bool;    
+    tacoma_enabled : bool;
+    iprof_enabled  : bool;
+    demo_build     : bool;
+    test_engine    : bool;
+    test_game      : bool;
+    short_tests    : bool;
 }
 
 build_options_from_args :: (args: []string) -> Trueno_Build_Options {
@@ -23,6 +27,17 @@ build_options_from_args :: (args: []string) -> Trueno_Build_Options {
                 opts.release_build = true;
             case "iprof";
                 opts.iprof_enabled = true;
+            case "demo";
+                opts.demo_build = true;
+            case "test";
+                opts.test_game = true;
+                opts.test_engine = true;
+            case "test_game";
+                opts.test_game = true;
+            case "test_engine";
+                opts.test_engine = true;
+            case "test_short";
+                opts.short_tests = true;
         }
     }
 
@@ -108,7 +123,7 @@ native_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
     // }
 
     compiler_begin_intercept(w);
-
+    add_trueno_opts_to_compiler_strings(trueno_opts, w);
     add_build_file("src/platform_specific/main_native.jai", w);
     add_shaders_to_workspace(w);
 
@@ -185,6 +200,8 @@ wasm_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
         }
         exit(1);
     }
+
+    file_delete("dist/main.o");
 }
 
 #run {

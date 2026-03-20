@@ -3,9 +3,10 @@ camera: Camera;
 trixel_count        : s32     = 0;
 trixel_view_mode    : s32     = 0;
 bypass_postprocess  : bool    = false;
+bypass_shadows      : bool    = false;
+bypass_reflections  : bool    = false;
 
 trile_offsets : [..]s32;
-current_trile_offset_index : s32 = 0;
 
 current_world_config : *World_Config = null;
 in_shadowmap_pass    : bool = false;
@@ -20,7 +21,7 @@ backend_handle_command :: (cmd: *Render_Command) {
             backend_add_trile_positions(add_command.positions);
         case .DRAW_TRILE_POSITIONS;
             draw_command := cast(*Render_Command_Draw_Trile_Positions)cmd;
-            backend_draw_trile_positions(draw_command.trile, draw_command.amount, draw_command.conf, draw_command.chunk_key, draw_command.is_preview);
+            backend_draw_trile_positions(draw_command.trile, draw_command.amount, draw_command.conf, draw_command.chunk_key, draw_command.preview_mode, draw_command.offset_index);
         case .DRAW_SKY;
             sky_command := cast(*Render_Command_Sky)cmd;
             backend_draw_sky(sky_command.worldConfig);
@@ -115,15 +116,16 @@ backend_add_trile_positions :: (positions : []Vector4) {
     array_add(*trile_offsets, offset);
 }
 
-backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, is_preview: bool = false) {
+backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, preview_mode: s32 = 0, offset_index: s32 = 0) {
     if in_gbuffer_pass {
-        backend_draw_trile_positions_gbuffer(trile, amount, worldConf);
+        backend_draw_trile_positions_gbuffer(trile, amount, worldConf, offset_index);
     } else {
-        backend_draw_trile_positions_main(trile, amount, worldConf, chunk_key, is_preview);
+        backend_draw_trile_positions_main(trile, amount, worldConf, chunk_key, preview_mode, offset_index);
     }
 }
 
-backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf: *World_Config) {
+backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf: *World_Config, offset_index: s32) {
+    if offset_index >= trile_offsets.count then return;
     mvp := create_viewproj(*camera);
     view := create_lookat(*camera);
     vs_params : Gbuffer_Vs_Params;
@@ -133,8 +135,7 @@ backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf
     world_conf : Trile_World_Config;
     world_config_to_shader_type(worldConf, *world_conf);
 
-    offset := trile_offsets[current_trile_offset_index];
-    current_trile_offset_index += 1;
+    offset := trile_offsets[offset_index];
 
     trilegfx := get_trile_gfx(trile);
     bindings : sg_bindings;
@@ -151,12 +152,15 @@ backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf
     sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
 }
 
-backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, is_preview: bool = false) {
+backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, preview_mode: s32 = 0, offset_index: s32 = 0) {
     start_frame_profiling_group("Draw trile positions");
+    if offset_index >= trile_offsets.count {
+        end_frame_profiling_group("Draw trile positions");
+        return;
+    }
 
     trilegfx := get_trile_gfx(trile);
-    offset := trile_offsets[current_trile_offset_index];
-    current_trile_offset_index += 1;
+    offset := trile_offsets[offset_index];
 
     if in_shadowmap_pass {
         vs_params : Trile_Shadow_Vs_Params;
@@ -226,7 +230,7 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params.rdm_diff_scale    = lc.rdm_diff_scale;
     fs_params.rdm_spec_scale    = lc.rdm_spec_scale;
     fs_params.ambient_color     = lc.ambient_color.component;
-    fs_params.is_preview        = ifx is_preview then cast(s32)1 else cast(s32)0;
+    fs_params.is_preview        = preview_mode;
     fs_params.rdm_tint          = lc.rdm_tint.component;
 
     sg_apply_bindings(*bindings);
@@ -377,25 +381,27 @@ backend_process_command_buckets :: () {
         shadow_mvp = create_shadow_viewproj(*camera, current_world_config);
         in_shadowmap_pass = true;
     	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_shadowmap_attachments}));
-        for render_command_buckets.shadow {
-            backend_handle_command(it);
+        if !bypass_shadows {
+            for render_command_buckets.shadow {
+                backend_handle_command(it);
+            }
         }
     	sg_end_pass();
         in_shadowmap_pass = false;
     }
-    current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
     end_frame_profiling_group("Shadow pass");
     
     start_frame_profiling_group("Reflection pass");
     // 3. Reflection pass
 	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = gPipelines.plane.attachments}));
-    in_reflection_pass = true;
-    for render_command_buckets.reflection {
-        backend_handle_command(it);
-    }    
-    in_reflection_pass = false;
+    if !bypass_reflections {
+        in_reflection_pass = true;
+        for render_command_buckets.reflection {
+            backend_handle_command(it);
+        }
+        in_reflection_pass = false;
+    }
 	sg_end_pass();
-    current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
     end_frame_profiling_group("Reflection pass");
     
     // 4. G-Buffer pass
@@ -407,7 +413,6 @@ backend_process_command_buckets :: () {
     }
     sg_end_pass();
     in_gbuffer_pass = false;
-    current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
     end_frame_profiling_group("G-Buffer pass");
      
     start_frame_profiling_group("SSAO pass");
@@ -447,7 +452,6 @@ backend_process_command_buckets :: () {
         backend_handle_command(it);
     }
 	sg_end_pass();
-    current_trile_offset_index = 0; // This is not optimal, but it is nice and simple.
     end_frame_profiling_group("Main pass");
 
     start_frame_profiling_group("Postprocess pass");
@@ -469,6 +473,7 @@ backend_process_command_buckets :: () {
     post_process_config_uniform : Post_Process_Config;
     if bypass_postprocess {
         neutral : Post_Process;
+        neutral.tonemap = current_post_process.tonemap;
         fill_uniform_with_engine_data(*post_process_config_uniform, *neutral);
     } else {
         fill_uniform_with_engine_data(*post_process_config_uniform, *current_post_process);

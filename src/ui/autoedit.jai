@@ -5,7 +5,7 @@
 autoedit_scrolls : Table(u64, float);
 
 loc_to_key :: (line: s32) -> string {
-	print("Creating key: %\n", line);
+	log_debug("Creating key: %", line);
 	return tprint("%", line);
 }
 

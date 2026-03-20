@@ -254,34 +254,22 @@ trile_palette_scroll  : float = 0.0;
 draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r := area;
     r.h = ui_h(4, 0);
-    if GR.button(r, "Paint (P)", *t_button_selectable(theme, current_tool == .PAINT)) {
-        current_tool = .PAINT;
-    }
+    if keybind_button(r, "Paint",  .TRIXEL_TOOL_PAINT,  *t_button_selectable(theme, current_tool == .PAINT))  then current_tool = .PAINT;
     r.y += r.h;
-    if GR.button(r, "Add (+)", *t_button_selectable(theme, current_tool == .ADD)) {
-        current_tool = .ADD;
-    }
+    if keybind_button(r, "Add",    .TRIXEL_TOOL_ADD,    *t_button_selectable(theme, current_tool == .ADD))    then current_tool = .ADD;
     r.y += r.h;
-    if GR.button(r, "Remove (-)", *t_button_selectable(theme, current_tool == .REMOVE)) {
-        current_tool = .REMOVE;
-    }
+    if keybind_button(r, "Remove", .TRIXEL_TOOL_REMOVE, *t_button_selectable(theme, current_tool == .REMOVE)) then current_tool = .REMOVE;
     r.y += r.h * 3;
-    if GR.button(r, "Point (c-P)", *t_button_selectable(theme, current_mode == .POINT)) {
-        current_mode = .POINT;
-    }
+    if keybind_button(r, "Point",  .TRIXEL_MODE_POINT,  *t_button_selectable(theme, current_mode == .POINT))  then current_mode = .POINT;
     r.y += r.h;
-    if GR.button(r, "Area (c-A)", *t_button_selectable(theme, current_mode == .AREA)) {
-        current_mode = .AREA;
-    }
+    if keybind_button(r, "Area",   .TRIXEL_MODE_AREA,   *t_button_selectable(theme, current_mode == .AREA))   then current_mode = .AREA;
     r.y += r.h;
-    if GR.button(r, "Brush (c-B)", *t_button_selectable(theme, current_mode == .BRUSH)) {
-        current_mode = .BRUSH;
-    }
+    if keybind_button(r, "Brush",  .TRIXEL_MODE_BRUSH,  *t_button_selectable(theme, current_mode == .BRUSH))  then current_mode = .BRUSH;
 
     r.y += r.h;
     GR.slider(r, *brush_radius, 0, 12, 1, *theme.slider_theme);
     r.y += r.h * 2;
-    if GR.button(r, "Save and gen", *theme.button_theme) {
+    if keybind_button(r, "Save and gen", .SAVE, *theme.button_theme) {
         set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
         striles();
     };
@@ -327,38 +315,17 @@ draw_trile_editor :: () {
 }
 
 trile_editor_shortcuts :: () {
-    if console_open_ignore_input then return;
-
-    if input_button_states[Key_Code.CTRL] & .DOWN {
-        if input_button_states[#char "A"] & .START {
-            current_mode = .AREA;
-        }
-        if input_button_states[#char "P"] & .START {
-            current_mode = .POINT;
-        }
-        if input_button_states[#char "B"] & .START {
-            current_mode = .BRUSH;
-        }
-    } else {
-        if input_button_states[#char "T"] & .START {
-            current_tab = .TOOLSET;
-        }
-        if input_button_states[#char "M"] & .START {
-            current_tab = .MATERIAL;
-        }
-        if input_button_states[#char "I"] & .START {
-            current_tab = .METADATA;
-        }
-        if input_button_states[#char "P"] & .START {
-            current_tool = .PAINT;
-        }
-        // Hack: These will only work on nordic keyboards as expected...
-        if input_button_states[#char "-"] & .START {
-            current_tool = .ADD;
-        }
-        if input_button_states[#char "/"] & .START {
-            current_tool = .REMOVE;
-        }
+    // Tool/mode buttons are only rendered in the Toolset tab — handle shortcuts here so they work from any tab.
+    if is_action_start(Editor_Action.TRIXEL_TOOL_PAINT)  then current_tool = .PAINT;
+    if is_action_start(Editor_Action.TRIXEL_TOOL_ADD)    then current_tool = .ADD;
+    if is_action_start(Editor_Action.TRIXEL_TOOL_REMOVE) then current_tool = .REMOVE;
+    if is_action_start(Editor_Action.TRIXEL_MODE_POINT)  then current_mode = .POINT;
+    if is_action_start(Editor_Action.TRIXEL_MODE_AREA)   then current_mode = .AREA;
+    if is_action_start(Editor_Action.TRIXEL_MODE_BRUSH)  then current_mode = .BRUSH;
+    // Save is in the Toolset tab only.
+    if is_action_start(Editor_Action.SAVE) {
+        set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
+        striles();
     }
 }
 
@@ -370,17 +337,11 @@ draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
     tab_r.h = ui_h(3,0);
     tab_r.w = ui_w(20, 20) / 3;
 
-    if GR.button(tab_r, "Tool (T)", *t_button_tab(theme, current_tab == .TOOLSET)) {
-        current_tab = .TOOLSET;
-    }
+    if keybind_button(tab_r, "Tools",    .TRIXEL_TAB_TOOLS,    *t_button_tab(theme, current_tab == .TOOLSET))  then current_tab = .TOOLSET;
     tab_r.x += tab_r.w;
-    if GR.button(tab_r, "Material (M)", *t_button_tab(theme, current_tab == .MATERIAL)) {
-        current_tab = .MATERIAL;
-    }
+    if keybind_button(tab_r, "Material", .TRIXEL_TAB_MATERIAL, *t_button_tab(theme, current_tab == .MATERIAL)) then current_tab = .MATERIAL;
     tab_r.x += tab_r.w;
-    if GR.button(tab_r, "Meta (I)", *t_button_tab(theme, current_tab == .METADATA)) {
-        current_tab = .METADATA;
-    }
+    if keybind_button(tab_r, "Meta",     .TRIXEL_TAB_INFO,     *t_button_tab(theme, current_tab == .METADATA)) then current_tab = .METADATA;
 
     r.y += tab_r.h;
 
@@ -406,19 +367,11 @@ draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
 
     r2 : GR.Rect;
     r2.x = bar_x; r2.y = bar_y; r2.w = btn_w; r2.h = btn_h;
-    if GR.button(r2, "Lit", *t_button_selectable(theme, trixel_view_mode == 0)) {
-        trixel_view_mode = 0;
-    }
+    if keybind_button(r2, "Lit",     .TRIXEL_VIEW_LIT,     *t_button_selectable(theme, trixel_view_mode == 0)) then trixel_view_mode = 0;
     r2.x += btn_w;
-    if GR.button(r2, "Normals", *t_button_selectable(theme, trixel_view_mode == 1)) {
-        trixel_view_mode = 1;
-    }
+    if keybind_button(r2, "Normals", .TRIXEL_VIEW_NORMALS, *t_button_selectable(theme, trixel_view_mode == 1)) then trixel_view_mode = 1;
     r2.x += btn_w;
-    if GR.button(r2, "Albedo", *t_button_selectable(theme, trixel_view_mode == 2)) {
-        trixel_view_mode = 2;
-    }
+    if keybind_button(r2, "Albedo",  .TRIXEL_VIEW_ALBEDO,  *t_button_selectable(theme, trixel_view_mode == 2)) then trixel_view_mode = 2;
     r2.x += btn_w;
-    if GR.button(r2, "Mixed", *t_button_selectable(theme, trixel_view_mode == 3)) {
-        trixel_view_mode = 3;
-    }
+    if keybind_button(r2, "Mixed",   .TRIXEL_VIEW_MIXED,   *t_button_selectable(theme, trixel_view_mode == 3)) then trixel_view_mode = 3;
 }

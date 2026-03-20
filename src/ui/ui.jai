@@ -183,6 +183,8 @@ prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_I
         return 0;
     }
     // print("Font: %\n", font);
+    fonsPushState(state.fons);
+    defer fonsPopState(state.fons);
     fonsSetFont(state.fons, state.font_default.fons_font);
     fonsSetSize(state.fons, xx font.character_height);
     w := fonsTextBounds(state.fons, 0.0, 0.0, text.data, text.data + text.count, null);
@@ -210,6 +212,10 @@ prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_I
 }
 draw_prepared_text :: (font: *Ui_Type_Indicator.Font, x: s64, y: s64, text_color: Vector4, effects: Ui_Type_Indicator.Font_Effects = 0) {
     if gPreppedText.count < 1 then return;
+    fonsPushState(state.fons);
+    defer fonsPopState(state.fons);
+    fonsSetFont(state.fons, state.font_default.fons_font);
+    fonsSetSize(state.fons, xx font.character_height);
     color := sfons_rgba(xx (255.0 * text_color.x), xx (255.0 * text_color.y), xx (255.0 * text_color.z), xx (255.0 * text_color.w));
     fonsSetColor(state.fons, color);
     result := cast(*u8) temporary_alloc(gPreppedText.count + 1);  // Add 1 for the zero.
@@ -217,10 +223,9 @@ draw_prepared_text :: (font: *Ui_Type_Indicator.Font, x: s64, y: s64, text_color
     result[gPreppedText.count] = 0;
     sgl_layer(layer);
     fonsDrawText(state.fons, xx x, xx y, result, null);
-    fonsPushState(state.fons);
     arb_tri_command_add(.{
         type = .DRAW_TEXT,
-        layer = layer 
+        layer = layer
     });
     layer += 1;
 }
@@ -420,6 +425,9 @@ render_ui :: () {
     GR.set_default_theme(my_theme);
     draw_editor_ui(*my_theme);
     if !in_editor_view then game_ui(*my_theme);
+    #if FLAG_DEMO_BUILD { if !in_editor_view then draw_demo_ui(*my_theme); }
+    draw_settings_menu(*my_theme);
+    draw_console(*my_theme);
 }
 
 ui_pass :: () {

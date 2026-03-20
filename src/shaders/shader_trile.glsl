@@ -561,6 +561,9 @@ void main() {
         vec3 kDiff = 1.0 - Frough;
         kDiff *= 1.0 - metallic;
         light += (kDiff * indirectDiff / PI * albedo) * ssao_sample * rdm_diff_scale;
+        if (rdm_diff_scale < 0.001) {
+            light += ambient_color * ambient_intensity * albedo * ssao_sample;
+        }
     } else {
         // Fallback: ambient + sky reflection when no RDM data (or RDM disabled).
         light += ambient_color * ambient_intensity * albedo * ssao_sample;
@@ -572,6 +575,8 @@ void main() {
     frag_color = vec4(mix(deepColor, light + emissive, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
     if (is_preview == 1) {
         frag_color.rgb = mix(frag_color.rgb, vec3(0.3, 0.7, 1.0), 0.5);
+    } else if (is_preview == 2) {
+        frag_color.rgb = mix(frag_color.rgb, vec3(1.0, 0.3, 0.2), 0.5);
     }
 }
 @end

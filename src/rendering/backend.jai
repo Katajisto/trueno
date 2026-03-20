@@ -47,13 +47,14 @@ Render_Command_Add_Trile_Positions :: struct {
 }
 
 Render_Command_Draw_Trile_Positions :: struct {
-    #as using c : Render_Command;
-    c.type      = .DRAW_TRILE_POSITIONS;
-    trile       : string;
-    chunk_key   : Chunk_Key;
-    amount      : s32;
-    conf        : *World_Config;
-    is_preview  : bool = false;
+    #as using c  : Render_Command;
+    c.type       = .DRAW_TRILE_POSITIONS;
+    trile        : string;
+    chunk_key    : Chunk_Key;
+    amount       : s32;
+    conf         : *World_Config;
+    preview_mode : s32 = 0;   // 0=normal, 1=add preview (blue), 2=delete preview (red)
+    offset_index : s32 = 0;  // index into trile_offsets, assigned at task-conversion time
 }
 
 Render_Command_Update_Trixels :: struct {

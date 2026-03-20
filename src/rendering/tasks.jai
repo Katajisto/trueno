@@ -56,8 +56,8 @@ Rendering_Task_Trile :: struct {
     chunk_key   : Chunk_Key;
     positions   : []Vector4;
     worldConf   : *World_Config;
-    is_preview  : bool = false;
-    shadow_only : bool = false; // only submit to shadow bucket (frustum-culled from camera)
+    preview_mode : s32  = 0;    // 0=normal, 1=add preview (blue), 2=delete preview (red)
+    shadow_only  : bool = false; // only submit to shadow bucket (frustum-culled from camera)
 }
 
 Rendering_Task_Trixels :: struct {
@@ -86,6 +86,7 @@ add_rendering_task :: (task: $T) {
 rendering_tasklist : [..]*Rendering_Task;
 
 tasks_to_commands :: () {
+    trile_add_counter: s32 = 0;
     for rendering_tasklist {
         if it.type == {
             case .SET_LIGHT;
@@ -111,14 +112,16 @@ tasks_to_commands :: () {
                 addPositionsCmd.positions = trileTask.positions;
                 array_add(*render_command_buckets.setup, addPositionsCmd);
                 drawPositionsCmd := New(Render_Command_Draw_Trile_Positions,, temp);
-                drawPositionsCmd.trile = trileTask.trile;
-                drawPositionsCmd.chunk_key = trileTask.chunk_key;
-                drawPositionsCmd.amount = cast(s32)trileTask.positions.count;
-                drawPositionsCmd.conf = trileTask.worldConf;
-                drawPositionsCmd.is_preview = trileTask.is_preview;
+                drawPositionsCmd.trile        = trileTask.trile;
+                drawPositionsCmd.chunk_key    = trileTask.chunk_key;
+                drawPositionsCmd.amount       = cast(s32)trileTask.positions.count;
+                drawPositionsCmd.conf         = trileTask.worldConf;
+                drawPositionsCmd.preview_mode = trileTask.preview_mode;
+                drawPositionsCmd.offset_index = trile_add_counter;
+                trile_add_counter += 1;
                 if trileTask.shadow_only {
                     array_add(*render_command_buckets.shadow, drawPositionsCmd);
-                } else if trileTask.is_preview {
+                } else if trileTask.preview_mode != 0 {
                     array_add(*render_command_buckets.main, drawPositionsCmd);
                 } else {
                     array_add(*render_command_buckets.reflection, drawPositionsCmd);

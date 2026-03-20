@@ -18,9 +18,6 @@ Gathered_Positions :: struct {
     positions: [..]Vector4;
 }
 
-// Extract 6 frustum planes from an MVP matrix using the Gribb-Hartmann method.
-// Each plane is vec4(A,B,C,D) where dot(plane.xyz, point) + plane.w >= 0 means inside.
-// Accounts for Jai row-major storage being transposed when uploaded to OpenGL.
 extract_frustum_planes :: (mvp: Matrix4) -> [6]Vector4 {
     planes : [6]Vector4;
     m := mvp;
@@ -33,7 +30,6 @@ extract_frustum_planes :: (mvp: Matrix4) -> [6]Vector4 {
     return planes;
 }
 
-// Returns false if the AABB is completely outside any single frustum plane (fast rejection).
 aabb_in_frustum :: (planes: [6]Vector4, bmin: Vector3, bmax: Vector3) -> bool {
     for plane: planes {
         px := ifx plane.x >= 0 then bmax.x else bmin.x;

@@ -4,7 +4,7 @@ g_animations: Table(string, Animation);
 get_animation_from_string :: (animation: string) -> *Animation {
     ok, pack, anim := split_from_left(animation, ".");
     if !ok {
-        print("Malformed animation query: %\n", animation);
+        log_warn("Malformed animation query: %", animation);
         return null;
     }
     return get_animation_from_pack(pack, anim);
@@ -37,7 +37,7 @@ animation_player_tick :: (player: *Animation_Player) {
 
 animation_draw :: (player: *Animation_Player, position: Vector3, flipX: bool = false, flipY: bool = false) {
     animation_player_tick(player);
-    if player.current_animation == null then print("Trying to draw a null animation!!\n");
+    if player.current_animation == null then log_warn("Trying to draw a null animation!!");
     create_billboard_rendering_task(position, player.current_animation, player.current_frame, flipX, flipY);
 }
 

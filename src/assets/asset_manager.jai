@@ -67,12 +67,11 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
 
     req := g_asset_manager.current_fetch;
     g_asset_manager.is_fetching = false;
-
     if req.type == {
 
     case .PACK;
         if res.failed {
-            print("Failed to load pack '%'\n", req.pack_name);
+            log_error("Failed to load pack '%'", req.pack_name);
             return;
         }
         mem := NewArray(res.data.size.(s64), u8, false);
@@ -81,13 +80,13 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
         pack.nameHash = hash.get_hash(req.pack_name);
         pack.name = req.pack_name;
         success := init_from_memory(*pack.content, mem, sprint("%", req.pack_name));
-        if !success { print("Failed to load pack!!\n"); return; }
+        if !success { log_error("Failed to load pack!!"); return; }
         add_resources_from_pack(*pack);
         array_add(*g_asset_manager.loadedPacks, pack);
 
     case .WORLD;
         if res.failed {
-            print("Failed to load world '%'\n", req.world_name);
+            log_error("Failed to load world '%'", req.world_name);
             return;
         }
         data: []u8;
@@ -97,9 +96,9 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
         if ok {
             set_loaded_world(world);
             rdm_loader_enqueue_world(*get_current_world().world);
-            print("Loaded world: %\n", world.name);
+            log_info("Loaded world: %", world.name);
         } else {
-            print("Failed to parse world '%'\n", req.world_name);
+            log_error("Failed to parse world '%'", req.world_name);
         }
 
     case .RDM_ATLAS;
@@ -107,17 +106,17 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
         if !curworld.valid || curworld.world.name != req.world_name then return;
 
         if res.failed {
-            print("RDM: failed to load atlas for chunk %\n", req.chunk_key);
+            log_error("RDM: failed to load atlas for chunk %", req.chunk_key);
             return;
         }
         header_size := cast(s64) size_of(RDM_File_Header);
         if res.data.size < cast(u64) header_size {
-            print("RDM: atlas too small for chunk %\n", req.chunk_key);
+            log_error("RDM: atlas too small for chunk %", req.chunk_key);
             return;
         }
         header := cast(*RDM_File_Header) res.data.ptr;
         if header.magic != RDM_FILE_MAGIC {
-            print("RDM: bad atlas magic for chunk %\n", req.chunk_key);
+            log_error("RDM: bad atlas magic for chunk %", req.chunk_key);
             return;
         }
         atlas_pixel_bytes := cast(u64) header.width * cast(u64) header.height * 4 * size_of(float);
@@ -145,19 +144,19 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
         world_ok  := curworld.valid && curworld.world.name == req.world_name;
 
         if res.failed || !world_ok {
-            if res.failed then print("RDM: failed to load lookup for chunk %\n", req.chunk_key);
+            if res.failed then log_error("RDM: failed to load lookup for chunk %", req.chunk_key);
             if req.rdm_pending_atlas.id != 0 then sg_destroy_image(req.rdm_pending_atlas);
             return;
         }
         header_size := cast(s64) size_of(RDM_File_Header);
         if res.data.size < cast(u64) header_size {
-            print("RDM: lookup too small for chunk %\n", req.chunk_key);
+            log_error("RDM: lookup too small for chunk %", req.chunk_key);
             sg_destroy_image(req.rdm_pending_atlas);
             return;
         }
         header := cast(*RDM_File_Header) res.data.ptr;
         if header.magic != RDM_FILE_MAGIC {
-            print("RDM: bad lookup magic for chunk %\n", req.chunk_key);
+            log_error("RDM: bad lookup magic for chunk %", req.chunk_key);
             sg_destroy_image(req.rdm_pending_atlas);
             return;
         }
@@ -177,7 +176,7 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
             chunk.rdm_atlas  = req.rdm_pending_atlas;
             chunk.rdm_lookup = sg_make_image(*lookup_desc);
             chunk.rdm_valid  = true;
-            print("RDM: loaded chunk %\n", req.chunk_key);
+            log_debug("RDM: loaded chunk %", req.chunk_key);
         } else {
             sg_destroy_image(req.rdm_pending_atlas);
         }
@@ -227,7 +226,7 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
                 s := create_string_from_memory(v.data);
                 success, sheet := Jaison.json_parse_string(s, Aseprite_Sheet,, temp);
                 if !success {
-                    print("Failed to parse animation sheet JSON for sheet(%)\n", name);
+                    log_error("Failed to parse animation sheet JSON for sheet(%)", name);
                     continue;
                 }
                 queuedSheet := table_find_pointer(*sheets_to_init, name);
@@ -245,9 +244,9 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
             case "ttf";
             // Load into a font. Add to free list.
             case;
-                print("There was file(%) in pack(%), that did not match any known fileformat...\n", v.name, pack);
+                log_warn("File(%) in pack(%) has unknown format", v.name, pack.name);
         }
-        print("% -> %\n", v.name, extension);
+        log_debug("% -> %", v.name, extension);
     }
 
     // Properly initialize animations from the pack now that we have the images
@@ -270,7 +269,7 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
                 });
             }
             table_add(*pack.animations, anim.name, anim);
-            print("Added anim(%)\n", anim.name);
+            log_debug("Added anim(%)", anim.name);
         }
     }
 
@@ -285,7 +284,7 @@ find_pack_by_name :: (name: string) -> (bool, Loaded_Pack) {
             return true, it;
         }
     }
-    print("[WARNING] Was unable to find pack: %\n", name);
+    log_warn("Unable to find pack: %", name);
     return false, .{};
 }
 
@@ -316,7 +315,7 @@ show_loading_screen :: () -> bool {
 }
 
 asset_manager_tick :: () {
-    #if !RELEASE_BUILD && OS != .WASM {
+    #if !FLAG_RELEASE_BUILD && OS != .WASM {
         if g_asset_manager.pending_hot_reload && !g_asset_manager.is_fetching && g_asset_manager.fetch_queue.count == 0 {
             g_asset_manager.pending_hot_reload = false;
             hot_reload_all_packs();
@@ -386,7 +385,7 @@ get_texture_from_pack :: (pack: string, path: string) -> (sg_image) {
     ok, img := table_find(*pack.textures, path);
 
     if !ok {
-        print("[WARNING] Failed to find texture(%) from pack(%)\n", path, pack.name);
+        log_warn("Failed to find texture(%) from pack(%)", path, pack.name);
         return invalid_img;
     }
 
@@ -403,7 +402,7 @@ get_audio_from_pack :: (pack: string, path: string) -> *Audio_Data {
     found, pack := find_pack_by_name(pack);
     if !found then return null;
     audio := table_find_pointer(*pack.audio, path);
-    if !audio then print("Failed to find audio(%)\n", path);
+    if !audio then log_error("Failed to find audio(%)", path);
     return audio;
 }
 
@@ -412,20 +411,20 @@ add_font_from_pack :: (pack: string, path: string) {
     if !pack_ok then return;
     ok, entry := table_find(*pack.content.lookup, path);
     if !ok {
-        print("Failed to find font % from pack...\n", path);
+        log_error("Failed to find font % from pack", path);
         return;
     }
     state.font_default.fons_font = fonsAddFontMem(state.fons, "sans", entry.data.data, xx entry.data.count, 0);
 }
 
 load_string_from_pack :: (pack: string, path: string) -> string {
-    print("Warning: you are circumventing the asset management system....\n");
+    log_warn("You are circumventing the asset management system");
     pack_ok, pack := find_pack_by_name(pack);
     if !pack_ok return "";
 
     ok, entry := table_find(*pack.content.lookup, path);
     if !ok {
-        print("Failed to load string from pack: %\n", path);
+        log_error("Failed to load string from pack: %", path);
         return "";
     }
 

@@ -1,4 +1,4 @@
-#if !RELEASE_BUILD && OS != .WASM {
+#if !FLAG_RELEASE_BUILD && OS != .WASM {
 
 #import "String";
 Pack_Writer :: #import "Simple_Package";
@@ -25,7 +25,7 @@ _hotreload_visitor :: (info: *File_Util.File_Visit_Info, packs: *Table(string, P
 
     file_content, ok := File_IO.read_entire_file(info.full_name);
     if !ok {
-        print("Hot-reload: failed to read '%'\n", info.full_name);
+        log_warn("Hot-reload: failed to read '%'", info.full_name);
         return;
     }
     data: []u8;
@@ -40,7 +40,7 @@ recreate_packs_on_disk :: () {
     File_Util.visit_files("./game/resources", true, *packs, _hotreload_visitor);
     for pack, key: packs {
         Pack_Writer.write(*pack, tprint("./packs/%.pack", key));
-        print("Hot-reload: wrote pack '%'\n", key);
+        log_info("Hot-reload: wrote pack '%'", key);
     }
 }
 
@@ -72,13 +72,13 @@ hot_reload_all_packs :: () {
     // is refreshed with the new content.
     init_after_core_done = false;
 
-    print("Hot-reload: recreating packs on disk...\n");
+    log_info("Hot-reload: recreating packs on disk...");
     recreate_packs_on_disk();
 
     for name: pack_names {
         load_pack(name, true, false);
     }
-    print("Hot-reload: queued % pack(s) for reload\n", pack_names.count);
+    log_info("Hot-reload: queued % pack(s) for reload", pack_names.count);
 }
 
 } // #if !RELEASE_BUILD && OS != .WASM

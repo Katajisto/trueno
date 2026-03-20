@@ -50,14 +50,14 @@ set_trile_gfx :: (name: string, gfx: Trile_GFX, skip_preexist_check: bool = fals
             sg_destroy_buffer(old_gfx.centre_buffer);
             sg_destroy_image(old_gfx.trixel_colors);
             array_reset(*old_gfx.vertices);
-            print("Destroyed old GFX buffers for trile: %\n", name);
+            log_debug("Destroyed old GFX buffers for trile: %", name);
         }
     }
     table_set(*trile_gfx_table, name, gfx);
 }
 
 set_trile :: (name: string, trile: Trile) {
-    print("Setting trile with name: %\n",name);
+    log_debug("Setting trile with name: %", name);
     // Destroy and remove any cached GFX so it gets regenerated from new data.
     gfx_exists, old_gfx := table_find(*trile_gfx_table, name);
     if gfx_exists {
@@ -79,7 +79,7 @@ set_trile :: (name: string, trile: Trile) {
 get_trile :: (name: string) -> (*Trile, success: bool) {
     trileptr := table_find_pointer(*trile_table, name);
     if !trileptr {
-        print("Failed to get trile with name: %\n", name);
+        log_error("Failed to get trile with name: %", name);
         return null, false;
     }
     return trileptr, true;
@@ -115,7 +115,7 @@ ltriles :: () {
     success, triles := Jaison.json_parse_string(s, [..]TrileSerialize,, temp);
     for triles {
         set_trile(sprint("%",it.name), trile_from_serialize_form(it));
-        print("Loaded %\n", it.name);
+        log_debug("Loaded %", it.name);
     }
 } @Command
 

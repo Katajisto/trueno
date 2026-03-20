@@ -252,7 +252,7 @@ read_string :: (data: []u8, cursor: *s64, len: s64) -> string {
 
 sworld :: () {
     if !current_world.valid {
-        print("Cannot save: no world loaded\n");
+        log_error("Cannot save: no world loaded");
         return;
     }
     #if OS != .WASM {
@@ -262,7 +262,7 @@ sworld :: () {
         file.make_directory_if_it_does_not_exist(dir, recursive = true);
         data := save_world(*current_world.world);
         file.write_entire_file(tprint("%/index.world", dir), data);
-        print("Saved world '%' (% bytes)\n", name, data.count);
+        log_info("Saved world '%' (% bytes)", name, data.count);
     }
 } @Command
 
@@ -350,20 +350,20 @@ load_world_from_data :: (data: []u8) -> (World, bool) {
     cursor: s64 = 0;
 
     if data.count < size_of(u32) + size_of(u16) {
-        print("World file too small\n");
+        log_error("World file too small");
         return world, false;
     }
 
     // Header
     magic := read_value(data, *cursor, u32);
     if magic != WORLD_MAGIC {
-        print("Invalid world file magic\n");
+        log_error("Invalid world file magic");
         return world, false;
     }
 
     version := read_value(data, *cursor, u16);
     if version != WORLD_VERSION {
-        print("Unsupported world version: %\n", version);
+        log_error("Unsupported world version: %", version);
         return world, false;
     }
 

@@ -18,7 +18,7 @@ Mixer_Play_Task :: struct {
     bus       : Mixer_Bus;
     mode      : Play_Mode;
     unique    : bool = true;
-    curSample : s64 = 0;
+    curSample : s64 = 0;  // output frames consumed
 
     startTime           : float64 = 0;
     delay               : float64 = 0;
@@ -98,37 +98,51 @@ mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
         
         vol := bus_vol * g_mixer.config.masterVolume;
         
-        source_data     := task.audio.data; 
-        source_channels := task.audio.channels; 
+        source_data     := task.audio.data;
+        source_channels := cast(s64) task.audio.channels;
+        src_rate        := cast(s64) task.audio.sample_rate;
+        out_rate        := cast(s64) saudio_sample_rate();
+        num_src_frames  := source_data.count / source_channels;
 
         task_finished := false;
 
         for f : 0..frame_count-1 {
-            if task.curSample >= source_data.count {
+            src_pos    := cast(float64)(task.curSample + f) * cast(float64)src_rate / cast(float64)out_rate;
+            src_frame0 := cast(s64) src_pos;
+            src_frame1 := src_frame0 + 1;
+            t          := cast(float)(src_pos - cast(float64)src_frame0);
+
+            if src_frame0 >= num_src_frames {
                 if task.mode == .ONESHOT {
                     task_finished = true;
                     break;
                 } else {
-                    task.curSample = 0;
+                    src_frame0 = src_frame0 % num_src_frames;
+                    src_frame1 = src_frame1 % num_src_frames;
                 }
+            } else if src_frame1 >= num_src_frames {
+                // At the very last source frame: clamp for ONESHOT, wrap for REPEAT.
+                src_frame1 = ifx task.mode == .ONESHOT then src_frame0 else 0;
             }
 
             for ch : 0..channel_count-1 {
                 out_index := (f * channel_count) + ch;
-                offset := ifx source_channels == 1 then 0 else ch;
-                
-                sample : float = 0;
-                
-                if task.curSample + f + offset < source_data.count {
-                    sample = source_data[task.curSample + f + offset];
-                }
+                src_ch    := ifx source_channels == 1 then 0 else ch;
 
-                buffer[out_index] += sample * vol;
+                s0 := source_data[src_frame0 * source_channels + src_ch];
+                s1 := source_data[src_frame1 * source_channels + src_ch];
+
+                buffer[out_index] += (s0 + (s1 - s0) * t) * vol;
             }
-
         }
 
         task.curSample += frame_count;
+
+        // Keep curSample bounded for REPEAT tracks so it never overflows.
+        if task.mode == .REPEAT && out_rate > 0 && src_rate > 0 {
+            loop_period := num_src_frames * out_rate / src_rate;
+            if loop_period > 0 then task.curSample = task.curSample % loop_period;
+        }
 
         if task_finished {
             array_unordered_remove_by_index(*g_mixer.tasks, i);

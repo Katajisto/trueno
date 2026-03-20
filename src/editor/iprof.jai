@@ -1,4 +1,4 @@
-#if HAS_IPROF == false {
+#if FLAG_IPROF_ENABLED == false {
 
 init_profiler :: () {}
 

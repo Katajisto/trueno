@@ -280,7 +280,7 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
             }
 
             atlas_w, atlas_h := rdm_calc_chunk_atlas_size(this_jobs);
-            print("RDM atlas for chunk %: %x% (%.1f MB, was % MB)\n",
+            log_info("RDM atlas for chunk %: %x% (%.1f MB, was % MB)",
                 chunk_key, atlas_w, atlas_h,
                 cast(float)(cast(s64) atlas_w * atlas_h * 4 * size_of(float)) / (1024.0 * 1024.0),
                 RDM_ATLAS_SIZE * RDM_ATLAS_SIZE * 4 * size_of(float) / (1024 * 1024));
@@ -360,7 +360,7 @@ rdm_bake_tick :: () {
             entry.h = h;
             array_add(*bake.entries, entry);
         } else {
-            print("Warning: RDM atlas overflow for chunk %, skipping (pos=%, roughness=%)\n", chunk_key, job.world_pos, job.roughness);
+            log_warn("RDM atlas overflow for chunk %, skipping (pos=%, roughness=%)", chunk_key, job.world_pos, job.roughness);
         }
 
         bake.cursor_x += w;
@@ -461,7 +461,7 @@ rdm_bake_finish :: () {
         chunk_count += 1;
     }
 
-    print("RDM bake complete: % chunks, % total entries\n", chunk_count, total_entries);
+    log_info("RDM bake complete: % chunks, % total entries", chunk_count, total_entries);
 
     // Save baked RDM data to disk.
     rdm_save_all_chunks_to_disk();
@@ -541,12 +541,12 @@ tacoma_start :: (world: World, include_water: bool) {
 
     blases : Tacoma.Trile_Set = .{trile_list.data, cast(s32)trile_list.count};
     for world_triles {
-        print("World trile %\n", it);
+        log_debug("World trile %", it);
     }
     tlas : Tacoma.World = .{world_triles.data, cast(s32)world_triles.count};
 
     ctx = Tacoma.tacoma_init("./modules/Tacoma/");
-    print("CTX: %\n\n", ctx);
+    log_debug("CTX: %", ctx);
 
     Tacoma.tacoma_load_scene(ctx, sky, blases, tlas, cast(s32) include_water);
 }
@@ -666,7 +666,7 @@ rdm_save_all_chunks_to_disk :: () {
             lookup_path := rdm_chunk_filename(world_name, chunk_key, "rdm_lookup");
             rdm_save_image_to_file(lookup_path, lookup_data.data, RDM_LOOKUP_SIZE, RDM_LOOKUP_SIZE);
 
-            print("Saved RDM data for chunk % to disk\n", chunk_key);
+            log_info("Saved RDM data for chunk % to disk", chunk_key);
         }
     }
 }

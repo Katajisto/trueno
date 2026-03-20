@@ -32,11 +32,13 @@ brush_radius      : int = 2;
 brush_height      : int = 0;
 
 area_active  : bool;
+area_delete  : bool;
 area_start_x : int;
 area_start_y : int;
 area_start_z : int;
 
 line_active  : bool;
+line_delete  : bool;
 line_start_x : int;
 line_start_y : int;
 line_start_z : int;
@@ -152,12 +154,12 @@ tick_level_editor_camera :: () {
 		cameraCenter += cameraSpeed * zoomCameraMovementMultiplier * (xx delta_time) * left2d;
 	}
 	
-	if input_button_states[Key_Code.ARROW_UP] & .START {
+	if is_action_start(Editor_Action.LEVEL_HEIGHT_UP) {
 		lastInputTime = get_time();
 		editY = min(editY + 1, 100);
 	}
 
-	if input_button_states[Key_Code.ARROW_DOWN] & .START {
+	if is_action_start(Editor_Action.LEVEL_HEIGHT_DOWN) {
 		lastInputTime = get_time();
 		editY = max(editY - 1, 0);
 	}
@@ -278,24 +280,17 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	r := total_r;
 	r.h = ui_h(4, 0);
 
+	if keybind_button(r, "Save world", .SAVE, *theme.button_theme) then sworld();
+	r.y += r.h * 2;
+
 	// Tool mode buttons
-	if GR.button(r, "Point", *t_button_selectable(theme, current_tool_mode == .POINT)) {
-		current_tool_mode = .POINT;
-	}
+	if keybind_button(r, "Point", .LEVEL_TOOL_POINT, *t_button_selectable(theme, current_tool_mode == .POINT)) then current_tool_mode = .POINT;
 	r.y += r.h;
-	if GR.button(r, "Brush", *t_button_selectable(theme, current_tool_mode == .BRUSH)) {
-		current_tool_mode = .BRUSH;
-	}
+	if keybind_button(r, "Brush", .LEVEL_TOOL_BRUSH, *t_button_selectable(theme, current_tool_mode == .BRUSH)) then current_tool_mode = .BRUSH;
 	r.y += r.h;
-	if GR.button(r, "Area", *t_button_selectable(theme, current_tool_mode == .AREA)) {
-		current_tool_mode = .AREA;
-		area_active = false;
-	}
+	if keybind_button(r, "Area",  .LEVEL_TOOL_AREA,  *t_button_selectable(theme, current_tool_mode == .AREA))  { current_tool_mode = .AREA;  area_active = false; }
 	r.y += r.h;
-	if GR.button(r, "Line", *t_button_selectable(theme, current_tool_mode == .LINE)) {
-		current_tool_mode = .LINE;
-		line_active = false;
-	}
+	if keybind_button(r, "Line",  .LEVEL_TOOL_LINE,  *t_button_selectable(theme, current_tool_mode == .LINE))  { current_tool_mode = .LINE;  line_active = false; }
 	r.y += r.h;
 
 	// Brush radius/height (only for brush mode)
@@ -342,7 +337,10 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	twist_angle := current_orientation_twist * 90;
 	GR.label(r, tprint("Face: %  Twist: %°", current_orientation_face, twist_angle), *t_label_left(theme));
 	r.y += r.h;
-	GR.label(r, "Q/E: twist   R: face", *t_label_left(theme));
+	GR.label(r, tprint("%/%: twist   %: face",
+		key_combo_string(get_action_combo(Editor_Action.LEVEL_TWIST_CCW)),
+		key_combo_string(get_action_combo(Editor_Action.LEVEL_TWIST_CW)),
+		key_combo_string(get_action_combo(Editor_Action.LEVEL_CYCLE_FACE))), *t_label_left(theme));
 	r.y += r.h;
 }
 
@@ -455,19 +453,23 @@ tick_level_editor :: () {
 	#if FLAG_TACOMA_ENABLED { rdm_bake_tick(); }
 	tick_level_editor_camera();
 
-	if !console_open_ignore_input {
-		if input_button_states[#char "Q"] & .START {
-			lastInputTime = get_time();
-			current_orientation_twist = (current_orientation_twist + 1) % 4;
-		}
-		if input_button_states[#char "E"] & .START {
-			lastInputTime = get_time();
-			current_orientation_twist = (current_orientation_twist + 3) % 4;
-		}
-		if input_button_states[#char "R"] & .START {
-			lastInputTime = get_time();
-			current_orientation_face = (current_orientation_face + 1) % 6;
-		}
+	if is_action_start(Editor_Action.SAVE) then sworld();
+
+	if is_action_start(Editor_Action.LEVEL_TOOL_POINT) then current_tool_mode = .POINT;
+	if is_action_start(Editor_Action.LEVEL_TOOL_BRUSH) then current_tool_mode = .BRUSH;
+	if is_action_start(Editor_Action.LEVEL_TOOL_AREA)  { current_tool_mode = .AREA;  area_active = false; }
+	if is_action_start(Editor_Action.LEVEL_TOOL_LINE)  { current_tool_mode = .LINE;  line_active = false; }
+	if is_action_start(Editor_Action.LEVEL_TWIST_CCW) {
+		lastInputTime = get_time();
+		current_orientation_twist = (current_orientation_twist + 1) % 4;
+	}
+	if is_action_start(Editor_Action.LEVEL_TWIST_CW) {
+		lastInputTime = get_time();
+		current_orientation_twist = (current_orientation_twist + 3) % 4;
+	}
+	if is_action_start(Editor_Action.LEVEL_CYCLE_FACE) {
+		lastInputTime = get_time();
+		current_orientation_face = (current_orientation_face + 1) % 6;
 	}
 
 	ray := get_mouse_ray(*get_level_editor_camera());
@@ -502,33 +504,59 @@ tick_level_editor :: () {
 			if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
 				if !area_active {
 					area_active  = true;
+					area_delete  = false;
 					area_start_x = px;
 					area_start_y = py;
 					area_start_z = pz;
-				} else {
+				} else if !area_delete {
 					apply_area(px, py, pz, false);
 					area_active = false;
+				} else {
+					area_active = false;  // cancel delete selection
 				}
 			}
 			if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .START {
-				if area_active then area_active = false;
-				else handle_tool_click(px, py, pz, true);
+				if !area_active {
+					area_active  = true;
+					area_delete  = true;
+					area_start_x = px;
+					area_start_y = py;
+					area_start_z = pz;
+				} else if area_delete {
+					apply_area(px, py, pz, true);
+					area_active = false;
+				} else {
+					area_active = false;  // cancel add selection
+				}
 			}
 		} else if current_tool_mode == .LINE {
 			if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
 				if !line_active {
 					line_active  = true;
+					line_delete  = false;
 					line_start_x = px;
 					line_start_y = py;
 					line_start_z = pz;
-				} else {
+				} else if !line_delete {
 					apply_line(px, py, pz, false);
 					line_active = false;
+				} else {
+					line_active = false;  // cancel delete selection
 				}
 			}
 			if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .START {
-				if line_active then line_active = false;
-				else handle_tool_click(px, py, pz, true);
+				if !line_active {
+					line_active  = true;
+					line_delete  = true;
+					line_start_x = px;
+					line_start_y = py;
+					line_start_z = pz;
+				} else if line_delete {
+					apply_line(px, py, pz, true);
+					line_active = false;
+				} else {
+					line_active = false;  // cancel add selection
+				}
 			}
 		}
 	}
@@ -596,11 +624,14 @@ create_level_editor_preview_tasks :: () {
 
 	if positions.count == 0 then return;
 
+	is_delete := (current_tool_mode == .AREA && area_active && area_delete)
+	          || (current_tool_mode == .LINE && line_active && line_delete);
+
 	task: Rendering_Task_Trile;
-	task.trile      = editor_current_trile.name;
-	task.positions  = positions;
-	task.worldConf  = *curworld.world.conf;
-	task.is_preview = true;
+	task.trile        = editor_current_trile.name;
+	task.positions    = positions;
+	task.worldConf    = *curworld.world.conf;
+	task.preview_mode = ifx is_delete then cast(s32)2 else cast(s32)1;
 	add_rendering_task(task);
 }
 
@@ -623,17 +654,11 @@ draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
     tab_r.h = ui_h(3,0);
     tab_r.w = ui_w(20, 20) / 3;
 
-    if GR.button(tab_r, "Tools", *t_button_tab(theme, current_tab == .TOOLS)) {
-		current_tab = .TOOLS;
-    }
+    if keybind_button(tab_r, "Tools",  .LEVEL_TAB_TOOLS,  *t_button_tab(theme, current_tab == .TOOLS))  then current_tab = .TOOLS;
     tab_r.x += tab_r.w;
-    if GR.button(tab_r, "Info", *t_button_tab(theme, current_tab == .INFO)) {
-		current_tab = .INFO;
-    }
+    if keybind_button(tab_r, "Info",   .LEVEL_TAB_INFO,   *t_button_tab(theme, current_tab == .INFO))   then current_tab = .INFO;
     tab_r.x += tab_r.w;
-    if GR.button(tab_r, "Tacoma", *t_button_tab(theme, current_tab == .TACOMA)) {
-        current_tab = .TACOMA;
-    }
+    if keybind_button(tab_r, "Tacoma", .LEVEL_TAB_TACOMA, *t_button_tab(theme, current_tab == .TACOMA)) then current_tab = .TACOMA;
     r.y += tab_r.h;
 
 	curworld := get_current_world();

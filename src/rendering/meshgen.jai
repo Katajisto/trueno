@@ -419,7 +419,7 @@ generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
         trile_normal_buffer_info := sg_buffer_desc.{ data = .{ ptr = triangleNorms.data, size = xx (triangleNorms.count * 4) } };
         trile_normal_buffer      := sg_make_buffer(*trile_normal_buffer_info);
         
-        print("Successfully generated mesh for trile with % triangles.\n", triangleVecs.count / 3 / 3);
+        log_debug("Successfully generated mesh for trile with % triangles.", triangleVecs.count / 3 / 3);
 
         centres : [..]float;
 
@@ -492,7 +492,7 @@ generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
         img := sg_make_image(*texdesc);
         
         state := sg_query_image_state(img);
-        print("IMG: %\n", state);
+        log_debug("IMG: %", state);
 
         context.allocator = old_alloc;
         vecsCopy := array_copy(triangleVecs);
