@@ -59,9 +59,11 @@ Chunk :: struct {
 }
 
 World :: struct {
-    name   : string;
-    conf   : World_Config;
-    chunks : Table(Chunk_Key, Chunk, chunk_key_hash, chunk_key_compare);
+    name              : string;
+    conf              : World_Config;
+    chunks            : Table(Chunk_Key, Chunk, chunk_key_hash, chunk_key_compare);
+    // emitter_instances : [..]Particle_Emitter_Instance;
+    emitter_instances : [..]string;
 }
 
 // Convert a world-space integer position to chunk coordinate.

@@ -30,6 +30,7 @@ stbi   :: #import "stb_image";
 #load "load.jai";
 #load "ray.jai";
 #load "profiling.jai";
+// #load "particles/particles.jai";
 #load "world.jai";
 #load "utils.jai";
 #load "audio/audio.jai";
@@ -92,6 +93,7 @@ init :: () {
     sfetch_setup(*(sfetch_desc_t.{
         logger = .{ func = slog_func },
     }));
+    asset_manager_init();
     saudio_setup(*(saudio_desc.{
         logger = .{ func = slog_func },
         stream_cb = sokol_audio_callback,

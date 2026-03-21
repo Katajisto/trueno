@@ -45,14 +45,14 @@ g_asset_manager : Asset_Manager;
 
 #load "rdm_loader.jai";
 
-MAX_FILE_SIZE :: 200_000_000;
-buf       : [MAX_FILE_SIZE]u8;
-world_buf : [MAX_FILE_SIZE]u8;
-
+MAX_FILE_SIZE        :: 200_000_000;
 RDM_ATLAS_MAX_BYTES  :: 4096 * 4096 * 4 * 4 + size_of(RDM_File_Header);
 RDM_LOOKUP_MAX_BYTES :: 512  * 512  * 4 * 4 + size_of(RDM_File_Header);
-rdm_atlas_buf  : [RDM_ATLAS_MAX_BYTES]u8;
-rdm_lookup_buf : [RDM_LOOKUP_MAX_BYTES]u8;
+
+buf            : []u8;
+world_buf      : []u8;
+rdm_atlas_buf  : []u8;
+rdm_lookup_buf : []u8;
 
 buffer_for_fetch :: (type: Fetch_Type) -> (*u8, u64) {
     if type == .PACK       return buf.data,            xx buf.count;
@@ -296,6 +296,13 @@ free_resources_from_pack :: (pack: *Loaded_Pack) {
     table_reset(*pack.textures);
     table_reset(*pack.audio);
     table_reset(*pack.animations);
+}
+
+asset_manager_init :: () {
+    buf            = NewArray(MAX_FILE_SIZE,        u8, false);
+    world_buf      = NewArray(MAX_FILE_SIZE,        u8, false);
+    rdm_atlas_buf  = NewArray(RDM_ATLAS_MAX_BYTES,  u8, false);
+    rdm_lookup_buf = NewArray(RDM_LOOKUP_MAX_BYTES, u8, false);
 }
 
 mandatory_loads_done :: () -> bool {
