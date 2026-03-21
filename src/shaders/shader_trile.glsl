@@ -554,7 +554,10 @@ void main() {
         indirectSpec = mix(indirectSpec, vec3(specLum), metallic);
 
         vec2 envBRDF = texture(sampler2D(brdf_lut, rdmsmp), vec2(max(dot(N, V), 0.0), roughness)).rg;
-        light += indirectSpec * (Frough * envBRDF.x + envBRDF.y) * rdm_spec_scale;
+        float NdotV_s = max(dot(N, V), 0.0);
+        float roughnessBell = 1.0 - 0.7 * sin(roughness * PI);
+        float grazingSuppress = 1.0 - 0.9 * roughness * sin(roughness * PI) * pow(1.0 - NdotV_s, 2.0);
+        light += indirectSpec * (Frough * envBRDF.x + envBRDF.y) * rdm_spec_scale * roughnessBell * grazingSuppress;
 
         // Indirect diffuse (interpolated from neighbor probes)
         vec3 indirectDiff = sample_rdm_diff(N, vpos - hemispherePos, local) * rdm_tint;
