@@ -64,10 +64,7 @@ buffer_for_fetch :: (type: Fetch_Type) -> (*u8, u64) {
 
 fetch_callback :: (res: *sfetch_response_t) #c_call {
     push_context,defer_pop default_context;
-    handle_fetch_response(res);
-}
 
-handle_fetch_response :: (res: *sfetch_response_t) {
     req := g_asset_manager.current_fetch;
     g_asset_manager.is_fetching = false;
     if req.type == {
@@ -81,7 +78,7 @@ handle_fetch_response :: (res: *sfetch_response_t) {
         memcpy(mem.data, res.data.ptr, res.data.size.(s64));
         pack: Loaded_Pack;
         pack.nameHash = hash.get_hash(req.pack_name);
-        pack.name = req.pack_name;
+        pack.name = sprint("%", req.pack_name);
         success := init_from_memory(*pack.content, mem, sprint("%", req.pack_name));
         if !success { log_error("Failed to load pack!!"); return; }
         add_resources_from_pack(*pack);

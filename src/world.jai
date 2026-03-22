@@ -136,6 +136,7 @@ unload_current_world :: () {
         Pool.reset(*current_world.pool);
         current_world.valid = false;
     } else {
+        print("Setting allocators on current world!!\n");
         Pool.set_allocators(*current_world.pool);
     }
 }
