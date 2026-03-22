@@ -94,6 +94,8 @@ init :: () {
         logger = .{ func = slog_func },
     }));
     asset_manager_init();
+    Thread.init(*g_mixer.mutex);
+    audio_init_thread_context();
     saudio_setup(*(saudio_desc.{
         logger = .{ func = slog_func },
         stream_cb = sokol_audio_callback,

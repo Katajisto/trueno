@@ -37,7 +37,7 @@ animation_player_tick :: (player: *Animation_Player) {
 
 animation_draw :: (player: *Animation_Player, position: Vector3, flipX: bool = false, flipY: bool = false) {
     animation_player_tick(player);
-    if player.current_animation == null then log_warn("Trying to draw a null animation!!");
+    if player.current_animation == null then return;
     create_billboard_rendering_task(position, player.current_animation, player.current_frame, flipX, flipY);
 }
 
@@ -57,6 +57,7 @@ animation_set_if_not :: (player: *Animation_Player, animation: string) {
 }
 
 animation_is :: (player: *Animation_Player, animation: string) -> bool {
+    if player.current_animation == null then return false;
     _, pack, anim := split_from_left(animation, ".");
     return player.current_animation.name == anim;
 }
