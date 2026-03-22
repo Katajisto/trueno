@@ -64,7 +64,10 @@ buffer_for_fetch :: (type: Fetch_Type) -> (*u8, u64) {
 
 fetch_callback :: (res: *sfetch_response_t) #c_call {
     push_context,defer_pop default_context;
+    handle_fetch_response(res);
+}
 
+handle_fetch_response :: (res: *sfetch_response_t) {
     req := g_asset_manager.current_fetch;
     g_asset_manager.is_fetching = false;
     if req.type == {
