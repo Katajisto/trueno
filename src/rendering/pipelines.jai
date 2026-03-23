@@ -73,7 +73,9 @@ gPipelines : struct {
     
     gbuffer_billboard : Pipeline_Binding;
 
-    // Renders the SSAO texture using things from the gbuffer pass.
+    particle_additive : Pipeline_Binding;
+    particle_alpha    : Pipeline_Binding;
+
     ssao: Pipeline_Binding;
 }
 
@@ -152,6 +154,7 @@ create_pipelines :: () {
     create_mix_pipeline();
     create_billboard_pipeline();
     create_gbuffer_billboard_pipeline();
+    create_particle_pipeline();
     
     create_shadowmap_image();
     create_final_image();
@@ -1184,4 +1187,88 @@ create_gbuffer_impostors :: () {
     }};
     g_plane_gbuffer_instance_buffer = sg_make_buffer(*instance_buffer);
 
+}
+
+create_particle_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := particle_shader_desc(sg_query_backend());
+    shd := sg_make_shader(*shader_desc);
+    pipeline.shader = shd;
+
+    pipeline.layout.buffers[0].stride = 4 * 3;
+    pipeline.layout.buffers[1].stride = 4 * 4;
+    pipeline.layout.buffers[1].step_func = .PER_INSTANCE;
+    pipeline.layout.buffers[2].stride = 4 * 4;
+    pipeline.layout.buffers[2].step_func = .PER_INSTANCE;
+    pipeline.layout.buffers[3].stride = 4 * 4;
+    pipeline.layout.buffers[3].step_func = .PER_INSTANCE;
+
+    pipeline.layout.attrs[ATTR_particle_position]      = .{ format = .FLOAT3, buffer_index = 0 };
+    pipeline.layout.attrs[ATTR_particle_inst_pos_size]  = .{ format = .FLOAT4, buffer_index = 1 };
+    pipeline.layout.attrs[ATTR_particle_inst_uv_rect]   = .{ format = .FLOAT4, buffer_index = 2 };
+    pipeline.layout.attrs[ATTR_particle_inst_color]     = .{ format = .FLOAT4, buffer_index = 3 };
+
+    pipeline.index_type = .UINT16;
+    pipeline.depth = .{
+        write_enabled = false,
+        compare = .LESS_EQUAL,
+        pixel_format = .DEPTH,
+    };
+    pipeline.color_count = 1;
+
+    pipeline.colors[0] = .{
+        pixel_format = .RGBA32F,
+        blend = .{
+            enabled = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE,
+            src_factor_alpha = .ONE,
+            dst_factor_alpha = .ONE,
+        },
+    };
+    gPipelines.particle_additive.pipeline = sg_make_pipeline(*pipeline);
+
+    pipeline.colors[0].blend = .{
+        enabled = true,
+        src_factor_rgb = .SRC_ALPHA,
+        dst_factor_rgb = .ONE_MINUS_SRC_ALPHA,
+        src_factor_alpha = .ONE,
+        dst_factor_alpha = .ONE_MINUS_SRC_ALPHA,
+    };
+    gPipelines.particle_alpha.pipeline = sg_make_pipeline(*pipeline);
+
+    vertices: [4]Vector3 = .[
+        .{ 0.0, 0.0, 0.0 },
+        .{ 1.0, 0.0, 0.0 },
+        .{ 1.0, 1.0, 0.0 },
+        .{ 0.0, 1.0, 0.0 },
+    ];
+
+    indices: [6]u16 = .[
+        0, 1, 2,
+        0, 2, 3,
+    ];
+
+    idx_buf := sg_make_buffer(*(sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ ptr = indices.data, size = 6 * 2 } }));
+    vtx_buf := sg_make_buffer(*(sg_buffer_desc.{ data = .{ ptr = vertices.data, size = 4 * 3 * 4 } }));
+    inst1   := sg_make_buffer(*(sg_buffer_desc.{ size = cast(u64)(MAX_PARTICLES * size_of(Vector4)), usage = .STREAM }));
+    inst2   := sg_make_buffer(*(sg_buffer_desc.{ size = cast(u64)(MAX_PARTICLES * size_of(Vector4)), usage = .STREAM }));
+    inst3   := sg_make_buffer(*(sg_buffer_desc.{ size = cast(u64)(MAX_PARTICLES * size_of(Vector4)), usage = .STREAM }));
+    smp     := sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
+    }));
+
+    setup_bind :: (bind: *sg_bindings, idx_buf: sg_buffer, vtx_buf: sg_buffer, inst1: sg_buffer, inst2: sg_buffer, inst3: sg_buffer, smp: sg_sampler) {
+        bind.index_buffer      = idx_buf;
+        bind.vertex_buffers[0] = vtx_buf;
+        bind.vertex_buffers[1] = inst1;
+        bind.vertex_buffers[2] = inst2;
+        bind.vertex_buffers[3] = inst3;
+        bind.samplers[SMP_particle_spritesmp] = smp;
+    }
+    setup_bind(*gPipelines.particle_additive.bind, idx_buf, vtx_buf, inst1, inst2, inst3, smp);
+    setup_bind(*gPipelines.particle_alpha.bind, idx_buf, vtx_buf, inst1, inst2, inst3, smp);
 }

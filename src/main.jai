@@ -24,13 +24,14 @@ stbi   :: #import "stb_image";
 #load "rendering/rendering.jai";
 #load "input/hotkeys.jai";
 #load "ui/ui.jai";
-#load "editor/editor.jai";
+#load "editor/rdm_disk.jai";
+#if !FLAG_RELEASE_BUILD { #load "editor/editor.jai"; }
 #load "time.jai";
 #load "events.jai";
 #load "load.jai";
 #load "ray.jai";
 #load "profiling.jai";
-// #load "particles/particles.jai";
+#load "particles/particles.jai";
 #load "world.jai";
 #load "utils.jai";
 #load "audio/audio.jai";
@@ -141,7 +142,12 @@ init_after_core :: () {
             break;
         }
     }
-    init_editor();
+    #if !FLAG_RELEASE_BUILD {
+        init_editor();
+    } else {
+        init_keybinds();
+        init_settings_menu();
+    }
     init_rendering();
     load_post_process_from_pack();
 
@@ -191,11 +197,14 @@ frame :: () {
 
     #if OS != .WASM { tick_profiler(); }
 
-    if !in_editor_view then delta_time_accumulator += delta_time;
+    should_tick_game := #ifx FLAG_RELEASE_BUILD then true else !in_editor_view;
 
-    if !in_editor_view && !settings_menu_blocks_game() {
+    if should_tick_game then delta_time_accumulator += delta_time;
+
+    if should_tick_game && !settings_menu_blocks_game() {
         while delta_time_accumulator > (1.0/480.0) {
             game_tick(1.0/480.0);
+            tick_particles(1.0/480.0);
             delta_time_accumulator -= (1.0/480.0);
         }
     }
@@ -210,7 +219,7 @@ frame :: () {
     add_frame_profiling_point("After UI tick");
 
     // This populates our render task queue.
-    if !in_editor_view then game_draw();
+    if should_tick_game then game_draw();
     add_frame_profiling_point("After game draw");
 
     ui_clear_mouse_occluders();
@@ -218,7 +227,8 @@ frame :: () {
     add_frame_profiling_point("After UI draw");
     prepare_text(debug_font, tprint("frametime: % ms", latest_frametime * 1000));
     draw_prepared_text(debug_font, 10, 10, .{0.0, 1.0, 0.0, 1.0});
-    draw_editor();
+    #if !FLAG_RELEASE_BUILD { draw_editor(); }
+    add_particle_render_tasks();
     add_frame_profiling_point("After editor draw");
     render();
     add_frame_profiling_point("After rendering");

@@ -52,18 +52,27 @@ Chunk :: struct {
     coord:  Chunk_Key;
     groups: [..]Chunk_Trile_Group;
 
-    // RDM bake results (populated by tacoma baking)
-    rdm_atlas:   sg_image;
-    rdm_lookup:  sg_image;
-    rdm_valid:   bool;
+    rdm_atlas:      sg_image;
+    rdm_lookup:     sg_image;
+    rdm_valid:      bool;
+    #if !FLAG_RELEASE_BUILD {
+        rdm_lookup_cpu: []float;
+        rdm_lookup_w:   s32;
+        rdm_lookup_h:   s32;
+    }
+}
+
+Editor_Note :: struct {
+    position : Chunk_Key;
+    text     : string;
 }
 
 World :: struct {
     name              : string;
     conf              : World_Config;
     chunks            : Table(Chunk_Key, Chunk, chunk_key_hash, chunk_key_compare);
-    // emitter_instances : [..]Particle_Emitter_Instance;
-    emitter_instances : [..]string;
+    emitter_instances : [..]Particle_Emitter_Instance;
+    notes             : [..]Editor_Note;
 }
 
 // Convert a world-space integer position to chunk coordinate.
@@ -123,6 +132,10 @@ unload_current_world :: () {
             if chunk.rdm_valid {
                 sg_destroy_image(chunk.rdm_atlas);
                 sg_destroy_image(chunk.rdm_lookup);
+                #if !FLAG_RELEASE_BUILD {
+                    if chunk.rdm_lookup_cpu.data then free(chunk.rdm_lookup_cpu.data);
+                    chunk.rdm_lookup_cpu = .{};
+                }
                 chunk.rdm_atlas  = .{};
                 chunk.rdm_lookup = .{};
                 chunk.rdm_valid  = false;
@@ -145,7 +158,13 @@ set_loaded_world :: (world: World) {
     unload_current_world();
     current_world.world = world;
     current_world.valid = true;
-    // RDM loading is kicked off by the asset manager after calling this.
+    resolve_emitter_definitions(*current_world.world);
+}
+
+resolve_emitter_definitions :: (world: *World) {
+    for *inst: world.emitter_instances {
+        inst.definition = get_emitter_def(inst.definition_name);
+    }
 }
 
 clear_world :: () {
@@ -167,7 +186,7 @@ get_current_world :: () -> *Current_World {
 // --- Binary serialization (.world format) ---
 
 WORLD_MAGIC :: u32.[0x4C575254][0]; // "TRWL" as little-endian u32
-WORLD_VERSION :: cast(u16) 1;
+WORLD_VERSION :: cast(u16) 3;
 
 // World_Config serialized as a fixed-size binary blob.
 // We serialize it field-by-field to avoid padding issues.
@@ -345,6 +364,30 @@ save_world :: (world: *World) -> string {
         append(*builder, entry.data);
     }
 
+    // Write emitter instances
+    num_emitters := cast(u16) world.emitter_instances.count;
+    write_value(*builder, num_emitters);
+    for inst: world.emitter_instances {
+        name_len := cast(u16) inst.definition_name.count;
+        write_value(*builder, name_len);
+        append(*builder, inst.definition_name);
+        write_value(*builder, inst.position.x);
+        write_value(*builder, inst.position.y);
+        write_value(*builder, inst.position.z);
+    }
+
+    // Write notes
+    num_notes := cast(u16) world.notes.count;
+    write_value(*builder, num_notes);
+    for note: world.notes {
+        text_len := cast(u16) note.text.count;
+        write_value(*builder, text_len);
+        append(*builder, note.text);
+        write_value(*builder, note.position.x);
+        write_value(*builder, note.position.y);
+        write_value(*builder, note.position.z);
+    }
+
     return builder_to_string(*builder);
 }
 
@@ -365,7 +408,7 @@ load_world_from_data :: (data: []u8) -> (World, bool) {
     }
 
     version := read_value(data, *cursor, u16);
-    if version != WORLD_VERSION {
+    if version != 1 && version != 2 && version != 3 {
         log_error("Unsupported world version: %", version);
         return world, false;
     }
@@ -417,6 +460,33 @@ load_world_from_data :: (data: []u8) -> (World, bool) {
             array_add(*chunk.groups, group);
         }
         table_set(*world.chunks, chunk.coord, chunk);
+    }
+
+    if version >= 2 && cursor < data.count {
+        num_emitters := cast(s64) read_value(data, *cursor, u16);
+        for i: 0..num_emitters-1 {
+            inst: Particle_Emitter_Instance;
+            name_len := cast(s64) read_value(data, *cursor, u16);
+            inst.definition_name = read_string(data, *cursor, name_len);
+            inst.position.x = read_value(data, *cursor, float);
+            inst.position.y = read_value(data, *cursor, float);
+            inst.position.z = read_value(data, *cursor, float);
+            inst.active = true;
+            array_add(*world.emitter_instances, inst);
+        }
+    }
+
+    if version >= 3 && cursor < data.count {
+        num_notes := cast(s64) read_value(data, *cursor, u16);
+        for i: 0..num_notes-1 {
+            note: Editor_Note;
+            text_len := cast(s64) read_value(data, *cursor, u16);
+            note.text = read_string(data, *cursor, text_len);
+            note.position.x = read_value(data, *cursor, s32);
+            note.position.y = read_value(data, *cursor, s32);
+            note.position.z = read_value(data, *cursor, s32);
+            array_add(*world.notes, note);
+        }
     }
 
     return world, true;

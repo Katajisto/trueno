@@ -85,6 +85,22 @@ get_trile :: (name: string) -> (*Trile, success: bool) {
     return trileptr, true;
 }
 
+get_trile_roughness_set :: (trile_name: string) -> u8 {
+    trile, ok := get_trile(trile_name);
+    if !ok then return 1 << 7;
+    mask : u8 = 1 << 7;
+    for x: 0..15 {
+        for y: 0..15 {
+            for z: 0..15 {
+                if !trile.trixels[x][y][z].empty {
+                    mask |= cast(u8)(1 << trile.trixels[x][y][z].material.roughness);
+                }
+            }
+        }
+    }
+    return mask;
+}
+
 lstrile :: () -> string {
     count := 0;
     for v : trile_table {

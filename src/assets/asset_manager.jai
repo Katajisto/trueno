@@ -2,6 +2,7 @@
 
 #import "String";
 hash :: #import "Hash";
+Pool :: #import "Pool";
 
 #load "loaders.jai";
 
@@ -77,6 +78,7 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
         mem := NewArray(res.data.size.(s64), u8, false);
         memcpy(mem.data, res.data.ptr, res.data.size.(s64));
         pack: Loaded_Pack;
+        Pool.set_allocators(*pack.pool);
         pack.nameHash = hash.get_hash(req.pack_name);
         pack.name = sprint("%", req.pack_name);
         success := init_from_memory(*pack.content, mem, sprint("%", req.pack_name));
@@ -173,9 +175,17 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
         };
         chunk := table_find_pointer(*curworld.world.chunks, req.chunk_key);
         if chunk != null {
-            chunk.rdm_atlas  = req.rdm_pending_atlas;
-            chunk.rdm_lookup = sg_make_image(*lookup_desc);
-            chunk.rdm_valid  = true;
+            chunk.rdm_atlas    = req.rdm_pending_atlas;
+            chunk.rdm_lookup   = sg_make_image(*lookup_desc);
+            #if !FLAG_RELEASE_BUILD {
+                chunk.rdm_lookup_w = header.width;
+                chunk.rdm_lookup_h = header.height;
+                num_floats := cast(s64)(header.width * header.height * 4);
+                cpu_copy := NewArray(num_floats, float);
+                memcpy(cpu_copy.data, res.data.ptr + header_size, cast(s64)lookup_pixel_bytes);
+                chunk.rdm_lookup_cpu = cpu_copy;
+            }
+            chunk.rdm_valid    = true;
             log_debug("RDM: loaded chunk %", req.chunk_key);
         } else {
             sg_destroy_image(req.rdm_pending_atlas);
@@ -191,11 +201,12 @@ Loaded_Pack :: struct {
     textures   : Table(string, sg_image);
     animations : Table(string, Animation);
     audio      : Table(string, Audio_Data);
-    //fonts    : [..]Font??;
+    pool       : Pool.Pool;
 }
 
 add_resources_from_pack :: (pack: *Loaded_Pack) {
-    // We need to go trough this at the end.
+    push_allocator(.{Pool.pool_allocator_proc, *pack.pool});
+
     Queued_Sheet_File :: struct {
         name    : string;
         image   : sg_image;
@@ -241,6 +252,21 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
             case "wav";
                 audio := load_wav_from_memory(v.data);
                 table_set(*pack.audio, name, audio);
+            case "json";
+                if name == "particles" {
+                    s := create_string_from_memory(v.data);
+                    success, defs := Jaison.json_parse_string(s, [..]Particle_Emitter_Config,, temp);
+                    if success {
+                        array_reset(*g_emitter_defs);
+                        for defs {
+                            def := it;
+                            def.name = sprint("%", it.name);
+                            def.animation_name = sprint("%", it.animation_name);
+                            array_add(*g_emitter_defs, def);
+                        }
+                        log_info("Loaded % particle definitions from pack", g_emitter_defs.count);
+                    }
+                }
             case "ttf";
             // Load into a font. Add to free list.
             case;
@@ -292,10 +318,10 @@ find_pack_by_name :: (name: string) -> (bool, Loaded_Pack) {
 
 free_resources_from_pack :: (pack: *Loaded_Pack) {
     for pack.textures  sg_destroy_image(it);
-    for *pack.audio    array_free(it.data);
     table_reset(*pack.textures);
     table_reset(*pack.audio);
     table_reset(*pack.animations);
+    Pool.reset(*pack.pool);
 }
 
 asset_manager_init :: () {

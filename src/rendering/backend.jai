@@ -22,6 +22,7 @@ Render_Command_Type :: enum {
     DRAW_TRIXELS;
     SET_LIGHT;
     DRAW_BILLBOARD;
+    DRAW_PARTICLES;
 }
 
 Render_Command :: struct {
@@ -77,6 +78,17 @@ Render_Command_Draw_Billboard :: struct {
 Render_Command_Draw_Trixels :: struct {
     #as using c : Render_Command;
     c.type      = .DRAW_TRIXELS;
+}
+
+Render_Command_Draw_Particles :: struct {
+    #as using c    : Render_Command;
+    c.type         = .DRAW_PARTICLES;
+    count          : s32;
+    blend_mode     : Particle_Blend_Mode;
+    sheet          : sg_image;
+    pos_size       : [2048]Vector4;
+    uv_rects       : [2048]Vector4;
+    colors         : [2048]Vector4;
 }
 
 Render_Command_Draw_Ground :: struct {

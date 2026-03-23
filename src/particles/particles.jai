@@ -1,5 +1,10 @@
 #scope_export
 
+Particle_Blend_Mode :: enum {
+    ADDITIVE;
+    ALPHA;
+}
+
 Particle_Emitter_Config :: struct {
     name             : string;
     animation_name   : string;
@@ -8,13 +13,13 @@ Particle_Emitter_Config :: struct {
     lifetime_max     : float = 2.0;
     velocity         : Vector3;
     velocity_spread  : Vector3;
+    position_spread  : Vector3;
     size_start       : float = 0.5;
     size_end         : float = 0.0;
     color_start      : Vector4 = .{1, 1, 1, 1};
     color_end        : Vector4 = .{1, 1, 1, 0};
     gravity          : float = 2.0;
-
-    animation        : *Animation; // resolved at runtime from animation_name
+    blend_mode       : Particle_Blend_Mode = .ADDITIVE;
 }
 
 Particle_Emitter_Instance :: struct {
@@ -41,7 +46,6 @@ g_particles    : [2048] Particle;
 g_emitter_defs : [..] Particle_Emitter_Config;
 
 tick_particles :: (dt: float) {
-    return;
     for *p: g_particles {
         if !p.alive then continue;
         p.age += dt;
@@ -53,10 +57,14 @@ tick_particles :: (dt: float) {
         p.position   += p.velocity * dt;
     }
 
-    for *inst: get_current_world().world.emitter_instances {
-        if inst == null then continue;
+    curworld := get_current_world();
+    if !curworld.valid then return;
+    for *inst: curworld.world.emitter_instances {
         if !inst.active then continue;
-        if inst.definition == null then continue;
+        if inst.definition == null {
+            inst.definition = get_emitter_def(inst.definition_name);
+            if inst.definition == null then continue;
+        }
         def := inst.definition;
         inst.spawn_accumulator += def.emission_rate * dt;
         while inst.spawn_accumulator >= 1.0 {
@@ -78,7 +86,100 @@ tick_emitter_instance :: (inst: *Particle_Emitter_Instance, dt: float) {
 }
 
 add_particle_render_tasks :: () {
-    // TODO
+    Batch :: struct {
+        anim_name  : string;
+        blend_mode : Particle_Blend_Mode;
+        anim       : *Animation;
+        task       : *Rendering_Task_Particles;
+        count      : s32;
+    }
+
+    batches : [..] Batch;
+    batches.allocator = temp;
+
+    for *p: g_particles {
+        if !p.alive then continue;
+
+        if p.definition == null then continue;
+        def := p.definition;
+        if def.animation_name.count == 0 then continue;
+
+        batch : *Batch = null;
+        for *b: batches {
+            if b.anim_name == def.animation_name && b.blend_mode == def.blend_mode {
+                batch = b;
+                break;
+            }
+        }
+
+        if batch == null {
+            anim := get_animation_from_string(def.animation_name);
+            if anim == null then continue;
+            array_add(*batches, .{ anim_name = def.animation_name, blend_mode = def.blend_mode, anim = anim, task = New(Rendering_Task_Particles,, temp) });
+            batch = *batches[batches.count - 1];
+            batch.task.sheet = anim.sheet;
+            batch.task.blend_mode = def.blend_mode;
+        }
+
+        if batch.count >= MAX_PARTICLES then continue;
+
+        t := p.age / p.lifetime;
+        size := def.size_start + (def.size_end - def.size_start) * t;
+        col := lerp_color(def.color_start, def.color_end, t);
+
+        idx := batch.count;
+        batch.task.pos_size[idx] = .{p.position.x, p.position.y, p.position.z, size};
+
+        anim := batch.anim;
+        frame_count := anim.frames.count;
+        if frame_count == 0 then continue;
+        frame := cast(s32)(t * cast(float)(frame_count - 1));
+        if frame < 0 then frame = 0;
+        if frame >= frame_count then frame = cast(s32)(frame_count - 1);
+        f := anim.frames[frame];
+        batch.task.uv_rects[idx] = .{
+            cast(float)f.x / cast(float)anim.sheet_w,
+            cast(float)f.y / cast(float)anim.sheet_h,
+            cast(float)f.w / cast(float)anim.sheet_w,
+            cast(float)f.h / cast(float)anim.sheet_h,
+        };
+
+        batch.task.colors[idx] = col;
+        batch.count += 1;
+    }
+
+    for *b: batches {
+        if b.count > 0 {
+            b.task.count = b.count;
+            add_rendering_task(b.task.*);
+        }
+    }
+}
+
+get_emitter_def :: (name: string) -> *Particle_Emitter_Config {
+    for *def: g_emitter_defs {
+        if def.name == name then return def;
+    }
+    return null;
+}
+
+spawn_particles_at :: (position: Vector3, def_name: string) {
+    for *def: g_emitter_defs {
+        if def.name == def_name {
+            spawn_one_particle(position, def);
+            return;
+        }
+    }
+}
+
+register_emitter_def :: (def: Particle_Emitter_Config) {
+    for *existing: g_emitter_defs {
+        if existing.name == def.name {
+            existing.* = def;
+            return;
+        }
+    }
+    array_add(*g_emitter_defs, def);
 }
 
 get_emitter_def_names :: () -> []string {
@@ -90,15 +191,12 @@ get_emitter_def_names :: () -> []string {
     return names;
 }
 
-save_particle_definition :: (def: Particle_Emitter_Config) {
+save_particle_defs :: () {
     #if OS != .WASM {
         file :: #import "File";
-        dir := "./game/resources/particles";
-        file.make_directory_if_it_does_not_exist(dir, recursive = true);
-        path := tprint("%/%.emitter.json", dir, def.name);
-        json := Jaison.json_write_string(def,, temp);
-        file.write_entire_file(path, json);
-        log_info("Saved particle definition '%'", def.name);
+        json := Jaison.json_write_string(g_emitter_defs, " ");
+        file.write_entire_file("./game/resources/game_core/particles.json", json);
+        log_info("Saved % particle definitions", g_emitter_defs.count);
     }
 }
 
@@ -116,7 +214,11 @@ spawn_one_particle :: (position: Vector3, def: *Particle_Emitter_Config) {
         p.alive    = true;
         p.age      = 0;
         p.lifetime = rng(def.lifetime_min, def.lifetime_max);
-        p.position = position;
+        p.position = position + Vector3.{
+            rng(-def.position_spread.x, def.position_spread.x),
+            rng(-def.position_spread.y, def.position_spread.y),
+            rng(-def.position_spread.z, def.position_spread.z),
+        };
         p.velocity = def.velocity + Vector3.{
             rng(-def.velocity_spread.x, def.velocity_spread.x),
             rng(-def.velocity_spread.y, def.velocity_spread.y),

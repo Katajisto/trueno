@@ -50,6 +50,9 @@ backend_handle_command :: (cmd: *Render_Command) {
             } else {
                 backend_gbuffer_draw_billboard(command.position, command.animation, command.frame, command.flipX);
             }
+        case .DRAW_PARTICLES;
+            particles_cmd := cast(*Render_Command_Draw_Particles)cmd;
+            backend_draw_particles(particles_cmd);
     }
 }
 
@@ -344,6 +347,36 @@ backend_gbuffer_draw_billboard :: (position: Vector3, anim: *Animation, frame_id
     sg_apply_bindings(*gPipelines.gbuffer_billboard.bind);
     sg_apply_uniforms(UB_gbuffer_billboard_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
     sg_draw(0, 6, 1);    
+}
+
+backend_draw_particles :: (cmd: *Render_Command_Draw_Particles) {
+    if cmd.count <= 0 then return;
+
+    pip := ifx cmd.blend_mode == .ALPHA then *gPipelines.particle_alpha else *gPipelines.particle_additive;
+
+    sg_update_buffer(pip.bind.vertex_buffers[1], *(sg_range.{
+        ptr = cmd.pos_size.data,
+        size = cast(u64)(cmd.count * size_of(Vector4)),
+    }));
+    sg_update_buffer(pip.bind.vertex_buffers[2], *(sg_range.{
+        ptr = cmd.uv_rects.data,
+        size = cast(u64)(cmd.count * size_of(Vector4)),
+    }));
+    sg_update_buffer(pip.bind.vertex_buffers[3], *(sg_range.{
+        ptr = cmd.colors.data,
+        size = cast(u64)(cmd.count * size_of(Vector4)),
+    }));
+
+    mvp := create_viewproj(*camera);
+    vs_params : Particle_Vs_Params;
+    vs_params.mvp = mvp.floats;
+    vs_params.cam = camera.position.component;
+
+    sg_apply_pipeline(pip.pipeline);
+    pip.bind.images[IMG_particle_sprite] = cmd.sheet;
+    sg_apply_bindings(*pip.bind);
+    sg_apply_uniforms(UB_particle_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
+    sg_draw(0, 6, cmd.count);
 }
 
 backend_draw_ground_gbuf :: (wc: *World_Config) {

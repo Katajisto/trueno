@@ -369,7 +369,11 @@ tick_ui :: () {
     array_reset_keeping_memory(*ui_events);
     GR.ui_per_frame_update(1, xx w, xx h, get_time());
 
-    tick_editor_ui();
+    #if !FLAG_RELEASE_BUILD {
+        tick_editor_ui();
+    } else {
+        tick_settings_menu();
+    }
 }
 
 checkboxTest : bool = false;
@@ -423,11 +427,15 @@ render_ui :: () {
     proc := GR.default_theme_procs[0];
     my_theme := proc();
     GR.set_default_theme(my_theme);
-    draw_editor_ui(*my_theme);
-    if !in_editor_view then game_ui(*my_theme);
+    #if !FLAG_RELEASE_BUILD {
+        draw_editor_ui(*my_theme);
+        if !in_editor_view then game_ui(*my_theme);
+        draw_console(*my_theme);
+    } else {
+        game_ui(*my_theme);
+    }
     #if FLAG_DEMO_BUILD { if !in_editor_view then draw_demo_ui(*my_theme); }
     draw_settings_menu(*my_theme);
-    draw_console(*my_theme);
 }
 
 ui_pass :: () {

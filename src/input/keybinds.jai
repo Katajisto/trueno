@@ -26,6 +26,8 @@ Editor_Action :: enum {
     LEVEL_TOOL_BRUSH;
     LEVEL_TOOL_AREA;
     LEVEL_TOOL_LINE;
+    LEVEL_TOOL_INSPECTOR;
+    LEVEL_TOOL_VIEWER;
     // Level editor — tabs
     LEVEL_TAB_TOOLS;
     LEVEL_TAB_INFO;
@@ -168,6 +170,8 @@ set_default_bindings :: () {
     set(.LEVEL_TOOL_BRUSH,    cast(Key_Code) #char "2");
     set(.LEVEL_TOOL_AREA,     cast(Key_Code) #char "3");
     set(.LEVEL_TOOL_LINE,     cast(Key_Code) #char "4");
+    set(.LEVEL_TOOL_INSPECTOR, cast(Key_Code) #char "5");
+    set(.LEVEL_TOOL_VIEWER,   cast(Key_Code) #char "6");
     set(.LEVEL_TAB_TOOLS,     cast(Key_Code) #char "T");
     set(.LEVEL_TAB_INFO,      cast(Key_Code) #char "I");
     set(.LEVEL_TAB_TACOMA,    cast(Key_Code) #char "X");

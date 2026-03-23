@@ -1,9 +1,9 @@
-#load "rdm_disk.jai";
 #if OS != .WASM {
     #load "iprof.jai";
     #load "picker.jai";
     #load "trile_editor.jai";
     #load "level_editor.jai";
+    #load "particle_editor.jai";
 }
 #if FLAG_TACOMA_ENABLED { #load "tacoma.jai"; }
 #load "console.jai";
@@ -14,8 +14,8 @@
 Editor_View :: enum {
     Closed_Editor;
     Trile_Editor;
-    Level_Editor; 
-    Material_Editor;
+    Level_Editor;
+    Particle_Editor;
 };
 
 current_editor_view : Editor_View = .Trile_Editor;
@@ -25,8 +25,10 @@ current_editor_view : Editor_View = .Trile_Editor;
 in_editor_view : bool = false;
 
 init_editor :: () {
-    #if OS != .WASM {init_profiler();}
-    init_console();
+    #if !FLAG_RELEASE_BUILD {
+        #if OS != .WASM {init_profiler();}
+        init_console();
+    }
     init_keybinds();
     init_settings_menu();
 }
@@ -50,14 +52,15 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
             r.x -= r.w;
             if keybind_button(r, "Trile studio",    .STUDIO_TRILE,    *t_button_selectable(theme, current_editor_view == .Trile_Editor))    then current_editor_view = .Trile_Editor;
             r.x -= r.w;
-            if keybind_button(r, "Material studio", .STUDIO_MATERIAL, *t_button_selectable(theme, current_editor_view == .Material_Editor)) then current_editor_view = .Material_Editor;
-    
+            if keybind_button(r, "Particle studio", .STUDIO_MATERIAL, *t_button_selectable(theme, current_editor_view == .Particle_Editor)) then current_editor_view = .Particle_Editor;
 
             if current_editor_view == {
                 case .Trile_Editor;
                     draw_trile_editor_ui(theme);
                 case .Level_Editor;
                     draw_level_editor_ui(theme);
+                case .Particle_Editor;
+                    draw_particle_editor_ui(theme);
             }
         }
         draw_profiler();
@@ -80,6 +83,8 @@ draw_editor :: () {
                 draw_trile_editor();
             case .Level_Editor;
                 draw_level_editor();
+            case .Particle_Editor;
+                draw_particle_editor();
         }
     }
 }
@@ -105,6 +110,8 @@ tick_editor_ui :: () {
                     tick_trile_editor();
                 case .Level_Editor;
                     tick_level_editor();
+                case .Particle_Editor;
+                    tick_particle_editor();
             }
         }
     }

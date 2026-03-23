@@ -1,6 +1,5 @@
 g_animations: Table(string, Animation);
 
-#scope_file
 get_animation_from_string :: (animation: string) -> *Animation {
     ok, pack, anim := split_from_left(animation, ".");
     if !ok {
@@ -9,7 +8,6 @@ get_animation_from_string :: (animation: string) -> *Animation {
     }
     return get_animation_from_pack(pack, anim);
 }
-#scope_export
 
 Animation_Player :: struct {
     current_animation      : *Animation;

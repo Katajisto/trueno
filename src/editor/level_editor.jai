@@ -6,6 +6,8 @@ MAX_CAMERA_DIST               :: 25.0;
 MIN_CAMERA_DIST               :: 2.0;
 DIST_SCROLL_SPEED             :: 0.8;
 
+mouse1Active             : bool;
+mouse1ActivationPosition : Vector2;
 mouse2Active             : bool;
 mouse2ActivationPosition : Vector2;
 mouse3Active             : bool;
@@ -25,6 +27,8 @@ Level_Editor_Tool_Mode :: enum {
     BRUSH;
     AREA;
     LINE;
+    INSPECTOR;
+    VIEWER;
 }
 
 current_tool_mode : Level_Editor_Tool_Mode = .POINT;
@@ -45,6 +49,16 @@ line_start_z : int;
 
 current_orientation_face  : u8 = 0;
 current_orientation_twist : u8 = 0;
+
+inspector_selected      : bool;
+inspector_x             : s32;
+inspector_y             : s32;
+inspector_z             : s32;
+inspector_emitter_def   : s32 = -1;
+inspector_rdm_roughness : int = 0;
+inspector_note_input    : string = "";
+
+editor_billboards_visible : bool = true;
 
 get_current_orientation :: () -> u8 {
     return current_orientation_face * 4 + current_orientation_twist;
@@ -164,6 +178,25 @@ tick_level_editor_camera :: () {
 		editY = max(editY - 1, 0);
 	}
 	
+	if current_tool_mode == .VIEWER && get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .DOWN {
+		if mouse1Active {
+			lastInputTime = get_time();
+			diff := mouse1ActivationPosition - Vector2.{input_mouse_x, input_mouse_y};
+			diff *= 0.5;
+			cameraRotation = oldCameraRotation + diff.x / 100;
+			cameraTilt = oldCameraTilt - diff.y / 100;
+			cameraTilt = max(0.1, cameraTilt);
+			cameraTilt = min(PI/2.2, cameraTilt);
+		} else {
+			mouse1Active = true;
+			mouse1ActivationPosition = Vector2.{input_mouse_x, input_mouse_y};
+			oldCameraRotation = cameraRotation;
+			oldCameraTilt = cameraTilt;
+		}
+	} else {
+		mouse1Active = false;
+	}
+
 	if get_mouse_state(Key_Code.MOUSE_BUTTON_MIDDLE) & .DOWN {
 		if mouse2Active {
 			lastInputTime = get_time();
@@ -292,6 +325,10 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	r.y += r.h;
 	if keybind_button(r, "Line",  .LEVEL_TOOL_LINE,  *t_button_selectable(theme, current_tool_mode == .LINE))  { current_tool_mode = .LINE;  line_active = false; }
 	r.y += r.h;
+	if keybind_button(r, "Inspector", .LEVEL_TOOL_INSPECTOR, *t_button_selectable(theme, current_tool_mode == .INSPECTOR)) then current_tool_mode = .INSPECTOR;
+	r.y += r.h;
+	if keybind_button(r, "Viewer", .LEVEL_TOOL_VIEWER, *t_button_selectable(theme, current_tool_mode == .VIEWER)) then current_tool_mode = .VIEWER;
+	r.y += r.h;
 
 	// Brush radius/height (only for brush mode)
 	if current_tool_mode == .BRUSH {
@@ -325,6 +362,12 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 			GR.label(r, "Click endpoint to draw line", *t_label_left(theme));
 		} else {
 			GR.label(r, "Click start of line", *t_label_left(theme));
+		}
+		r.y += r.h;
+	} else if current_tool_mode == .INSPECTOR {
+		r.h = ui_h(3, 2);
+		if GR.button(r, ifx editor_billboards_visible then "Hide Markers" else "Show Markers", *theme.button_theme, 199) {
+			editor_billboards_visible = !editor_billboards_visible;
 		}
 		r.y += r.h;
 	}
@@ -457,8 +500,10 @@ tick_level_editor :: () {
 
 	if is_action_start(Editor_Action.LEVEL_TOOL_POINT) then current_tool_mode = .POINT;
 	if is_action_start(Editor_Action.LEVEL_TOOL_BRUSH) then current_tool_mode = .BRUSH;
-	if is_action_start(Editor_Action.LEVEL_TOOL_AREA)  { current_tool_mode = .AREA;  area_active = false; }
-	if is_action_start(Editor_Action.LEVEL_TOOL_LINE)  { current_tool_mode = .LINE;  line_active = false; }
+	if is_action_start(Editor_Action.LEVEL_TOOL_AREA)    { current_tool_mode = .AREA;  area_active = false; }
+	if is_action_start(Editor_Action.LEVEL_TOOL_LINE)    { current_tool_mode = .LINE;  line_active = false; }
+	if is_action_start(Editor_Action.LEVEL_TOOL_INSPECTOR) then current_tool_mode = .INSPECTOR;
+	if is_action_start(Editor_Action.LEVEL_TOOL_VIEWER)  then current_tool_mode = .VIEWER;
 	if is_action_start(Editor_Action.LEVEL_TWIST_CCW) {
 		lastInputTime = get_time();
 		current_orientation_twist = (current_orientation_twist + 1) % 4;
@@ -558,6 +603,23 @@ tick_level_editor :: () {
 					line_active = false;  // cancel add selection
 				}
 			}
+		} else if current_tool_mode == .INSPECTOR {
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
+				inspector_selected = true;
+				inspector_x = cast(s32)px;
+				inspector_y = cast(s32)py;
+				inspector_z = cast(s32)pz;
+				inspector_note_input = "";
+				curworld2 := get_current_world();
+				if curworld2.valid {
+					for note: curworld2.world.notes {
+						if note.position.x == inspector_x && note.position.y == inspector_y && note.position.z == inspector_z {
+							inspector_note_input = note.text;
+							break;
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -635,6 +697,263 @@ create_level_editor_preview_tasks :: () {
 	add_rendering_task(task);
 }
 
+get_trile_at :: (world: *World, wx: s32, wy: s32, wz: s32) -> (name: string, orientation: u8, found: bool) {
+	key := world_to_chunk_coord(wx, wy, wz);
+	chunk := table_find_pointer(*world.chunks, key);
+	if !chunk then return "", 0, false;
+	lx, ly, lz := world_to_local(wx, wy, wz);
+	for group: chunk.groups {
+		for inst: group.instances {
+			if inst.x == lx && inst.y == ly && inst.z == lz {
+				return group.trile_name, inst.orientation, true;
+			}
+		}
+	}
+	return "", 0, false;
+}
+
+find_emitter_at :: (world: *World, x: s32, y: s32, z: s32) -> (idx: s32, found: bool) {
+	for inst, i: world.emitter_instances {
+		ix := cast(s32)inst.position.x;
+		iy := cast(s32)inst.position.y;
+		iz := cast(s32)inst.position.z;
+		if ix == x && iy == y && iz == z then return cast(s32)i, true;
+	}
+	return -1, false;
+}
+
+find_note_at :: (world: *World, x: s32, y: s32, z: s32) -> (idx: s32, found: bool) {
+	for note, i: world.notes {
+		if note.position.x == x && note.position.y == y && note.position.z == z then return cast(s32)i, true;
+	}
+	return -1, false;
+}
+
+draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
+	curworld := get_current_world();
+	if !curworld.valid then return;
+	world := *curworld.world;
+
+	r.h = ui_h(3, 2);
+	GR.label(r.*, tprint("Slot: (%, %, %)", inspector_x, inspector_y, inspector_z), *t_label_left(theme));
+	r.y += r.h;
+
+	trile_name, orientation, has_trile := get_trile_at(world, inspector_x, inspector_y, inspector_z);
+	if has_trile {
+		GR.label(r.*, tprint("Trile: %  orient: %", trile_name, orientation), *t_label_left(theme));
+	} else {
+		GR.label(r.*, "Trile: (empty)", *t_label_left(theme));
+	}
+	r.y += r.h;
+
+	r.y += r.h * 0.5;
+	GR.label(r.*, "-- Emitter --", *t_label_left(theme));
+	r.y += r.h;
+
+	emitter_idx, has_emitter := find_emitter_at(world, inspector_x, inspector_y, inspector_z);
+	if has_emitter {
+		inst := *world.emitter_instances[emitter_idx];
+		GR.label(r.*, tprint("Def: %", inst.definition_name), *t_label_left(theme));
+		r.y += r.h;
+		r.h = ui_h(4, 0);
+		if GR.button(r.*, "Remove Emitter", *theme.button_theme, 300) {
+			array_ordered_remove_by_index(*world.emitter_instances, emitter_idx);
+		}
+		r.y += r.h;
+	} else {
+		r.h = ui_h(4, 0);
+		GR.label(r.*, "Select emitter def:", *t_label_left(theme));
+		r.y += r.h;
+		for def, idx: g_emitter_defs {
+			selected := (cast(s32)idx == inspector_emitter_def);
+			if GR.button(r.*, def.name, *t_button_selectable(theme, selected), cast(s32)(200 + idx)) {
+				inspector_emitter_def = cast(s32)idx;
+			}
+			r.y += r.h;
+		}
+		if inspector_emitter_def >= 0 && inspector_emitter_def < cast(s32)g_emitter_defs.count {
+			if GR.button(r.*, "Add Emitter", *theme.button_theme, 301) {
+				def := *g_emitter_defs[inspector_emitter_def];
+				inst : Particle_Emitter_Instance;
+				inst.definition = def;
+				inst.definition_name = def.name;
+				inst.position = .{cast(float)inspector_x + 0.5, cast(float)inspector_y, cast(float)inspector_z + 0.5};
+				inst.active = true;
+				array_add(*world.emitter_instances, inst);
+			}
+			r.y += r.h;
+		}
+	}
+
+	r.h = ui_h(3, 2);
+	r.y += r.h * 0.5;
+	GR.label(r.*, "-- Note --", *t_label_left(theme));
+	r.y += r.h;
+
+	note_idx, has_note := find_note_at(world, inspector_x, inspector_y, inspector_z);
+	if has_note {
+		note := *world.notes[note_idx];
+		r.h = ui_h(4, 0);
+		a, new_text, _ := GR.text_input(r.*, inspector_note_input, *theme.text_input_theme, 500);
+		if a & .ENTERED {
+			note.text = copy_string(new_text);
+			inspector_note_input = note.text;
+		}
+		r.y += r.h;
+		if GR.button(r.*, "Remove Note", *theme.button_theme, 302) {
+			array_ordered_remove_by_index(*world.notes, note_idx);
+			inspector_note_input = "";
+		}
+		r.y += r.h;
+	} else {
+		r.h = ui_h(4, 0);
+		a, new_text, _ := GR.text_input(r.*, inspector_note_input, *theme.text_input_theme, 501);
+		if a & .ENTERED {
+			inspector_note_input = copy_string(new_text);
+		}
+		r.y += r.h;
+		if GR.button(r.*, "Add Note", *theme.button_theme, 303) {
+			note : Editor_Note;
+			note.position = .{inspector_x, inspector_y, inspector_z};
+			note.text = copy_string(ifx inspector_note_input.count > 0 then inspector_note_input else "Note");
+			array_add(*world.notes, note);
+			inspector_note_input = note.text;
+		}
+		r.y += r.h;
+	}
+
+	r.h = ui_h(3, 2);
+	r.y += r.h * 0.5;
+	GR.label(r.*, "-- RDM --", *t_label_left(theme));
+	r.y += r.h;
+
+	chunk_key := world_to_chunk_coord(inspector_x, inspector_y, inspector_z);
+	chunk := table_find_pointer(*world.chunks, chunk_key);
+	if chunk != null && chunk.rdm_valid {
+		GR.label(r.*, "RDM: baked", *t_label_left(theme));
+		r.y += r.h;
+		GR.label(r.*, tprint("Chunk: (%, %, %)", chunk_key.x, chunk_key.y, chunk_key.z), *t_label_left(theme));
+		r.y += r.h;
+
+		roughness_mask : u8 = 0;
+		if has_trile {
+			roughness_mask = get_trile_roughness_set(trile_name);
+		}
+
+		r.h = ui_h(4, 0);
+		GR.slider(r.*, *inspector_rdm_roughness, 0, 7, 1, *theme.slider_theme);
+		r.y += r.h;
+		r.h = ui_h(3, 2);
+
+		has_roughness := (roughness_mask & (1 << cast(u8)inspector_rdm_roughness)) != 0;
+		if has_roughness {
+			GR.label(r.*, tprint("Roughness %: present", inspector_rdm_roughness), *t_label_left(theme));
+		} else {
+			GR.label(r.*, tprint("Roughness %: not baked", inspector_rdm_roughness), *t_label_left(theme));
+		}
+		r.y += r.h;
+
+		available: String_Builder;
+		available.allocator = temp;
+		append(*available, "Available: ");
+		for i: 0..7 {
+			if roughness_mask & (1 << cast(u8)i) then print_to_builder(*available, "% ", i);
+		}
+		GR.label(r.*, builder_to_string(*available,, temp), *t_label_left(theme));
+		r.y += r.h;
+
+		lx, ly, lz := world_to_local(inspector_x, inspector_y, inspector_z);
+		lookup_idx := cast(s32)lx + cast(s32)ly * 32 + cast(s32)lz * 1024 + cast(s32)inspector_rdm_roughness * 32768;
+
+		uv0 := Vector2.{0, 0};
+		uv1 := Vector2.{1, 0};
+		uv2 := Vector2.{1, 1};
+		uv3 := Vector2.{0, 1};
+		has_rect := false;
+
+		if chunk.rdm_lookup_cpu.data != null {
+			tx := lookup_idx % chunk.rdm_lookup_w;
+			ty := lookup_idx / chunk.rdm_lookup_w;
+			if tx >= 0 && ty >= 0 && tx < chunk.rdm_lookup_w && ty < chunk.rdm_lookup_h {
+				pixel_offset := (ty * chunk.rdm_lookup_w + tx) * 4;
+				rect_x := chunk.rdm_lookup_cpu[pixel_offset + 0];
+				rect_y := chunk.rdm_lookup_cpu[pixel_offset + 1];
+				rect_w := chunk.rdm_lookup_cpu[pixel_offset + 2];
+				rect_h := chunk.rdm_lookup_cpu[pixel_offset + 3];
+				if rect_w > 0 && rect_h > 0 {
+					has_rect = true;
+					fy0 := 1.0 - rect_y;
+					fy1 := 1.0 - (rect_y + rect_h);
+					uv0 = .{rect_x, fy0};
+					uv1 = .{rect_x + rect_w, fy0};
+					uv2 = .{rect_x + rect_w, fy1};
+					uv3 = .{rect_x, fy1};
+					GR.label(r.*, tprint("Rect: %.2,%.2  %.2x%.2", rect_x, rect_y, rect_w, rect_h), *t_label_left(theme));
+					r.y += r.h;
+				}
+			}
+		}
+
+		if !has_rect {
+			GR.label(r.*, "No RDM entry for this slot/roughness", *t_label_left(theme));
+			r.y += r.h;
+		} else {
+			r.y += r.h * 0.5;
+			tex_size := r.w * 0.9;
+			tex_r : GR.Rect;
+			tex_r.x = r.x + (r.w - tex_size) * 0.5;
+			tex_r.y = r.y;
+			tex_r.w = tex_size;
+			tex_r.h = tex_size * 1.5;
+
+			uiTex := New(Ui_Texture,, temp);
+			uiTex.tex = chunk.rdm_atlas;
+			if uiTex.tex.id != INVALID_ID {
+				set_shader_for_images(uiTex);
+				immediate_quad(
+					.{tex_r.x, tex_r.y},
+					.{tex_r.x + tex_r.w, tex_r.y},
+					.{tex_r.x + tex_r.w, tex_r.y + tex_r.h},
+					.{tex_r.x, tex_r.y + tex_r.h},
+					.{1,1,1,1},
+					uv0, uv1, uv2, uv3
+				);
+				set_shader_for_color();
+				immediate_flush();
+			}
+			r.y += tex_r.h + r.h * 0.5;
+		}
+	} else {
+		GR.label(r.*, "RDM: not baked", *t_label_left(theme));
+		r.y += r.h;
+	}
+}
+
+add_editor_billboards :: () {
+	if !editor_billboards_visible then return;
+	curworld := get_current_world();
+	if !curworld.valid then return;
+
+	anim := get_animation_from_string("game_core.ball");
+	if anim == null then return;
+
+	for inst: curworld.world.emitter_instances {
+		task : Rendering_Task_Billboard;
+		task.position = inst.position;
+		task.animation = anim;
+		task.frame = 0;
+		add_rendering_task(task);
+	}
+
+	for note: curworld.world.notes {
+		task : Rendering_Task_Billboard;
+		task.position = .{cast(float)note.position.x + 0.5, cast(float)note.position.y + 0.5, cast(float)note.position.z + 0.5};
+		task.animation = anim;
+		task.frame = 0;
+		add_rendering_task(task);
+	}
+}
+
 draw_level_editor :: () {
 	curworld := get_current_world();
 	if !curworld.valid then return;
@@ -644,6 +963,7 @@ draw_level_editor :: () {
 	if show_trile_preview && !trile_preview_disabled {
 		create_level_editor_preview_tasks();
 	}
+	add_editor_billboards();
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
@@ -670,5 +990,18 @@ draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
 		case .INFO;
 			if curworld.valid then autoedit(r, *curworld.world.conf, theme);
     }
-	draw_picker(theme);
+	if current_tool_mode == .INSPECTOR {
+		rr := GR.get_rect(ui_w(85,0), ui_h(5,0), ui_w(15, 0), ui_h(95, 0));
+		draw_bg_rectangle(rr, theme);
+		ui_add_mouse_occluder(rr);
+		rr.y += ui_h(1, 0);
+		if inspector_selected {
+			draw_inspector_panel(*rr, theme);
+		} else {
+			rr.h = ui_h(3, 2);
+			GR.label(rr, "Click a slot to inspect", *t_label_left(theme));
+		}
+	} else if current_tool_mode != .VIEWER {
+		draw_picker(theme);
+	}
 }

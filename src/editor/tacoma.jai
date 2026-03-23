@@ -57,23 +57,6 @@ RDM_Bake_State :: struct {
 
 rdm_bake : RDM_Bake_State;
 
-// Get the set of roughness values present in a trile's trixels.
-// Always includes 7 (used for diffuse light). Returns a bitmask.
-get_trile_roughness_set :: (trile_name: string) -> u8 {
-    trile := get_trile(trile_name);
-    mask : u8 = 1 << 7; // Always include roughness 7.
-    for x: 0..15 {
-        for y: 0..15 {
-            for z: 0..15 {
-                if !trile.trixels[x][y][z].empty {
-                    mask |= cast(u8)(1 << trile.trixels[x][y][z].material.roughness);
-                }
-            }
-        }
-    }
-    return mask;
-}
-
 // Predicted pixel dimensions of a single RDM entry at a given roughness level.
 // roughness 0 → 512×768, roughness 1 → 256×384, ..., roughness 7 → 4×6.
 rdm_entry_predicted_size :: (roughness: s32) -> (w: s32, h: s32) {

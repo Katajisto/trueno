@@ -67,6 +67,17 @@ Rendering_Task_Trixels :: struct {
     trile          : *Trile;
 }
 
+Rendering_Task_Particles :: struct {
+    #as using t : Rendering_Task;
+    t.type      = .PARTICLES;
+    count       : s32;
+    blend_mode  : Particle_Blend_Mode;
+    sheet       : sg_image;
+    pos_size    : [2048]Vector4;
+    uv_rects    : [2048]Vector4;
+    colors      : [2048]Vector4;
+}
+
 Rendering_Task_Set_Camera :: struct {
     #as using t : Rendering_Task;
     camera      : Camera;
@@ -151,6 +162,16 @@ tasks_to_commands :: () {
                 array_add(*render_command_buckets.main, commandDrawBillboard);
                 array_add(*render_command_buckets.shadow, commandDrawBillboard);
                 array_add(*render_command_buckets.reflection, commandDrawBillboard);
+            case .PARTICLES;
+                particleTask := (cast(*Rendering_Task_Particles)it);
+                drawCmd := New(Render_Command_Draw_Particles,, temp);
+                drawCmd.count = particleTask.count;
+                drawCmd.blend_mode = particleTask.blend_mode;
+                drawCmd.sheet = particleTask.sheet;
+                memcpy(drawCmd.pos_size.data, particleTask.pos_size.data, particleTask.count * size_of(Vector4));
+                memcpy(drawCmd.uv_rects.data, particleTask.uv_rects.data, particleTask.count * size_of(Vector4));
+                memcpy(drawCmd.colors.data, particleTask.colors.data, particleTask.count * size_of(Vector4));
+                array_add(*render_command_buckets.main, drawCmd);
             case .SET_CAMERA;
                 task := (cast(*Rendering_Task_Set_Camera)it);
                 command := New(Render_Command_Set_Camera,, temp);
