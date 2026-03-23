@@ -11,6 +11,9 @@ cam : Camera = .{
 };
 
 #scope_export
+game_engine_config :: () {
+}
+
 game_init :: () {
 }
 

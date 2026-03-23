@@ -147,6 +147,9 @@ init_after_core :: () {
 
     audio_init();
 
+    // Let the game configure engine settings before full init.
+    game_engine_config();
+
     // We want to do this last.
     game_init();
 
