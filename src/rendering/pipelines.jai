@@ -1257,8 +1257,8 @@ create_particle_pipeline :: () {
     smp     := sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .CLAMP_TO_EDGE,
         wrap_v = .CLAMP_TO_EDGE,
-        min_filter = .LINEAR,
-        mag_filter = .LINEAR,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
     }));
 
     setup_bind :: (bind: *sg_bindings, idx_buf: sg_buffer, vtx_buf: sg_buffer, inst1: sg_buffer, inst2: sg_buffer, inst3: sg_buffer, smp: sg_sampler) {
