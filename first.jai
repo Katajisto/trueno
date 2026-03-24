@@ -4,14 +4,15 @@ Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
 #import "File_Utilities";
 
 Trueno_Build_Options :: struct {
-    wasm_build     : bool;
-    release_build  : bool;
-    tacoma_enabled : bool;
-    iprof_enabled  : bool;
-    demo_build     : bool;
-    test_engine    : bool;
-    test_game      : bool;
-    short_tests    : bool;
+    wasm_build      : bool;
+    release_build   : bool;
+    tacoma_enabled  : bool;
+    iprof_enabled   : bool;
+    demo_build      : bool;
+    test_engine     : bool;
+    test_game       : bool;
+    test_exe_engine : bool;
+    test_exe_game   : bool;
 }
 
 build_options_from_args :: (args: []string) -> Trueno_Build_Options {
@@ -36,8 +37,10 @@ build_options_from_args :: (args: []string) -> Trueno_Build_Options {
                 opts.test_game = true;
             case "test_engine";
                 opts.test_engine = true;
-            case "test_short";
-                opts.short_tests = true;
+            case "test_exe_game";
+                opts.test_exe_game = true;
+            case "test_exe_engine";
+                opts.test_exe_engine = true;
         }
     }
 

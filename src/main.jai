@@ -15,7 +15,7 @@ String :: #import "String";
 Jaison :: #import "Jaison";
 stbi   :: #import "stb_image";
 
-#if FLAG_TEST_ENGINE { #load "tests/index.jai"; }
+#if (FLAG_TEST_ENGINE || FLAG_TEST_EXE_ENGINE) { #load "tests/index.jai"; }
 
 #load "logging.jai";
 #load "pseudophysics/core.jai";
@@ -39,7 +39,11 @@ stbi   :: #import "stb_image";
 #load "settings_menu.jai";
 #load "ui/demo.jai";
     
-#load "../game/game.jai";
+#if !FLAG_TEST_EXE_ENGINE {
+    #load "../game/game.jai";
+} else {
+    #load "../test_game/game.jai";
+}
 
 last_frame_time : float64; // timestamp of the last frame
 delta\    _time : float64;
@@ -122,6 +126,9 @@ init :: () {
     load_pack("core", true, false);
     load_pack("game_core", true, false);
 
+    #if FLAG_TEST_EXE_ENGINE {
+        engine_exe_tests_add();
+    }
 }
 
 init_after_core :: () {
@@ -190,6 +197,10 @@ frame :: () {
     fonsClearState(state.fons);
     
     add_frame_profiling_point("After loading logic");
+    
+    #if FLAG_TEST_EXE_ENGINE {
+       run_exe_tests();
+    }
     
     frame_start_time := get_time();
     
