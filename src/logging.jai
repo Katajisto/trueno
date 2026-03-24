@@ -17,12 +17,10 @@ _emit :: (level: Log_Level, message: string) {
               else ifx level == .ERROR then "[ERROR] "
               else                          "[INFO]  ";
 
-    old_alloc := context.allocator;
-    context.allocator = default_context.allocator;
+    push_allocator(default_context.allocator);
     line := copy_string(tprint("%1%2", prefix, message));
     print("%\n", line);
     console_add_output_line(line);
-    context.allocator = old_alloc;
 }
 
 #scope_export

@@ -13,6 +13,7 @@ Pool :: #import "Pool";
 Fetch_Type :: enum {
     PACK;
     WORLD;
+    WORLD_CHUNKS;
     RDM_ATLAS;
     RDM_LOOKUP;
 }
@@ -29,6 +30,8 @@ Fetch_Request :: struct {
     chunk_key           : Chunk_Key;
     // Atlas GPU image held between RDM_ATLAS and its paired RDM_LOOKUP fetch.
     rdm_pending_atlas   : sg_image;
+    // Heap copy of world.json carried between WORLD and WORLD_CHUNKS fetches.
+    world_json_data     : []u8;
 }
 
 Asset_Manager :: struct {
@@ -50,16 +53,18 @@ MAX_FILE_SIZE        :: 200_000_000;
 RDM_ATLAS_MAX_BYTES  :: 4096 * 4096 * 4 * 4 + size_of(RDM_File_Header);
 RDM_LOOKUP_MAX_BYTES :: 512  * 512  * 4 * 4 + size_of(RDM_File_Header);
 
-buf            : []u8;
-world_buf      : []u8;
-rdm_atlas_buf  : []u8;
-rdm_lookup_buf : []u8;
+buf              : []u8;
+world_buf        : []u8;
+world_chunks_buf : []u8;
+rdm_atlas_buf    : []u8;
+rdm_lookup_buf   : []u8;
 
 buffer_for_fetch :: (type: Fetch_Type) -> (*u8, u64) {
-    if type == .PACK       return buf.data,            xx buf.count;
-    if type == .WORLD      return world_buf.data,      xx world_buf.count;
-    if type == .RDM_ATLAS  return rdm_atlas_buf.data,  xx rdm_atlas_buf.count;
-    if type == .RDM_LOOKUP return rdm_lookup_buf.data, xx rdm_lookup_buf.count;
+    if type == .PACK          return buf.data,              xx buf.count;
+    if type == .WORLD         return world_buf.data,        xx world_buf.count;
+    if type == .WORLD_CHUNKS  return world_chunks_buf.data, xx world_chunks_buf.count;
+    if type == .RDM_ATLAS     return rdm_atlas_buf.data,    xx rdm_atlas_buf.count;
+    if type == .RDM_LOOKUP    return rdm_lookup_buf.data,   xx rdm_lookup_buf.count;
     return null, 0;
 }
 
@@ -88,13 +93,62 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
 
     case .WORLD;
         if res.failed {
+            if ends_with(req.path, "world.json") {
+                fallback_req : Fetch_Request;
+                fallback_req.type         = .WORLD;
+                fallback_req.world_name   = req.world_name;
+                fallback_req.path         = sprint("./game/resources/worlds/%/index.world", req.world_name);
+                fallback_req.should_block = true;
+                array_add(*g_asset_manager.fetch_queue, fallback_req);
+                return;
+            }
             log_error("Failed to load world '%'", req.world_name);
             return;
         }
         data: []u8;
         data.data  = res.data.ptr;
         data.count = res.data.size.(s64);
-        world, ok := load_world_from_data(data);
+
+        is_json := data.count > 0 && data[0] == #char "{";
+        if is_json {
+            json_copy := NewArray(data.count, u8, false);
+            memcpy(json_copy.data, data.data, data.count);
+            chunks_req : Fetch_Request;
+            chunks_req.type            = .WORLD_CHUNKS;
+            chunks_req.world_name      = req.world_name;
+            chunks_req.path            = sprint("./game/resources/worlds/%/chunks.bin", req.world_name);
+            chunks_req.should_block    = true;
+            chunks_req.world_json_data = json_copy;
+            array_add(*g_asset_manager.fetch_queue, chunks_req);
+        } else {
+            world, ok := load_world_from_data(data);
+            if ok {
+                set_loaded_world(world);
+                rdm_loader_enqueue_world(*get_current_world().world);
+                log_info("Loaded world (legacy): %", world.name);
+            } else {
+                log_error("Failed to parse world '%'", req.world_name);
+            }
+        }
+
+    case .WORLD_CHUNKS;
+        json_data := req.world_json_data;
+        defer free(json_data.data);
+
+        if res.failed {
+            log_error("Failed to load chunks.bin for world '%'", req.world_name);
+            return;
+        }
+
+        json_str: string;
+        json_str.data = json_data.data;
+        json_str.count = json_data.count;
+
+        chunk_bin: []u8;
+        chunk_bin.data = res.data.ptr;
+        chunk_bin.count = res.data.size.(s64);
+
+        world, ok := load_world_from_json(json_str, chunk_bin);
         if ok {
             set_loaded_world(world);
             rdm_loader_enqueue_world(*get_current_world().world);
@@ -132,12 +186,18 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
             sample_count  = 1,
             data          = atlas_imgdata,
         };
-        // Enqueue the lookup with the atlas image embedded in the request.
+        lookup_path: string;
+        chunk_ptr := table_find_pointer(*curworld.world.chunks, req.chunk_key);
+        if chunk_ptr != null && chunk_ptr.rdm_lookup_path.count > 0 {
+            lookup_path = sprint("./game/resources/worlds/%/%", req.world_name, chunk_ptr.rdm_lookup_path);
+        } else {
+            lookup_path = rdm_chunk_filename(req.world_name, req.chunk_key, "rdm_lookup");
+        }
         lookup_req : Fetch_Request;
         lookup_req.type              = .RDM_LOOKUP;
         lookup_req.world_name        = req.world_name;
         lookup_req.chunk_key         = req.chunk_key;
-        lookup_req.path              = rdm_chunk_filename(req.world_name, req.chunk_key, "rdm_lookup");
+        lookup_req.path              = lookup_path;
         lookup_req.rdm_pending_atlas = sg_make_image(*atlas_desc);
         array_add(*g_asset_manager.fetch_queue, lookup_req);
 
@@ -325,10 +385,11 @@ free_resources_from_pack :: (pack: *Loaded_Pack) {
 }
 
 asset_manager_init :: () {
-    buf            = NewArray(MAX_FILE_SIZE,        u8, false);
-    world_buf      = NewArray(MAX_FILE_SIZE,        u8, false);
-    rdm_atlas_buf  = NewArray(RDM_ATLAS_MAX_BYTES,  u8, false);
-    rdm_lookup_buf = NewArray(RDM_LOOKUP_MAX_BYTES, u8, false);
+    buf              = NewArray(MAX_FILE_SIZE,        u8, false);
+    world_buf        = NewArray(MAX_FILE_SIZE,        u8, false);
+    world_chunks_buf = NewArray(MAX_FILE_SIZE,        u8, false);
+    rdm_atlas_buf    = NewArray(RDM_ATLAS_MAX_BYTES,  u8, false);
+    rdm_lookup_buf   = NewArray(RDM_LOOKUP_MAX_BYTES, u8, false);
 }
 
 mandatory_loads_done :: () -> bool {
@@ -386,7 +447,7 @@ load_world :: (name: string) {
     req : Fetch_Request;
     req.type         = .WORLD;
     req.world_name   = sprint("%", name);
-    req.path         = sprint("./game/resources/worlds/%/index.world", name);
+    req.path         = sprint("./game/resources/worlds/%/world.json", name);
     req.should_block = true;
     array_add(*g_asset_manager.fetch_queue, req);
 }

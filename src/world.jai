@@ -55,6 +55,8 @@ Chunk :: struct {
     rdm_atlas:      sg_image;
     rdm_lookup:     sg_image;
     rdm_valid:      bool;
+    rdm_atlas_path:  string;
+    rdm_lookup_path: string;
     #if !FLAG_RELEASE_BUILD {
         rdm_lookup_cpu: []float;
         rdm_lookup_w:   s32;
@@ -188,6 +190,52 @@ get_current_world :: () -> *Current_World {
 WORLD_MAGIC :: u32.[0x4C575254][0]; // "TRWL" as little-endian u32
 WORLD_VERSION :: cast(u16) 3;
 
+World_Json :: struct {
+    version  : s32;
+    name     : string;
+    config   : World_Json_Config;
+    chunks   : [..]World_Json_Chunk;
+    emitters : [..]World_Json_Emitter;
+    notes    : [..]World_Json_Note;
+}
+
+World_Json_Config :: struct {
+    skyBase              : [3]float;
+    skyTop               : [3]float;
+    sunDisk              : [3]float;
+    horizonHalo          : [3]float;
+    sunHalo              : [3]float;
+    sunLightColor        : [3]float;
+    sunPosition          : [3]float;
+    sunIntensity         : float;
+    skyIntensity         : float;
+    hasClouds            : s32;
+    planeHeight          : float;
+    animatePlaneHeight   : s32;
+    waterColor           : [3]float;
+    deepColor            : [3]float;
+}
+
+World_Json_Chunk :: struct {
+    x          : s32;
+    y          : s32;
+    z          : s32;
+    offset     : s32;
+    size       : s32;
+    rdm_atlas  : string;
+    rdm_lookup : string;
+}
+
+World_Json_Emitter :: struct {
+    definition_name : string;
+    position        : [3]float;
+}
+
+World_Json_Note :: struct {
+    text     : string;
+    position : [3]s32;
+}
+
 // World_Config serialized as a fixed-size binary blob.
 // We serialize it field-by-field to avoid padding issues.
 World_Config_Binary :: struct {
@@ -282,42 +330,65 @@ sworld :: () {
         name := current_world.world.name;
         dir := tprint("./game/resources/worlds/%", name);
         file.make_directory_if_it_does_not_exist(dir, recursive = true);
-        data := save_world(*current_world.world);
-        file.write_entire_file(tprint("%/index.world", dir), data);
-        log_info("Saved world '%' (% bytes)", name, data.count);
+        json_data, bin_data := save_world(*current_world.world);
+        file.write_entire_file(tprint("%/world.json", dir), json_data);
+        file.write_entire_file(tprint("%/chunks.bin", dir), bin_data);
+        log_info("Saved world '%' (json=% bytes, bin=% bytes)", name, json_data.count, bin_data.count);
     }
 } @Command
 
-save_world :: (world: *World) -> string {
-    builder: String_Builder;
+world_config_to_json :: (conf: *World_Config) -> World_Json_Config {
+    jc: World_Json_Config;
+    jc.skyBase            = conf.skyBase.component;
+    jc.skyTop             = conf.skyTop.component;
+    jc.sunDisk            = conf.sunDisk.component;
+    jc.horizonHalo        = conf.horizonHalo.component;
+    jc.sunHalo            = conf.sunHalo.component;
+    jc.sunLightColor      = conf.sunLightColor.component;
+    jc.sunPosition        = conf.sunPosition.component;
+    jc.sunIntensity       = conf.sunIntensity;
+    jc.skyIntensity       = conf.skyIntensity;
+    jc.hasClouds          = conf.hasClouds;
+    jc.planeHeight        = conf.planeHeight;
+    jc.animatePlaneHeight = conf.animatePlaneHeight;
+    jc.waterColor         = conf.waterColor.component;
+    jc.deepColor          = conf.deepColor.component;
+    return jc;
+}
 
-    // Header
-    write_value(*builder, WORLD_MAGIC);
-    write_value(*builder, WORLD_VERSION);
-    name_len := cast(u16) world.name.count;
-    write_value(*builder, name_len);
-    append(*builder, world.name);
+world_config_from_json :: (jc: *World_Json_Config) -> World_Config {
+    conf: World_Config;
+    conf.skyBase.component       = jc.skyBase;
+    conf.skyTop.component        = jc.skyTop;
+    conf.sunDisk.component       = jc.sunDisk;
+    conf.horizonHalo.component   = jc.horizonHalo;
+    conf.sunHalo.component       = jc.sunHalo;
+    conf.sunLightColor.component = jc.sunLightColor;
+    conf.sunPosition.component   = jc.sunPosition;
+    conf.sunIntensity            = jc.sunIntensity;
+    conf.skyIntensity            = jc.skyIntensity;
+    conf.hasClouds               = jc.hasClouds;
+    conf.planeHeight             = jc.planeHeight;
+    conf.animatePlaneHeight      = jc.animatePlaneHeight;
+    conf.waterColor.component    = jc.waterColor;
+    conf.deepColor.component     = jc.deepColor;
+    return conf;
+}
 
-    // World config
-    conf_bin := world_config_to_binary(*world.conf);
-    write_value(*builder, conf_bin);
+save_world :: (world: *World) -> (json: string, chunks_bin: string) {
+    bin_builder: String_Builder;
 
-    // Count non-empty chunks
-    num_chunks: u32 = 0;
-    for world.chunks {
-        if it.groups.count > 0 then num_chunks += 1;
-    }
-    write_value(*builder, num_chunks);
-
-    // We need to write chunk table, then chunk data.
-    // First pass: serialize all chunk data to get sizes.
-    Chunk_Data_Entry :: struct {
+    Chunk_Save_Entry :: struct {
         coord: Chunk_Key;
-        data:  string;
+        offset: s32;
+        size: s32;
+        rdm_atlas_path: string;
+        rdm_lookup_path: string;
     }
-    chunk_entries: [..]Chunk_Data_Entry;
+    chunk_entries: [..]Chunk_Save_Entry;
     chunk_entries.allocator = temp;
 
+    running_offset: s32 = 0;
     for chunk: world.chunks {
         if chunk.groups.count == 0 then continue;
         chunk_builder: String_Builder;
@@ -336,59 +407,123 @@ save_world :: (world: *World) -> string {
                 write_value(*chunk_builder, inst);
             }
         }
-        array_add(*chunk_entries, .{coord = chunk.coord, data = builder_to_string(*chunk_builder,, temp)});
-    }
+        chunk_data := builder_to_string(*chunk_builder,, temp);
+        data_size := cast(s32) chunk_data.count;
 
-    // Calculate data offsets.
-    // Chunk table starts right after what we've written so far.
-    // header_size = current builder length + chunk_table_size
-    current_header_size := builder_string_length(*builder);
-    chunk_table_entry_size : s64 = size_of(s32)*3 + size_of(u32)*2; // chunk_x, chunk_y, chunk_z, data_offset, data_size
-    chunk_table_size := cast(s64) num_chunks * chunk_table_entry_size;
-    data_start := current_header_size + chunk_table_size;
+        atlas_path := chunk.rdm_atlas_path;
+        lookup_path := chunk.rdm_lookup_path;
+        if !atlas_path.count {
+            atlas_path  = tprint("%_%_%.rdm_atlas",  chunk.coord.x, chunk.coord.y, chunk.coord.z);
+            lookup_path = tprint("%_%_%.rdm_lookup", chunk.coord.x, chunk.coord.y, chunk.coord.z);
+        }
 
-    // Write chunk table
-    running_offset := cast(u32) data_start;
-    for entry: chunk_entries {
-        write_value(*builder, entry.coord.x);
-        write_value(*builder, entry.coord.y);
-        write_value(*builder, entry.coord.z);
-        write_value(*builder, running_offset);
-        data_size := cast(u32) entry.data.count;
-        write_value(*builder, data_size);
+        array_add(*chunk_entries, .{
+            coord = chunk.coord,
+            offset = running_offset,
+            size = data_size,
+            rdm_atlas_path = atlas_path,
+            rdm_lookup_path = lookup_path,
+        });
+        append(*bin_builder, chunk_data);
         running_offset += data_size;
     }
 
-    // Write chunk data
+    wj: World_Json;
+    wj.version = 4;
+    wj.name = world.name;
+    wj.config = world_config_to_json(*world.conf);
+
     for entry: chunk_entries {
-        append(*builder, entry.data);
+        jc: World_Json_Chunk;
+        jc.x = entry.coord.x;
+        jc.y = entry.coord.y;
+        jc.z = entry.coord.z;
+        jc.offset = entry.offset;
+        jc.size = entry.size;
+        jc.rdm_atlas = entry.rdm_atlas_path;
+        jc.rdm_lookup = entry.rdm_lookup_path;
+        array_add(*wj.chunks, jc);
     }
 
-    // Write emitter instances
-    num_emitters := cast(u16) world.emitter_instances.count;
-    write_value(*builder, num_emitters);
     for inst: world.emitter_instances {
-        name_len := cast(u16) inst.definition_name.count;
-        write_value(*builder, name_len);
-        append(*builder, inst.definition_name);
-        write_value(*builder, inst.position.x);
-        write_value(*builder, inst.position.y);
-        write_value(*builder, inst.position.z);
+        je: World_Json_Emitter;
+        je.definition_name = inst.definition_name;
+        je.position = inst.position.component;
+        array_add(*wj.emitters, je);
     }
 
-    // Write notes
-    num_notes := cast(u16) world.notes.count;
-    write_value(*builder, num_notes);
     for note: world.notes {
-        text_len := cast(u16) note.text.count;
-        write_value(*builder, text_len);
-        append(*builder, note.text);
-        write_value(*builder, note.position.x);
-        write_value(*builder, note.position.y);
-        write_value(*builder, note.position.z);
+        jn: World_Json_Note;
+        jn.text = note.text;
+        jn.position = .[note.position.x, note.position.y, note.position.z];
+        array_add(*wj.notes, jn);
     }
 
-    return builder_to_string(*builder);
+    json_str := Jaison.json_write_string(wj, " ");
+    return json_str, builder_to_string(*bin_builder);
+}
+
+load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
+    world: World;
+
+    success, wj := Jaison.json_parse_string(json_str, World_Json);
+    if !success {
+        log_error("Failed to parse world JSON");
+        return world, false;
+    }
+
+    world.name = sprint("%", wj.name);
+    world.conf = world_config_from_json(*wj.config);
+
+    for jc: wj.chunks {
+        chunk: Chunk;
+        chunk.coord = .{x = jc.x, y = jc.y, z = jc.z};
+        chunk.rdm_atlas_path = sprint("%", jc.rdm_atlas);
+        chunk.rdm_lookup_path = sprint("%", jc.rdm_lookup);
+
+        offset := cast(s64) jc.offset;
+        size   := cast(s64) jc.size;
+        if offset + size > chunk_bin.count {
+            log_error("Chunk data out of bounds: offset=%, size=%, bin=%", offset, size, chunk_bin.count);
+            return world, false;
+        }
+
+        chunk_data: []u8;
+        chunk_data.data = chunk_bin.data + offset;
+        chunk_data.count = size;
+        chunk_cursor: s64 = 0;
+
+        num_types := read_value(chunk_data, *chunk_cursor, u16);
+        for t: 0..cast(s64)num_types-1 {
+            group: Chunk_Trile_Group;
+            gname_len := cast(s64) read_value(chunk_data, *chunk_cursor, u16);
+            group.trile_name = read_string(chunk_data, *chunk_cursor, gname_len);
+            count := cast(s64) read_value(chunk_data, *chunk_cursor, u16);
+            for i: 0..count-1 {
+                inst := read_value(chunk_data, *chunk_cursor, Trile_Instance);
+                array_add(*group.instances, inst);
+            }
+            array_add(*chunk.groups, group);
+        }
+        table_set(*world.chunks, chunk.coord, chunk);
+    }
+
+    for je: wj.emitters {
+        inst: Particle_Emitter_Instance;
+        inst.definition_name = sprint("%", je.definition_name);
+        inst.position.component = je.position;
+        inst.active = true;
+        array_add(*world.emitter_instances, inst);
+    }
+
+    for jn: wj.notes {
+        note: Editor_Note;
+        note.text = sprint("%", jn.text);
+        note.position = .{x = jn.position[0], y = jn.position[1], z = jn.position[2]};
+        array_add(*world.notes, note);
+    }
+
+    return world, true;
 }
 
 load_world_from_data :: (data: []u8) -> (World, bool) {
@@ -460,6 +595,11 @@ load_world_from_data :: (data: []u8) -> (World, bool) {
             array_add(*chunk.groups, group);
         }
         table_set(*world.chunks, chunk.coord, chunk);
+    }
+
+    if chunk_table.count > 0 {
+        last := chunk_table[chunk_table.count - 1];
+        cursor = cast(s64)(last.offset + last.size);
     }
 
     if version >= 2 && cursor < data.count {
@@ -551,12 +691,15 @@ draw_world_picker :: (r_in: GR.Rect, theme: *GR.Overall_Theme) {
 		world_names.allocator = temp;
 
 		dir_visitor :: (info: *File_Utilities.File_Visit_Info, names: *[..]string) {
-			if info.short_name == "index.world" {
-				// Extract world name from path: .../worlds/{name}/index.world
+			if info.short_name == "world.json" || info.short_name == "index.world" {
 				#import "String";
-				_, left, _ := split_from_right(info.full_name, "/index.world");
+				suffix := ifx info.short_name == "world.json" then "/world.json" else "/index.world";
+				_, left, _ := split_from_right(info.full_name, suffix);
 				_, _, name := split_from_right(left, "/");
-				if name.count > 0 then array_add(names, name);
+				if name.count > 0 {
+					for names.* { if it == name then return; }
+					array_add(names, name);
+				}
 			}
 		}
 
