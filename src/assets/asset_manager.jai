@@ -49,7 +49,7 @@ g_asset_manager : Asset_Manager;
 
 #load "rdm_loader.jai";
 
-MAX_FILE_SIZE        :: 200_000_000;
+MAX_FILE_SIZE        :: 600_000_000;
 RDM_ATLAS_MAX_BYTES  :: 4096 * 4096 * 4 * 4 + size_of(RDM_File_Header);
 RDM_LOOKUP_MAX_BYTES :: 512  * 512  * 4 * 4 + size_of(RDM_File_Header);
 

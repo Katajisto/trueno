@@ -24,4 +24,4 @@ VK_KHR_deferred_host_operations
 VK_KHR_acceleration_structure
 VK_KHR_ray_query
 
-BLAS Compaction: 1.9MB -> 0.6MB (1.2MB saved, 66.1% smaller)
+BLAS Compaction: 2.1MB -> 0.7MB (1.4MB saved, 66.1% smaller)

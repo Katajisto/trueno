@@ -135,7 +135,7 @@ tick_console :: () {
     }
 }
 
-console_add_output_line :: (s: string) {
+console_add_output_line :: (s: string) {   
     array_add(*console_report, s);
     while console_report.count > MAX_REPORT_ROWS {
         array_ordered_remove_by_index(*console_report, 0);

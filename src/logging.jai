@@ -17,7 +17,9 @@ _emit :: (level: Log_Level, message: string) {
               else ifx level == .ERROR then "[ERROR] "
               else                          "[INFO]  ";
 
-    push_allocator(default_context.allocator);
+    // We need to protect the logger from custom allocators since we don't
+    // want those meddling with our log row allocation!
+    push_allocator(default_allocator);
     line := copy_string(tprint("%1%2", prefix, message));
     print("%\n", line);
     console_add_output_line(line);

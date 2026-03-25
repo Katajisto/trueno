@@ -32,7 +32,7 @@ RDM_Chunk_Bake :: struct {
     entries:     [..]RDM_Atlas_Entry;
 }
 
-RDM_ATLAS_SIZE :: 4096;
+RDM_ATLAS_SIZE :: 4096 * 2;
 RDM_LOOKUP_SIZE :: 512; // 512x512 = 32*32*32*8 = 262144 texels
 
 rdm_chunk_bakes : Table(Chunk_Key, RDM_Chunk_Bake, chunk_key_hash, chunk_key_compare);
@@ -377,6 +377,7 @@ rdm_bake_finish :: () {
     lookup_bytes  :: lookup_texels * 4 * size_of(float);
 
     for chunk_key: bake_chunk_keys {
+        print("Handling chunk key: %\n", chunk_key);
         bake := table_find_pointer(*rdm_chunk_bakes, chunk_key);
         if bake == null || bake.entries.count == 0 then continue;
 
@@ -620,6 +621,7 @@ rdm_save_all_chunks_to_disk :: () {
         world_name := curworld.world.name;
 
         for *bake, chunk_key: rdm_chunk_bakes {
+            print("Processing chunk....\n");
             if bake.entries.count == 0 then continue;
 
             // Save atlas.

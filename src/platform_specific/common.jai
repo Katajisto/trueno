@@ -12,6 +12,7 @@
 #load "../main.jai";
 
 default_context: #Context;
+default_allocator: Allocator;
 
 temporary_storage: Temporary_Storage;
 temporary_storage_data: [TEMPORARY_STORAGE_SIZE] u8 #align 64;
@@ -23,6 +24,7 @@ sapp_init :: () {
     temporary_storage.size = temporary_storage_data.count;
     temporary_storage.original_data = temporary_storage_data.data;
     temporary_storage.original_size = temporary_storage_data.count;    
+    default_allocator = default_context.allocator;
 
     push_context default_context {
     context.logger = logger;
