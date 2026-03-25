@@ -2,6 +2,7 @@ GR :: #import "GetRect_LeftHanded"()(Type_Indicator = Ui_Type_Indicator);
 Input :: #import "Input";
 
 #load "component_themes.jai";
+#load "voxel_theme.jai";
 #load "autoedit.jai";
 
 // vw is 1/100 of view width
@@ -424,18 +425,17 @@ font_boundary :: () {
 }
 
 render_ui :: () {
-    proc := GR.default_theme_procs[0];
-    my_theme := proc();
-    GR.set_default_theme(my_theme);
+    voxel_theme := get_voxel_theme();
+    GR.set_default_theme(voxel_theme);
     #if !FLAG_RELEASE_BUILD {
-        draw_editor_ui(*my_theme);
-        if !in_editor_view then game_ui(*my_theme);
-        draw_console(*my_theme);
+        draw_editor_ui(*voxel_theme);
+        if !in_editor_view then game_ui(*voxel_theme);
+        draw_console(*voxel_theme);
     } else {
-        game_ui(*my_theme);
+        game_ui(*voxel_theme);
     }
-    #if FLAG_DEMO_BUILD { if !in_editor_view then draw_demo_ui(*my_theme); }
-    draw_settings_menu(*my_theme);
+    #if FLAG_DEMO_BUILD { if !in_editor_view then draw_demo_ui(*voxel_theme); }
+    draw_settings_menu();
 }
 
 ui_pass :: () {

@@ -211,7 +211,8 @@ wasm_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
     opt := get_build_options();
     trueno_opts := build_options_from_args(opt.compile_time_command_line);  
     compile_shaders();
-    create_pack();
+    is_test_exe := trueno_opts.test_exe_engine || trueno_opts.test_exe_game;
+    create_pack(is_test_exe, ifx is_test_exe then "./test_packs" else "./packs");
 
     if trueno_opts.wasm_build {
         wasm_build(opt, trueno_opts);

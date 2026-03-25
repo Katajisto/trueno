@@ -97,7 +97,7 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
                 fallback_req : Fetch_Request;
                 fallback_req.type         = .WORLD;
                 fallback_req.world_name   = req.world_name;
-                fallback_req.path         = sprint("./game/resources/worlds/%/index.world", req.world_name);
+                fallback_req.path         = sprint("%/worlds/%/index.world", GAME_RESOURCES_DIR, req.world_name);
                 fallback_req.should_block = true;
                 array_add(*g_asset_manager.fetch_queue, fallback_req);
                 return;
@@ -116,7 +116,7 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
             chunks_req : Fetch_Request;
             chunks_req.type            = .WORLD_CHUNKS;
             chunks_req.world_name      = req.world_name;
-            chunks_req.path            = sprint("./game/resources/worlds/%/chunks.bin", req.world_name);
+            chunks_req.path            = sprint("%/worlds/%/chunks.bin", GAME_RESOURCES_DIR, req.world_name);
             chunks_req.should_block    = true;
             chunks_req.world_json_data = json_copy;
             array_add(*g_asset_manager.fetch_queue, chunks_req);
@@ -189,7 +189,7 @@ fetch_callback :: (res: *sfetch_response_t) #c_call {
         lookup_path: string;
         chunk_ptr := table_find_pointer(*curworld.world.chunks, req.chunk_key);
         if chunk_ptr != null && chunk_ptr.rdm_lookup_path.count > 0 {
-            lookup_path = sprint("./game/resources/worlds/%/%", req.world_name, chunk_ptr.rdm_lookup_path);
+            lookup_path = sprint("%/worlds/%/%", GAME_RESOURCES_DIR, req.world_name, chunk_ptr.rdm_lookup_path);
         } else {
             lookup_path = rdm_chunk_filename(req.world_name, req.chunk_key, "rdm_lookup");
         }
@@ -447,7 +447,7 @@ load_world :: (name: string) {
     req : Fetch_Request;
     req.type         = .WORLD;
     req.world_name   = sprint("%", name);
-    req.path         = sprint("./game/resources/worlds/%/world.json", name);
+    req.path         = sprint("%/worlds/%/world.json", GAME_RESOURCES_DIR, name);
     req.should_block = true;
     array_add(*g_asset_manager.fetch_queue, req);
 }
@@ -456,7 +456,7 @@ load_pack :: (name: string, shouldBlock: bool = true, shouldBlockEngine: bool = 
     req : Fetch_Request;
     req.type                = .PACK;
     req.pack_name           = sprint("%", name);
-    req.path                = sprint("./packs/%.pack", name);
+    req.path                = sprint("%/%.pack", PACK_DIR, name);
     req.should_block        = shouldBlock;
     req.should_block_engine = shouldBlockEngine;
     array_add(*g_asset_manager.fetch_queue, req);

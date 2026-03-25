@@ -37,3 +37,20 @@ t_button_color :: (theme: *GR.Overall_Theme, color: Vector4) -> GR.Button_Theme 
     t.surface_color = color;
     return t;
 }
+
+t_button_ghost :: (theme: *GR.Overall_Theme) -> GR.Button_Theme {
+    t := theme.button_theme;
+    t.surface_color       = .{0, 0, 0, 0};
+    t.surface_color_over  = .{0, 0, 0, 0};
+    t.surface_color_down  = .{0, 0, 0, 0};
+    t.surface_color_flash = .{0, 0, 0, 0};
+    t.frame_color         = .{0, 0, 0, 0};
+    t.rectangle_shape.frame_thickness = 0;
+    return t;
+}
+
+t_button_selected :: (theme: *GR.Overall_Theme) -> GR.Button_Theme {
+    t := t_button_ghost(theme);
+    t.text_color = theme.text_color;
+    return t;
+}

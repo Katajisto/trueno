@@ -2,12 +2,13 @@
 
 Random :: #import "Random";
 
-TRANSITION_SPEED    :: 7.0;
-MAX_BLOBS           :: 32;
-VOLUME_STEP_INITIAL :: 0.1;
-VOLUME_STEP_HELD    :: 0.3;
-VOLUME_HOLD_DELAY   :: 0.35;
-CONFIG_PATH         :: "settings.cfg";
+TRANSITION_SPEED :: 7.0;
+MAX_BLOBS        :: 32;
+CONFIG_PATH      :: "settings.cfg";
+
+VOL_STEP_INIT  :: 0.05;
+VOL_STEP_HELD  :: 0.25;
+VOL_HOLD_DELAY :: 0.4;
 
 Settings_Page :: enum {
     MAIN;
@@ -27,11 +28,6 @@ Settings_State :: struct {
 
     vol_hold_time : float = 0.0;
     vol_hold_dir  : s32   = 0;
-
-    mouse_hover   : s32 = -1;
-    mouse_moved   : bool = false;
-    last_mouse_x  : float = -1;
-    last_mouse_y  : float = -1;
 
     blobs         : [MAX_BLOBS]Blob;
     blob_count    : s32 = 0;
@@ -72,7 +68,7 @@ page_parent :: () -> Settings_Page {
 page_hint :: () -> string {
     if g_settings.page == .MAIN     return "Up/Down navigate   Enter select";
     if g_settings.page == .SETTINGS return "Up/Down navigate   Enter select   Esc back";
-    if g_settings.page == .AUDIO    return "Up/Down navigate   Left/Right adjust   Esc back";
+    if g_settings.page == .AUDIO    return "Up/Down navigate   Left/Right or drag to adjust   Esc back";
     if g_settings.page == .GRAPHICS return "Enter toggle   Esc back";
     return "";
 }
@@ -88,20 +84,6 @@ audio_set :: (i: s32, v: float) {
     if i == 0 then g_mixer.config.masterVolume      = clamp(v, 0.0, 1.0);
     if i == 1 then g_mixer.config.musicVolume       = clamp(v, 0.0, 1.0);
     if i == 2 then g_mixer.config.soundEffectVolume = clamp(v, 0.0, 1.0);
-}
-
-get_item_label :: (page: Settings_Page, index: s32) -> string {
-    items := page_items();
-    if index < 0 || index >= items.count then return "";
-
-    if page == .AUDIO {
-        pct := cast(s32)(audio_get(index) * 100.0 + 0.5);
-        return tprint("%    %", items[index], make_volume_bar(pct));
-    }
-    if page == .GRAPHICS && index == 0 {
-        return tprint("%: %", items[index], ifx sapp_is_fullscreen() then "On" else "Off");
-    }
-    return items[index];
 }
 
 rand_range :: (lo: float, hi: float) -> float {
@@ -218,26 +200,31 @@ navigate_to :: (page: Settings_Page) {
 }
 
 go_back :: () {
-    if g_settings.page == .AUDIO || g_settings.page == .GRAPHICS then save_settings();
     if g_settings.page == .MAIN {
+        save_settings();
         g_settings.open = false;
     } else {
         navigate_to(page_parent());
     }
 }
 
-handle_enter :: () {
+handle_enter :: (index: s32 = -1) {
+    i := ifx index >= 0 then index else g_settings.cursor;
     if g_settings.page == {
         case .MAIN;
-            if g_settings.cursor == 0 then g_settings.open = false;
-            if g_settings.cursor == 1 then navigate_to(.SETTINGS);
-            if g_settings.cursor == 2 { save_settings(); sapp_request_quit(); }
+            if i == 0 { save_settings(); g_settings.open = false; }
+            if i == 1 then navigate_to(.SETTINGS);
+            if i == 2 { save_settings(); sapp_request_quit(); }
         case .SETTINGS;
-            if g_settings.cursor == 0 then navigate_to(.AUDIO);
-            if g_settings.cursor == 1 then navigate_to(.GRAPHICS);
+            if i == 0 then navigate_to(.AUDIO);
+            if i == 1 then navigate_to(.GRAPHICS);
         case .GRAPHICS;
-            if g_settings.cursor == 0 then sapp_toggle_fullscreen();
+            if i == 0 then sapp_toggle_fullscreen();
     }
+}
+
+empty_slider_format :: (prefix: string, suffix: string, value: float64, theme: *GR.Slider_Theme, state: *GR.Slider_State, mode: GR.Slider_Format_Text_Mode) -> string {
+    return "";
 }
 
 #scope_export
@@ -257,15 +244,9 @@ Phosphene_Config :: struct {
 }
 
 Settings_Menu_Config :: struct {
-    game_title      : string           = "TRUENO";
-    credits         : string           = "Trueno engine by Tuomas Katajisto 2026";
-    bg_color        : Vector4          = .{0.04, 0.04, 0.06, 1.0};
-    title_color     : Vector4          = .{1.0, 1.0, 1.0, 1.0};
-    item_color      : Vector4          = .{0.45, 0.45, 0.45, 1.0};
-    selected_color  : Vector4          = .{1.0, 0.95, 0.65, 1.0};
-    hint_color      : Vector4          = .{0.45, 0.45, 0.45, 1.0};
-    credits_color   : Vector4          = .{0.3, 0.3, 0.3, 1.0};
-    phosphenes      : Phosphene_Config;
+    game_title  : string           = "TRUENO";
+    credits     : string           = "Trueno engine by Tuomas Katajisto 2026";
+    phosphenes  : Phosphene_Config;
 }
 
 set_settings_config :: (config: Settings_Menu_Config) {
@@ -308,37 +289,22 @@ tick_settings_menu :: () {
 
     count := cast(s32) page_items().count;
 
-    mx := input_mouse_x;
-    my := input_mouse_y;
-    g_settings.mouse_moved = (mx != g_settings.last_mouse_x || my != g_settings.last_mouse_y);
-    g_settings.last_mouse_x = mx;
-    g_settings.last_mouse_y = my;
-
-    if g_settings.mouse_moved && g_settings.mouse_hover >= 0 && g_settings.mouse_hover < count {
-        g_settings.cursor = g_settings.mouse_hover;
-    }
-
     up   := cast(bool)(input_button_states[Key_Code.ARROW_UP]   & .START);
     down := cast(bool)(input_button_states[Key_Code.ARROW_DOWN] & .START);
     if up   then g_settings.cursor = (g_settings.cursor - 1 + count) % count;
     if down then g_settings.cursor = (g_settings.cursor + 1) % count;
 
     enter := cast(bool)(input_button_states[Key_Code.ENTER] & .START);
-    click := cast(bool)(input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START);
-    if click && g_settings.mouse_hover >= 0 && g_settings.mouse_hover < count {
-        g_settings.cursor = g_settings.mouse_hover;
-        enter = true;
-    }
     if enter then handle_enter();
 
     if g_settings.page == .AUDIO {
-        left  := cast(bool)(input_button_states[Key_Code.ARROW_LEFT]  & .START);
-        right := cast(bool)(input_button_states[Key_Code.ARROW_RIGHT] & .START);
+        left       := cast(bool)(input_button_states[Key_Code.ARROW_LEFT]  & .START);
+        right      := cast(bool)(input_button_states[Key_Code.ARROW_RIGHT] & .START);
         left_held  := cast(bool)(input_button_states[Key_Code.ARROW_LEFT]  & .DOWN);
         right_held := cast(bool)(input_button_states[Key_Code.ARROW_RIGHT] & .DOWN);
 
-        if left  { audio_set(g_settings.cursor, audio_get(g_settings.cursor) - VOLUME_STEP_INITIAL); g_settings.vol_hold_time = 0; g_settings.vol_hold_dir = -1; }
-        if right { audio_set(g_settings.cursor, audio_get(g_settings.cursor) + VOLUME_STEP_INITIAL); g_settings.vol_hold_time = 0; g_settings.vol_hold_dir =  1; }
+        if left  { audio_set(g_settings.cursor, audio_get(g_settings.cursor) - VOL_STEP_INIT); g_settings.vol_hold_time = 0; g_settings.vol_hold_dir = -1; }
+        if right { audio_set(g_settings.cursor, audio_get(g_settings.cursor) + VOL_STEP_INIT); g_settings.vol_hold_time = 0; g_settings.vol_hold_dir =  1; }
 
         dir : s32 = 0;
         if left_held  then dir = -1;
@@ -346,8 +312,8 @@ tick_settings_menu :: () {
 
         if dir != 0 && dir == g_settings.vol_hold_dir {
             g_settings.vol_hold_time += dt;
-            if g_settings.vol_hold_time > VOLUME_HOLD_DELAY {
-                audio_set(g_settings.cursor, audio_get(g_settings.cursor) + cast(float)dir * VOLUME_STEP_HELD * dt);
+            if g_settings.vol_hold_time > VOL_HOLD_DELAY {
+                audio_set(g_settings.cursor, audio_get(g_settings.cursor) + cast(float)dir * VOL_STEP_HELD * dt);
             }
         } else if dir == 0 {
             g_settings.vol_hold_time = 0;
@@ -356,7 +322,7 @@ tick_settings_menu :: () {
     }
 }
 
-draw_settings_menu :: (theme: *GR.Overall_Theme) {
+draw_settings_menu :: () {
     t := g_settings.transition;
     if t < 0.001 then return;
 
@@ -364,13 +330,14 @@ draw_settings_menu :: (theme: *GR.Overall_Theme) {
     fh    := vh * 100.0;
     bar_h := t * fh * 0.5;
 
+    vc  := g_voxel_theme_config;
     cfg := *g_settings_config;
-    set_shader_for_color();
 
-    immediate_quad(.{0, 0}, .{fw, 0}, .{fw, bar_h}, .{0, bar_h}, cfg.bg_color);
+    set_shader_for_color();
+    immediate_quad(.{0, 0}, .{fw, 0}, .{fw, bar_h}, .{0, bar_h}, vc.bg_color);
     immediate_flush();
     bottom_y := fh - bar_h;
-    immediate_quad(.{0, bottom_y}, .{fw, bottom_y}, .{fw, fh}, .{0, fh}, cfg.bg_color);
+    immediate_quad(.{0, bottom_y}, .{fw, bottom_y}, .{fw, fh}, .{0, fh}, vc.bg_color);
     immediate_flush();
 
     if t > 0.5 {
@@ -384,31 +351,78 @@ draw_settings_menu :: (theme: *GR.Overall_Theme) {
         return .{base.x, base.y, base.z, base.w * a};
     }
 
-    title_col   := apply_alpha(cfg.title_color, content_alpha);
-    item_col    := apply_alpha(cfg.item_color, content_alpha);
-    sel_col     := apply_alpha(cfg.selected_color, content_alpha);
-    hint_col    := apply_alpha(cfg.hint_color, content_alpha);
-    credits_col := apply_alpha(cfg.credits_color, content_alpha);
+    title_col   := apply_alpha(vc.primary_color, content_alpha);
+    hint_col    := apply_alpha(.{vc.text_color.x, vc.text_color.y, vc.text_color.z, 0.6}, content_alpha);
+    credits_col := apply_alpha(.{vc.text_color.x, vc.text_color.y, vc.text_color.z, 0.4}, content_alpha);
 
     prepare_text(g_settings.title_font, cfg.game_title);
     draw_prepared_text(g_settings.title_font, xx ((fw - cast(float)gPreppedTextWidth) * 0.5), xx (fh * 0.22), title_col);
 
-    items   := page_items();
-    item_h  := cast(float)(g_settings.item_font.character_height) * 1.7;
-    total_h := cast(float)items.count * item_h;
-    start_y := fh * 0.5 - total_h * 0.5;
+    vt := get_voxel_theme();
 
-    g_settings.mouse_hover = -1;
-    for i: 0..items.count-1 {
-        col   := ifx cast(s32)i == g_settings.cursor then sel_col else item_col;
-        label := get_item_label(g_settings.page, cast(s32)i);
-        prepare_text(g_settings.item_font, label);
-        x     := (fw - cast(float)gPreppedTextWidth) * 0.5;
-        row_y := start_y + cast(float)i * item_h;
-        draw_prepared_text(g_settings.item_font, xx x, xx row_y, col);
+    btn_h   := cast(float)(g_settings.item_font.character_height) * 1.8;
+    btn_w   := fw * 0.28;
+    row_gap := btn_h * 0.25;
 
-        if input_mouse_y >= row_y && input_mouse_y < row_y + item_h {
-            g_settings.mouse_hover = cast(s32)i;
+    if g_settings.page == .AUDIO {
+        lbl_w   := fw * 0.22;
+        sld_w   := fw * 0.28;
+        col_gap := fw * 0.015;
+        sld_h   := btn_h * 0.65;
+        row_h   := sld_h + row_gap;
+        total_h := cast(float)AUDIO_LABELS.count * row_h - row_gap;
+        start_y := fh * 0.48 - total_h * 0.5;
+        row_w   := lbl_w + col_gap + sld_w;
+        lbl_x   := (fw - row_w) * 0.5;
+        sld_x   := lbl_x + lbl_w + col_gap;
+
+        sld_theme := vt.slider_theme;
+        sld_theme.foreground.font   = g_settings.item_font;
+        sld_theme.format_text_float = empty_slider_format;
+
+        for i: 0..AUDIO_LABELS.count-1 {
+            row_y := start_y + cast(float)i * row_h;
+            lbl_r := GR.get_rect(lbl_x, row_y, lbl_w, sld_h);
+            sld_r := GR.get_rect(sld_x, row_y, sld_w, sld_h);
+
+            is_focused := cast(s32)i == g_settings.cursor;
+            lbl_theme := t_label_left(*vt);
+            lbl_theme.text_color = apply_alpha(
+                ifx is_focused then vc.primary_color else vc.text_color,
+                content_alpha
+            );
+            lbl_theme.font = g_settings.item_font;
+
+            val := audio_get(cast(s32)i);
+            pct := cast(s32)(val * 100.0 + 0.5);
+            GR.label(lbl_r, tprint("%: %\%", AUDIO_LABELS[i], pct), *lbl_theme);
+
+            changed, _ := GR.slider(sld_r, *val, 0.0, 1.0, VOL_STEP_INIT, *sld_theme,
+                                     identifier = cast(s64)i);
+            if changed then audio_set(cast(s32)i, val);
+        }
+    } else {
+        items   := page_items();
+        total_h := cast(float)items.count * (btn_h + row_gap) - row_gap;
+        start_y := fh * 0.48 - total_h * 0.5;
+        start_x := (fw - btn_w) * 0.5;
+
+        for i: 0..items.count-1 {
+            r := GR.get_rect(start_x, start_y + cast(float)i * (btn_h + row_gap), btn_w, btn_h);
+
+            is_selected := cast(s32)i == g_settings.cursor;
+            bt := t_button_ghost(*vt);
+            bt.text_color       = apply_alpha(ifx is_selected then vc.primary_color else vc.text_color, content_alpha);
+            bt.text_color_over  = apply_alpha(vc.primary_color, content_alpha);
+            bt.label_theme.font = g_settings.item_font;
+            bt.label_theme.alignment = GR.Text_Alignment.Center;
+
+            label := items[i];
+            if g_settings.page == .GRAPHICS && i == 0
+                label = tprint("Fullscreen: %", ifx sapp_is_fullscreen() then "On" else "Off");
+
+            pressed, _, _ := GR.button(r, label, *bt, identifier = cast(s64)i);
+            if pressed then handle_enter(cast(s32)i);
         }
     }
 
@@ -451,18 +465,4 @@ draw_phosphenes :: (fw: float, fh: float, time: float, fade: float) {
         }
     }
     immediate_flush();
-}
-
-make_volume_bar :: (pct: s32) -> string {
-    STEPS :: 10;
-    filled := (pct + 5) / STEPS;
-    builder : String_Builder;
-    append(*builder, "[ ");
-    for i: 0..STEPS-1 {
-        if i < filled then append(*builder, "=");
-        else               append(*builder, "-");
-    }
-    append(*builder, tprint(" %\%%", pct));
-    append(*builder, " ]");
-    return builder_to_string(*builder,, allocator = temp);
 }

@@ -1,0 +1,227 @@
+[
+ {
+  "name": "ball_emitter",
+  "animation_name": "game_core.ball",
+  "emission_rate": 200,
+  "lifetime_min": 0.936768,
+  "lifetime_max": 1.209992,
+  "velocity": {
+   "x": 0,
+   "y": 1.5,
+   "z": 0,
+   "xy": {
+    "x": 0,
+    "y": 1.5,
+    "component": [
+     0,1.5
+    ]
+   },
+   "yz": {
+    "x": 1.5,
+    "y": 0,
+    "component": [
+     1.5,0
+    ]
+   },
+   "component": [
+    0,1.5,0
+   ]
+  },
+  "velocity_spread": {
+   "x": 0.1,
+   "y": 0,
+   "z": 0.1,
+   "xy": {
+    "x": 0.1,
+    "y": 0,
+    "component": [
+     0.1,0
+    ]
+   },
+   "yz": {
+    "x": 0,
+    "y": 0.1,
+    "component": [
+     0,0.1
+    ]
+   },
+   "component": [
+    0.1,0,0.1
+   ]
+  },
+  "position_spread": {
+   "x": 0.3,
+   "y": 0,
+   "z": 0.3,
+   "xy": {
+    "x": 0.3,
+    "y": 0,
+    "component": [
+     0.3,0
+    ]
+   },
+   "yz": {
+    "x": 0,
+    "y": 0.3,
+    "component": [
+     0,0.3
+    ]
+   },
+   "component": [
+    0.3,0,0.3
+   ]
+  },
+  "size_start": 2.375121,
+  "size_end": 0.705114,
+  "color_start": {
+   "x": 1,
+   "y": 0.03,
+   "z": 0.05,
+   "w": 1,
+   "xy": {
+    "x": 1,
+    "y": 0.03,
+    "component": [
+     1,0.03
+    ]
+   },
+   "yz": {
+    "x": 0.03,
+    "y": 0.05,
+    "component": [
+     0.03,0.05
+    ]
+   },
+   "zw": {
+    "x": 0.05,
+    "y": 1,
+    "component": [
+     0.05,1
+    ]
+   },
+   "xyz": {
+    "x": 1,
+    "y": 0.03,
+    "z": 0.05,
+    "xy": {
+     "x": 1,
+     "y": 0.03,
+     "component": [
+      1,0.03
+     ]
+    },
+    "yz": {
+     "x": 0.03,
+     "y": 0.05,
+     "component": [
+      0.03,0.05
+     ]
+    },
+    "component": [
+     1,0.03,0.05
+    ]
+   },
+   "yzw": {
+    "x": 0.03,
+    "y": 0.05,
+    "z": 1,
+    "xy": {
+     "x": 0.03,
+     "y": 0.05,
+     "component": [
+      0.03,0.05
+     ]
+    },
+    "yz": {
+     "x": 0.05,
+     "y": 1,
+     "component": [
+      0.05,1
+     ]
+    },
+    "component": [
+     0.03,0.05,1
+    ]
+   },
+   "component": [
+    1,0.03,0.05,1
+   ]
+  },
+  "color_end": {
+   "x": 1,
+   "y": 0,
+   "z": 0,
+   "w": 0,
+   "xy": {
+    "x": 1,
+    "y": 0,
+    "component": [
+     1,0
+    ]
+   },
+   "yz": {
+    "x": 0,
+    "y": 0,
+    "component": [
+     0,0
+    ]
+   },
+   "zw": {
+    "x": 0,
+    "y": 0,
+    "component": [
+     0,0
+    ]
+   },
+   "xyz": {
+    "x": 1,
+    "y": 0,
+    "z": 0,
+    "xy": {
+     "x": 1,
+     "y": 0,
+     "component": [
+      1,0
+     ]
+    },
+    "yz": {
+     "x": 0,
+     "y": 0,
+     "component": [
+      0,0
+     ]
+    },
+    "component": [
+     1,0,0
+    ]
+   },
+   "yzw": {
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "xy": {
+     "x": 0,
+     "y": 0,
+     "component": [
+      0,0
+     ]
+    },
+    "yz": {
+     "x": 0,
+     "y": 0,
+     "component": [
+      0,0
+     ]
+    },
+    "component": [
+     0,0,0
+    ]
+   },
+   "component": [
+    1,0,0,0
+   ]
+  },
+  "gravity": -1.295925,
+  "blend_mode": "ADDITIVE"
+ }
+]

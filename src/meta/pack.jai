@@ -1,6 +1,7 @@
 #import "String";
     
 should_ignore_file :: (name: string) -> bool {
+    if name.count > 0 && name[0] == #char "." return true;
 
     ok, left, right :=  split_from_right(name, #char ".");
     if right == "aseprite" {
@@ -48,14 +49,19 @@ file_visit_handler :: (info: *util.File_Visit_Info, user_data: bool) {
     add(packPtr, fileName, filedata);   
 }
 
-create_pack :: () {
+create_pack :: (include_test_resources: bool = false, pack_dir: string = "./packs") {
     #import "Simple_Package";
     #import "File";
 
     util.visit_files("./resources", true, true, file_visit_handler);
-    util.visit_files("./game/resources", true, true, file_visit_handler);
+    if include_test_resources {
+        util.visit_files("./test_game/resources", true, true, file_visit_handler);
+    } else {
+        util.visit_files("./game/resources", true, true, file_visit_handler);
+    }
 
+    make_directory_if_it_does_not_exist(pack_dir);
     for pack, key : packs {
-        write(*pack, tprint("./packs/%.pack", key));
+        write(*pack, tprint("%/%.pack", pack_dir, key));
     }
 }

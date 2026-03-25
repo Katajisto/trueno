@@ -37,9 +37,9 @@ _hotreload_visitor :: (info: *File_Util.File_Visit_Info, packs: *Table(string, P
 recreate_packs_on_disk :: () {
     packs: Table(string, Pack_Writer.Create_Package);
     File_Util.visit_files("./resources",      true, *packs, _hotreload_visitor);
-    File_Util.visit_files("./game/resources", true, *packs, _hotreload_visitor);
+    File_Util.visit_files(GAME_RESOURCES_DIR, true, *packs, _hotreload_visitor);
     for pack, key: packs {
-        Pack_Writer.write(*pack, tprint("./packs/%.pack", key));
+        Pack_Writer.write(*pack, tprint("%/%.pack", PACK_DIR, key));
         log_info("Hot-reload: wrote pack '%'", key);
     }
 }

@@ -10,5 +10,5 @@ RDM_File_Header :: struct {
 RDM_FILE_MAGIC :: u32.[0x4D445254][0]; // "TRDM" as little-endian u32
 
 rdm_chunk_filename :: (world_name: string, chunk_key: Chunk_Key, suffix: string) -> string {
-    return sprint("./game/resources/worlds/%/%_%_%.%", world_name, chunk_key.x, chunk_key.y, chunk_key.z, suffix);
+    return sprint("%/worlds/%/%_%_%.%", GAME_RESOURCES_DIR, world_name, chunk_key.x, chunk_key.y, chunk_key.z, suffix);
 }

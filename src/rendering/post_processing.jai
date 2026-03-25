@@ -76,7 +76,7 @@ save_post_process :: () {
             save.lut_name = LUT_list[g_current_lut_texture_index].name;
         }
         json := Jaison.json_write_string(save, " ");
-        file.write_entire_file("./game/resources/game_core/postprocess.json", json);
+        file.write_entire_file(tprint("%/game_core/postprocess.json", GAME_RESOURCES_DIR), json);
     }
 }
 

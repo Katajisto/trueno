@@ -195,7 +195,7 @@ save_particle_defs :: () {
     #if OS != .WASM {
         file :: #import "File";
         json := Jaison.json_write_string(g_emitter_defs, " ");
-        file.write_entire_file("./game/resources/game_core/particles.json", json);
+        file.write_entire_file(tprint("%/game_core/particles.json", GAME_RESOURCES_DIR), json);
         log_info("Saved % particle definitions", g_emitter_defs.count);
     }
 }

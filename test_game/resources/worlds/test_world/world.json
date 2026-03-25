@@ -1,0 +1,44 @@
+{
+ "version": 4,
+ "name": "test_world",
+ "config": {
+  "skyBase": [
+   0.38,0.81,0.95
+  ],
+  "skyTop": [
+   0.17,0.4,0.95
+  ],
+  "sunDisk": [
+   1,1,1
+  ],
+  "horizonHalo": [
+   1,1,1
+  ],
+  "sunHalo": [
+   1,1,1
+  ],
+  "sunLightColor": [
+   1,1,1
+  ],
+  "sunPosition": [
+   0.371391,0.557086,0.742781
+  ],
+  "sunIntensity": 2,
+  "skyIntensity": 1,
+  "hasClouds": 1,
+  "planeHeight": 0,
+  "animatePlaneHeight": 1,
+  "waterColor": [
+   1,1,1
+  ],
+  "deepColor": [
+   1,1,1
+  ]
+ },
+ "chunks": [
+ ],
+ "emitters": [
+ ],
+ "notes": [
+ ]
+}

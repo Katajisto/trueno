@@ -37,6 +37,7 @@ stbi   :: #import "stb_image";
 #load "audio/audio.jai";
 #load "assets/asset_manager.jai";
 #load "settings_menu.jai";
+#load "loading_screen.jai";
 #load "ui/demo.jai";
     
 #if !FLAG_TEST_EXE_ENGINE {
@@ -163,6 +164,7 @@ init_after_core :: () {
     // Let the game configure engine settings before full init.
     game_engine_config();
 
+    init_world_system();
     // We want to do this last.
     game_init();
 
@@ -183,9 +185,19 @@ frame :: () {
 
     add_frame_profiling_point("After asset manager tick");
     
-    if !mandatory_loads_done() then return;
+    if !mandatory_loads_done() {
+        input_per_frame_event_and_flag_update();
+        return;
+    }
 
     if show_loading_screen() {
+        input_per_frame_event_and_flag_update();
+        if init_after_core_done {
+            fonsClearState(state.fons);
+            draw_loading_screen();
+            render();
+            reset_temporary_storage();
+        }
         return;
     }
 
@@ -210,7 +222,10 @@ frame :: () {
 
     should_tick_game := #ifx FLAG_RELEASE_BUILD then true else !in_editor_view;
 
-    if should_tick_game then delta_time_accumulator += delta_time;
+    if should_tick_game {
+        delta_time_accumulator += delta_time;
+        if delta_time_accumulator > (4.0/60.0) then delta_time_accumulator = 4.0/60.0;
+    }
 
     if should_tick_game && !settings_menu_blocks_game() {
         while delta_time_accumulator > (1.0/480.0) {

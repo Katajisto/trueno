@@ -15,11 +15,17 @@ Exe_Test :: struct {
 Exe_Test_Command_Type :: enum {
     INVALID;
     WAIT;
-    KEYPRESS; 
+    KEYPRESS;
+    CHECK;
+    OP;
 }
 
 Exe_Test_Command :: struct {
-    type : Exe_Test_Command_Type = .INVALID;
+    type         : Exe_Test_Command_Type = .INVALID;
+    wait_seconds : float = 0;
+    key          : Key_Code;
+    check        : () -> bool;
+    op           : () -> void;
 }
 
 start_test_suite :: (name: string) {

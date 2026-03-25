@@ -31,7 +31,7 @@ rdm_loader_enqueue_world :: (world: *World) {
         req.world_name = world.name;
         req.chunk_key  = chunk.coord;
         if chunk.rdm_atlas_path.count > 0 {
-            req.path = sprint("./game/resources/worlds/%/%", world.name, chunk.rdm_atlas_path);
+            req.path = sprint("%/worlds/%/%", GAME_RESOURCES_DIR, world.name, chunk.rdm_atlas_path);
         } else {
             req.path = rdm_chunk_filename(world.name, chunk.coord, "rdm_atlas");
         }

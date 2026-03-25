@@ -126,34 +126,33 @@ lworld :: (name: string) {
     load_world(name);
 } @Command;
 
+init_world_system :: () {
+    Pool.set_allocators(*current_world.pool);
+}
+
 unload_current_world :: () {
-    if current_world.valid {
-        rdm_loader_cancel_all();
-        for *chunk: current_world.world.chunks {
-            // Release RDM GPU resources.
-            if chunk.rdm_valid {
-                sg_destroy_image(chunk.rdm_atlas);
-                sg_destroy_image(chunk.rdm_lookup);
-                #if !FLAG_RELEASE_BUILD {
-                    if chunk.rdm_lookup_cpu.data then free(chunk.rdm_lookup_cpu.data);
-                    chunk.rdm_lookup_cpu = .{};
-                }
-                chunk.rdm_atlas  = .{};
-                chunk.rdm_lookup = .{};
-                chunk.rdm_valid  = false;
+    if !current_world.valid then return;
+    rdm_loader_cancel_all();
+    for *chunk: current_world.world.chunks {
+        if chunk.rdm_valid {
+            sg_destroy_image(chunk.rdm_atlas);
+            sg_destroy_image(chunk.rdm_lookup);
+            #if !FLAG_RELEASE_BUILD {
+                if chunk.rdm_lookup_cpu.data then free(chunk.rdm_lookup_cpu.data);
+                chunk.rdm_lookup_cpu = .{};
             }
-            for *group: chunk.groups {
-                array_free(group.instances);
-            }
-            array_free(chunk.groups);
+            chunk.rdm_atlas  = .{};
+            chunk.rdm_lookup = .{};
+            chunk.rdm_valid  = false;
         }
-        deinit(*current_world.world.chunks);
-        Pool.reset(*current_world.pool);
-        current_world.valid = false;
-    } else {
-        print("Setting allocators on current world!!\n");
-        Pool.set_allocators(*current_world.pool);
+        for *group: chunk.groups {
+            array_free(group.instances);
+        }
+        array_free(chunk.groups);
     }
+    deinit(*current_world.world.chunks);
+    Pool.reset(*current_world.pool);
+    current_world.valid = false;
 }
 
 set_loaded_world :: (world: World) {
@@ -328,7 +327,7 @@ sworld :: () {
     #if OS != .WASM {
         file :: #import "File";
         name := current_world.world.name;
-        dir := tprint("./game/resources/worlds/%", name);
+        dir := tprint("%/worlds/%", GAME_RESOURCES_DIR, name);
         file.make_directory_if_it_does_not_exist(dir, recursive = true);
         json_data, bin_data := save_world(*current_world.world);
         file.write_entire_file(tprint("%/world.json", dir), json_data);
@@ -703,7 +702,7 @@ draw_world_picker :: (r_in: GR.Rect, theme: *GR.Overall_Theme) {
 			}
 		}
 
-		File_Utilities.visit_files("./game/resources/worlds", true, *world_names, dir_visitor);
+		File_Utilities.visit_files(tprint("%/worlds", GAME_RESOURCES_DIR), true, *world_names, dir_visitor);
 
 		count := 0;
 		for name: world_names {

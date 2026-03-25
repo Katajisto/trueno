@@ -1,3 +1,11 @@
+#if FLAG_TEST_EXE_ENGINE {
+    PACK_DIR           :: "./test_packs";
+    GAME_RESOURCES_DIR :: "./test_game/resources";
+} else {
+    PACK_DIR           :: "./packs";
+    GAME_RESOURCES_DIR :: "./game/resources";
+}
+
 g_asset_pack : Load_Package;
 
 #scope_export
