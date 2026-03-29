@@ -231,10 +231,10 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
     // Clean up any previous per-chunk bake data.
     rdm_cleanup_chunk_bakes();
 
-    // Clean up any previous RDM results stored in chunks.
+    // Clear RDM results only for chunks that are being re-baked.
     curworld := get_current_world();
     for *chunk: curworld.world.chunks {
-        if chunk.rdm_valid {
+        if chunk.rdm_valid && (bake_all || table_contains(*chunk_key_set, chunk.coord)) {
             sg_destroy_image(chunk.rdm_atlas);
             sg_destroy_image(chunk.rdm_lookup);
             chunk.rdm_valid = false;
@@ -439,6 +439,7 @@ rdm_bake_finish :: () {
             chunk.rdm_atlas = atlas_image;
             chunk.rdm_lookup = lookup_image;
             chunk.rdm_valid = true;
+            chunk.rdm_dirty = false;
         }
 
         total_entries += cast(s64) bake.entries.count;

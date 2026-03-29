@@ -252,6 +252,17 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 			if curworld.valid then rdm_bake_all_chunks(curworld.world, tacomaSamples, true);
 		}
 		r.y += r.h;
+		dirty_count := 0;
+		if curworld.valid  for chunk: curworld.world.chunks  if chunk.rdm_dirty  dirty_count += 1;
+		if GR.button(r, tprint("Bake dirty chunks (%)", dirty_count), *t_button_selectable(theme, dirty_count > 0)) {
+			if curworld.valid && dirty_count > 0 {
+				dirty_keys : [..]Chunk_Key;
+				dirty_keys.allocator = temp;
+				for chunk, key: curworld.world.chunks  if chunk.rdm_dirty  array_add(*dirty_keys, key);
+				rdm_bake_chunks(dirty_keys, curworld.world, tacomaSamples, true);
+			}
+		}
+		r.y += r.h;
 		if rdm_bake.active {
 			total := cast(s32) rdm_bake.jobs.count;
 			done  := rdm_bake.current_job;
@@ -469,6 +480,7 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 	group.trile_name = sprint("%", name);
 	array_add(*group.instances, inst);
 	array_add(*chunk.groups, group);
+	chunk.rdm_dirty = true;
 } @Command
 
 remove_trile :: (x: s32, y: s32, z: s32) {
@@ -484,6 +496,7 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 		for inst, idx: group.instances {
 			if inst.x == lx && inst.y == ly && inst.z == lz {
 				array_unordered_remove_by_index(*group.instances, idx);
+				chunk.rdm_dirty = true;
 				return;
 			}
 		}

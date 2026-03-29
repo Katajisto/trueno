@@ -55,6 +55,7 @@ Chunk :: struct {
     rdm_atlas:      sg_image;
     rdm_lookup:     sg_image;
     rdm_valid:      bool;
+    rdm_dirty:      bool;
     rdm_atlas_path:  string;
     rdm_lookup_path: string;
     #if !FLAG_RELEASE_BUILD {
