@@ -45,7 +45,11 @@ MAX_PARTICLES : s32 : 2048;
 g_particles    : [2048] Particle;
 g_emitter_defs : [..] Particle_Emitter_Config;
 
-tick_particles :: (dt: float) {
+clear_particles :: () {
+    for *p: g_particles  p.alive = false;
+}
+
+tick_particles_physics :: (dt: float) {
     for *p: g_particles {
         if !p.alive then continue;
         p.age += dt;
@@ -56,7 +60,9 @@ tick_particles :: (dt: float) {
         p.velocity.y -= p.gravity * dt;
         p.position   += p.velocity * dt;
     }
+}
 
+tick_world_emitters :: (dt: float) {
     curworld := get_current_world();
     if !curworld.valid then return;
     for *inst: curworld.world.emitter_instances {
@@ -72,6 +78,11 @@ tick_particles :: (dt: float) {
             spawn_one_particle(inst.position, def);
         }
     }
+}
+
+tick_particles :: (dt: float) {
+    tick_particles_physics(dt);
+    tick_world_emitters(dt);
 }
 
 tick_emitter_instance :: (inst: *Particle_Emitter_Instance, dt: float) {

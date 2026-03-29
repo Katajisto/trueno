@@ -48,11 +48,11 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
             GR.label(r, tprint("Trueno v%.%", V_MAJOR, V_MINOR), *t_label_left(theme));
 
             r.x = 100*vw - r.w;
-            if keybind_button(r, "Level studio",    .STUDIO_LEVEL,    *t_button_selectable(theme, current_editor_view == .Level_Editor))    then current_editor_view = .Level_Editor;
+            if keybind_button(r, "Level studio",    .STUDIO_LEVEL,    *t_button_selectable(theme, current_editor_view == .Level_Editor))    { clear_particles(); current_editor_view = .Level_Editor; }
             r.x -= r.w;
-            if keybind_button(r, "Trile studio",    .STUDIO_TRILE,    *t_button_selectable(theme, current_editor_view == .Trile_Editor))    then current_editor_view = .Trile_Editor;
+            if keybind_button(r, "Trile studio",    .STUDIO_TRILE,    *t_button_selectable(theme, current_editor_view == .Trile_Editor))    { clear_particles(); current_editor_view = .Trile_Editor; }
             r.x -= r.w;
-            if keybind_button(r, "Particle studio", .STUDIO_MATERIAL, *t_button_selectable(theme, current_editor_view == .Particle_Editor)) then current_editor_view = .Particle_Editor;
+            if keybind_button(r, "Particle studio", .STUDIO_MATERIAL, *t_button_selectable(theme, current_editor_view == .Particle_Editor)) { clear_particles(); current_editor_view = .Particle_Editor; }
 
             if current_editor_view == {
                 case .Trile_Editor;
@@ -94,6 +94,7 @@ tick_editor_ui :: () {
         in_editor_view = !in_editor_view;
         g_mixer.paused = in_editor_view;
         if !in_editor_view then bypass_postprocess = false;
+        clear_particles();
     }
 
     #if !FLAG_RELEASE_BUILD && OS != .WASM {

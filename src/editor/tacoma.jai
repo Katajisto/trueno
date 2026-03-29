@@ -182,7 +182,7 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
                 world_trile_idx := cast(s32) world_triles.count;
                 wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
                 wpos := Vector3.{cast(float) wx, cast(float) wy, cast(float) wz};
-                array_add(*world_triles, Tacoma.World_Trile.{idx, wpos});
+                array_add(*world_triles, Tacoma.World_Trile.{idx, wpos, cast(s32) inst.orientation});
                 array_add(*world_trile_roughnesses, roughness_mask);
 
                 if should_bake {
@@ -506,7 +506,7 @@ tacoma_start :: (world: World, include_water: bool) {
 
             for inst: group.instances {
                 wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
-                array_add(*world_triles, Tacoma.World_Trile.{idx, Vector3.{cast(float) wx, cast(float) wy, cast(float) wz}});
+                array_add(*world_triles, Tacoma.World_Trile.{idx, Vector3.{cast(float) wx, cast(float) wy, cast(float) wz}, cast(s32) inst.orientation});
             }
         }
     }

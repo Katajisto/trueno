@@ -495,6 +495,7 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 tick_level_editor :: () {
 	#if FLAG_TACOMA_ENABLED { rdm_bake_tick(); }
 	tick_level_editor_camera();
+	tick_particles(cast(float)delta_time);
 
 	if is_action_start(Editor_Action.SAVE) then sworld();
 
@@ -714,9 +715,9 @@ get_trile_at :: (world: *World, wx: s32, wy: s32, wz: s32) -> (name: string, ori
 
 find_emitter_at :: (world: *World, x: s32, y: s32, z: s32) -> (idx: s32, found: bool) {
 	for inst, i: world.emitter_instances {
-		ix := cast(s32)inst.position.x;
-		iy := cast(s32)inst.position.y;
-		iz := cast(s32)inst.position.z;
+		ix := cast(s32)floor(inst.position.x);
+		iy := cast(s32)floor(inst.position.y);
+		iz := cast(s32)floor(inst.position.z);
 		if ix == x && iy == y && iz == z then return cast(s32)i, true;
 	}
 	return -1, false;

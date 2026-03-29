@@ -196,5 +196,5 @@ draw_particle_editor :: () {
 }
 
 tick_particle_editor :: () {
-    tick_particles(cast(float)delta_time);
+    tick_particles_physics(cast(float)delta_time);
 }

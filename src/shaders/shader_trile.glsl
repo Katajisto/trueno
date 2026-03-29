@@ -557,7 +557,8 @@ void main() {
         float NdotV_s = max(dot(N, V), 0.0);
         float roughnessBell = 1.0 - 0.7 * sin(roughness * PI);
         float grazingSuppress = 1.0 - 0.9 * roughness * sin(roughness * PI) * pow(1.0 - NdotV_s, 2.0);
-        light += indirectSpec * (Frough * envBRDF.x + envBRDF.y) * rdm_spec_scale * roughnessBell * grazingSuppress;
+        float specRoughFade = 1.0 - clamp((roughness - 0.5) / 0.3, 0.0, 1.0);
+        light += indirectSpec * (Frough * envBRDF.x + envBRDF.y) * rdm_spec_scale * roughnessBell * grazingSuppress * specRoughFade;
 
         // Indirect diffuse (interpolated from neighbor probes)
         vec3 indirectDiff = sample_rdm_diff(N, vpos - hemispherePos, local) * rdm_tint;

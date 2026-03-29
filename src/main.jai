@@ -100,7 +100,7 @@ init :: () {
         logger = .{ func = slog_func },
     }));
     asset_manager_init();
-    Thread.init(*g_mixer.mutex);
+    #if OS != .WASM { Thread.init(*g_mixer.mutex); }
     audio_init_thread_context();
     saudio_setup(*(saudio_desc.{
         logger = .{ func = slog_func },
@@ -108,7 +108,7 @@ init :: () {
     }));
     stm_setup();
     state.dpi_scale = sapp_dpi_scale();
-    atlas_dim := round_pow2(512.0 * state.dpi_scale);
+    atlas_dim := round_pow2(1024.0 * state.dpi_scale);
     fons_context := sfons_create(*(sfons_desc_t.{
         width = atlas_dim,
         height = atlas_dim,
@@ -186,7 +186,7 @@ frame :: () {
     add_frame_profiling_point("After asset manager tick");
     
     if !mandatory_loads_done() {
-        input_per_frame_event_and_flag_update();
+        print("Mandatory loads not done!!\n");
         return;
     }
 
@@ -195,6 +195,8 @@ frame :: () {
         if init_after_core_done {
             fonsClearState(state.fons);
             draw_loading_screen();
+            tick_ui();
+            ui_pass();
             render();
             reset_temporary_storage();
         }
@@ -251,7 +253,7 @@ frame :: () {
     ui_clear_mouse_occluders();
     ui_pass();
     add_frame_profiling_point("After UI draw");
-    prepare_text(debug_font, tprint("frametime: % ms", latest_frametime * 1000));
+    #if !FLAG_RELEASE_BUILD { prepare_text(debug_font, tprint("frametime: % ms", latest_frametime * 1000)); }
     draw_prepared_text(debug_font, 10, 10, .{0.0, 1.0, 0.0, 1.0});
     #if !FLAG_RELEASE_BUILD { draw_editor(); }
     add_particle_render_tasks();
@@ -272,7 +274,8 @@ frame :: () {
 }
 
 cleanup :: () {
-    audio_cleanup();
+    log_info("Cleanup called....");
+    audio_cleanup(); 
     sg_shutdown();
 }
 

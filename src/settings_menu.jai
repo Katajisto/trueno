@@ -129,30 +129,34 @@ update_fonts_for_screen :: () {
 }
 
 save_settings :: () {
-    file :: #import "File";
-    builder : String_Builder;
-    append(*builder, tprint("master_volume %\n", g_mixer.config.masterVolume));
-    append(*builder, tprint("music_volume %\n", g_mixer.config.musicVolume));
-    append(*builder, tprint("sfx_volume %\n", g_mixer.config.soundEffectVolume));
-    append(*builder, tprint("fullscreen %\n", cast(s32) sapp_is_fullscreen()));
-    file.write_entire_file(CONFIG_PATH, builder_to_string(*builder,, allocator = temp));
+    #if OS != .WASM {
+        file :: #import "File";
+        builder : String_Builder;
+        append(*builder, tprint("master_volume %\n", g_mixer.config.masterVolume));
+        append(*builder, tprint("music_volume %\n", g_mixer.config.musicVolume));
+        append(*builder, tprint("sfx_volume %\n", g_mixer.config.soundEffectVolume));
+        append(*builder, tprint("fullscreen %\n", cast(s32) sapp_is_fullscreen()));
+        file.write_entire_file(CONFIG_PATH, builder_to_string(*builder,, allocator = temp));
+    }
 }
 
 load_settings :: () {
-    file :: #import "File";
-    data, ok := file.read_entire_file(CONFIG_PATH,, allocator = temp);
-    if !ok then return;
+    #if OS != .WASM {
+        file :: #import "File";
+        data, ok := file.read_entire_file(CONFIG_PATH,, allocator = temp);
+        if !ok then return;
 
-    text := cast(string) data;
-    while text.count > 0 {
-        line := consume_line(*text);
-        if line.count == 0 then continue;
-        key, val := split_first(line, #char " ");
-        if key == "master_volume" then g_mixer.config.masterVolume      = parse_float(val);
-        if key == "music_volume"  then g_mixer.config.musicVolume       = parse_float(val);
-        if key == "sfx_volume"    then g_mixer.config.soundEffectVolume = parse_float(val);
-        if key == "fullscreen" {
-            if (parse_int(val) != 0) != sapp_is_fullscreen() then sapp_toggle_fullscreen();
+        text := cast(string) data;
+        while text.count > 0 {
+            line := consume_line(*text);
+            if line.count == 0 then continue;
+            key, val := split_first(line, #char " ");
+            if key == "master_volume" then g_mixer.config.masterVolume      = parse_float(val);
+            if key == "music_volume"  then g_mixer.config.musicVolume       = parse_float(val);
+            if key == "sfx_volume"    then g_mixer.config.soundEffectVolume = parse_float(val);
+            if key == "fullscreen" {
+                if (parse_int(val) != 0) != sapp_is_fullscreen() then sapp_toggle_fullscreen();
+            }
         }
     }
 }

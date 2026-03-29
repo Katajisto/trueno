@@ -32,8 +32,9 @@ Trile_Set :: struct {
 }
 
 World_Trile :: struct {
-  index    : s32;
-  position : Vector3;
+  index       : s32;
+  position    : Vector3;
+  orientation : s32;
 }
 
 World :: struct {

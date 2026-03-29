@@ -41,6 +41,7 @@ Asset_Manager :: struct {
     loadedPacks                 : [..]Loaded_Pack;
     pending_hot_reload          : bool;
     hot_reload_unpause_pending  : bool;
+    frames_waited               : int;
 }
 
 g_asset_manager : Asset_Manager;
@@ -421,22 +422,27 @@ asset_manager_tick :: () {
     }
 
     if !g_asset_manager.is_fetching && g_asset_manager.fetch_queue.count > 0 {
-        req := g_asset_manager.fetch_queue[0];
-        // Ordered remove from front to preserve queue priority.
-        for i: 0..g_asset_manager.fetch_queue.count - 2 {
-            g_asset_manager.fetch_queue[i] = g_asset_manager.fetch_queue[i + 1];
+        if g_asset_manager.frames_waited < 3 {
+            g_asset_manager.frames_waited += 1;   
+        } else {
+            g_asset_manager.frames_waited = 0;   
+            req := g_asset_manager.fetch_queue[0];
+            // Ordered remove from front to preserve queue priority.
+            for i: 0..g_asset_manager.fetch_queue.count - 2 {
+                g_asset_manager.fetch_queue[i] = g_asset_manager.fetch_queue[i + 1];
+            }
+            g_asset_manager.fetch_queue.count -= 1;
+
+            g_asset_manager.current_fetch = req;
+            g_asset_manager.is_fetching   = true;
+
+            buf_ptr, buf_size := buffer_for_fetch(req.type);
+            sfetch_send(*(sfetch_request_t.{
+                path     = to_c_string(req.path),
+                callback = fetch_callback,
+                buffer   = .{ ptr = buf_ptr, size = buf_size },
+            }));
         }
-        g_asset_manager.fetch_queue.count -= 1;
-
-        g_asset_manager.current_fetch = req;
-        g_asset_manager.is_fetching   = true;
-
-        buf_ptr, buf_size := buffer_for_fetch(req.type);
-        sfetch_send(*(sfetch_request_t.{
-            path     = to_c_string(req.path),
-            callback = fetch_callback,
-            buffer   = .{ ptr = buf_ptr, size = buf_size },
-        }));
     }
 
     sfetch_dowork();
