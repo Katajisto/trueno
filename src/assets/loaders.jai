@@ -30,6 +30,40 @@ create_string_from_memory :: (data: []u8) -> string {
     return s;
 }
 
+load_hex_palette_from_memory :: (data: []u8) -> [..]Palette_Entry {
+    entries : [..]Palette_Entry;
+    parse_hex_byte :: (s: string) -> (u8, bool) {
+        val : u8 = 0;
+        for i: 0..1 {
+            c := s[i];
+            digit : u8;
+            if c >= #char "0" && c <= #char "9"       digit = c - #char "0";
+            else if c >= #char "a" && c <= #char "f"  digit = c - #char "a" + 10;
+            else if c >= #char "A" && c <= #char "F"  digit = c - #char "A" + 10;
+            else return 0, false;
+            val = val * 16 + digit;
+        }
+        return val, true;
+    }
+
+    s := create_string_from_memory(data);
+    for line: split(s, "\n") {
+        trimmed := trim(line);
+        if trimmed.count != 6 then continue;
+        rb, ok1 := parse_hex_byte(slice(trimmed, 0, 2));
+        gb, ok2 := parse_hex_byte(slice(trimmed, 2, 2));
+        bb, ok3 := parse_hex_byte(slice(trimmed, 4, 2));
+        if !ok1 || !ok2 || !ok3 then continue;
+        entry : Palette_Entry;
+        entry.name = sprint("#%", trimmed);
+        entry.r = cast(float)rb / 255.0;
+        entry.g = cast(float)gb / 255.0;
+        entry.b = cast(float)bb / 255.0;
+        array_add(*entries, entry);
+    }
+    return entries;
+}
+
 load_wav_from_memory :: (data: []u8) -> Audio_Data {
     Wav :: #import "Wav_File";
     audio : Audio_Data;

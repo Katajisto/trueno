@@ -250,6 +250,8 @@ get_trile_editor_camera :: () -> Camera {
 
 global_palette_scroll : float = 0.0;
 trile_palette_scroll  : float = 0.0;
+use_color_picker      : bool  = false;
+selected_palette      : s32   = 0;
 
 draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r := area;
@@ -275,23 +277,110 @@ draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     };
 }
 
+draw_swatches :: (entries: []Palette_Entry, inside: GR.Rect, block: float, scroll: *float, id_offset: s32, theme: *GR.Overall_Theme) -> (end_y: float) {
+    cols := max(1, cast(int)(inside.w / block));
+    for entry, idx: entries {
+        er : GR.Rect;
+        er.x = inside.x + (idx % cols) * block;
+        er.y = inside.y - scroll.* + (idx / cols) * block;
+        er.w = block; er.h = block;
+        btn := theme.button_theme;
+        btn.surface_color = .{entry.r, entry.g, entry.b, 1.0};
+        if GR.button(er, "", *btn, id_offset + cast(s32)idx) {
+            current_color = .{entry.r, entry.g, entry.b};
+            roughness = xx entry.roughness;
+            metallic  = xx entry.metallic;
+            emittance = xx entry.emittance;
+        }
+    }
+    rows := ifx entries.count > 0 then (entries.count + cols - 1) / cols else 0;
+    return inside.y + rows * block;
+}
+
 draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
-    r := area;
-    r.h = ui_h(42, 0);
-    GR.color_picker(r, *current_color, *theme.color_picker_theme);
-    r.y += r.h;
-    r.h = ui_h(100,0) - r.y;
-    r.h -= ui_h(18,0);
-    r.h /= 2;
-    region, inside := GR.begin_scrollable_region(r, *theme.scrollable_region_theme);
-    s := inside;
-    GR.end_scrollable_region(region, s.x + s.w, s.y + s.h, *global_palette_scroll);
-    r.y += r.h;
-    region, inside = GR.begin_scrollable_region(r, *theme.scrollable_region_theme);
-    s = inside;
-    GR.end_scrollable_region(region, s.x + s.w, s.y + s.h, *trile_palette_scroll);
-    r.y += r.h;
-    r.h = ui_h(3,2);
+    r       := area;
+    row_h   := ui_h(4, 0);
+    block   := ui_h(3, 2);
+    bottom  := area.y + area.h;
+    sliders_h := ui_h(18, 0);
+
+    // Toggle: Palette | Color Picker
+    r.h = row_h;
+    half := r.w / 2;
+    r.w = half;
+    if GR.button(r, "Palette",      *t_button_selectable(theme, !use_color_picker)) then use_color_picker = false;
+    r.x += half;
+    if GR.button(r, "Color Picker", *t_button_selectable(theme, use_color_picker))  then use_color_picker = true;
+    r.x = area.x; r.w = area.w;
+    r.y += row_h;
+
+    available := bottom - r.y - sliders_h;
+    top_h := ifx use_color_picker then ui_h(42, 0) else available / 2;
+    bot_h := available - top_h;
+
+    r.h = top_h;
+    if use_color_picker {
+        GR.color_picker(r, *current_color, *theme.color_picker_theme);
+    } else {
+        // Palette file selector
+        if g_palettes.count > 1 {
+            r.h = row_h;
+            pal_w := r.w / cast(float)g_palettes.count;
+            for pal, idx: g_palettes {
+                pr := r;
+                pr.x = area.x + idx * pal_w;
+                pr.w = pal_w;
+                if GR.button(pr, pal.name, *t_button_selectable(theme, cast(s32)idx == selected_palette), cast(s32)idx + 20000) {
+                    selected_palette = cast(s32)idx;
+                    global_palette_scroll = 0;
+                }
+            }
+            r.y += row_h;
+            top_h -= row_h;
+            r.h = top_h;
+        }
+        entries : []Palette_Entry;
+        if g_palettes.count > 0 {
+            selected_palette = clamp(selected_palette, 0, cast(s32)g_palettes.count - 1);
+            entries = g_palettes[selected_palette].entries;
+        }
+        region, inside := GR.begin_scrollable_region(r, *theme.scrollable_region_theme);
+        end_y := draw_swatches(entries, inside, block, *global_palette_scroll, 0, theme);
+        GR.end_scrollable_region(region, inside.x + inside.w, end_y, *global_palette_scroll);
+    }
+    r.y += top_h;
+
+    // Trile material picker
+    unique_mats : [..]Material;
+    unique_mats.allocator = temp;
+    for x: 0..15  for y: 0..15  for z: 0..15 {
+        trix := editor_current_trile.trixels[x][y][z];
+        if trix.empty then continue;
+        mr, mg, mb, ma := material_to_rgba(trix.material);
+        key := (cast(u32)mr << 24) | (cast(u32)mg << 16) | (cast(u32)mb << 8) | cast(u32)ma;
+        already := false;
+        for um: unique_mats {
+            ur, ug, ub, ua := material_to_rgba(um);
+            if ((cast(u32)ur << 24) | (cast(u32)ug << 16) | (cast(u32)ub << 8) | cast(u32)ua) == key { already = true; break; }
+        }
+        if !already  array_add(*unique_mats, trix.material);
+    }
+    as_entries : [..]Palette_Entry;
+    as_entries.allocator = temp;
+    for mat: unique_mats {
+        e : Palette_Entry;
+        e.r = mat.color.x; e.g = mat.color.y; e.b = mat.color.z;
+        e.roughness = mat.roughness; e.metallic = mat.metallic; e.emittance = mat.emittance;
+        array_add(*as_entries, e);
+    }
+
+    r.h = bot_h;
+    region2, inside2 := GR.begin_scrollable_region(r, *theme.scrollable_region_theme);
+    end_y2 := draw_swatches(as_entries, inside2, block, *trile_palette_scroll, 10000, theme);
+    GR.end_scrollable_region(region2, inside2.x + inside2.w, end_y2, *trile_palette_scroll);
+    r.y += bot_h;
+
+    r.h = ui_h(3, 2);
     GR.label(r, "Roughness", *t_label_left(theme));
     r.y += r.h;
     GR.slider(r, *roughness, 0, 7, 1, *theme.slider_theme);
@@ -303,7 +392,6 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     GR.label(r, "Emittance", *t_label_left(theme));
     r.y += r.h;
     GR.slider(r, *emittance, 0, 2, 1, *theme.slider_theme);
-    
 }
 
 

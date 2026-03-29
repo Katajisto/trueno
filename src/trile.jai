@@ -143,6 +143,23 @@ Material :: struct {
     color     : Vector3 = .{1.0, 0.0, 1.0};
 }
 
+Palette_Entry :: struct {
+    name      : string;
+    r         : float = 1.0;
+    g         : float = 0.0;
+    b         : float = 1.0;
+    roughness : int = 4;
+    metallic  : int = 0;
+    emittance : int = 0;
+}
+
+Loaded_Palette :: struct {
+    name    : string;
+    entries : [..]Palette_Entry;
+}
+
+g_palettes : [..]Loaded_Palette;
+
 Trixel :: struct {
     material : Material;
     empty    : bool = false;

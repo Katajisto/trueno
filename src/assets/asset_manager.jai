@@ -328,6 +328,12 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
                         log_info("Loaded % particle definitions from pack", g_emitter_defs.count);
                     }
                 }
+            case "hex";
+                pal : Loaded_Palette;
+                pal.name = sprint("%", name);
+                pal.entries = load_hex_palette_from_memory(v.data);
+                array_add(*g_palettes, pal);
+                log_info("Loaded % colors from hex palette(%)", pal.entries.count, v.name);
             case "ttf";
             // Load into a font. Add to free list.
             case;
