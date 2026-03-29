@@ -136,10 +136,9 @@ ltriles :: () {
 } @Command
 
 Material :: struct {
-    addRoughness : u8 = 0;
     roughness : u8 = 4;
     metallic  : u8 = 0;
-    emittance : u8 = 0;
+    emittance : u8 = 0;  // 0 = not emissive; 1-127 = emissive (replaces roughness/metallic in encoding)
     color     : Vector3 = .{1.0, 0.0, 1.0};
 }
 
@@ -174,12 +173,14 @@ TrixelSerialize :: [5]u8;
 
 TrileSerialize :: struct {
     name    : string = "test";
-    trixels : [16][16][16] TrixelSerialize;  
+    version : int    = 0;
+    trixels : [16][16][16] TrixelSerialize;
 };
 
 trile_to_serialize_form :: (t: Trile) -> TrileSerialize {
     ts := TrileSerialize.{
-        name = t.name,
+        name    = t.name,
+        version = 1,
     };
     for i: 0..15 {
         for j: 0..15 {
@@ -193,16 +194,27 @@ trile_to_serialize_form :: (t: Trile) -> TrileSerialize {
 }
 
 trile_from_serialize_form :: (ts: TrileSerialize) -> Trile {
-    t := Trile.{
-        name = sprint("%",ts.name)
-    };
+    t := Trile.{ name = sprint("%", ts.name) };
     for i: 0..15 {
         for j: 0..15 {
             for k: 0..15 {
                 matinfo := ts.trixels[i][j][k];
-                mat := material_from_rgba(matinfo[1], matinfo[2], matinfo[3], matinfo[4]);
+                mat : Material;
+                if ts.version == 0 {
+                    // Old format: bit 0=addRoughness(unused), bits 1-2=emittance(0-3), bits 3-4=metallic, bits 5-7=roughness
+                    packed := matinfo[4];
+                    old_emittance := (packed >> 1) & 0x3;
+                    mat.metallic  = (packed >> 3) & 0x3;
+                    mat.roughness = (packed >> 5) & 0x7;
+                    mat.emittance = old_emittance * 42;  // scale 0-3 → 0,42,84,126
+                    mat.color.x   = cast(float) matinfo[1] / 255.0;
+                    mat.color.y   = cast(float) matinfo[2] / 255.0;
+                    mat.color.z   = cast(float) matinfo[3] / 255.0;
+                } else {
+                    mat = material_from_rgba(matinfo[1], matinfo[2], matinfo[3], matinfo[4]);
+                }
                 t.trixels[i][j][k].material = mat;
-                t.trixels[i][j][k].empty = matinfo[0] == 0;
+                t.trixels[i][j][k].empty    = matinfo[0] == 0;
             }
         }
     }
@@ -210,8 +222,12 @@ trile_from_serialize_form :: (ts: TrileSerialize) -> Trile {
 }
 
 material_encode_to_char :: (mat: Material) -> u8 {
-    return (mat.addRoughness & 0x1) | ((mat.emittance & 0x3) << 1) |
-            ((mat.metallic & 0x3) << 3) | ((mat.roughness & 0x7) << 5);
+    if mat.emittance > 0 {
+        // Emissive mode: bit 0 = 1, bits 1-7 = emittance (0-127)
+        return 0x1 | ((mat.emittance & 0x7F) << 1);
+    }
+    // Material mode: bit 0 = 0, bits 3-4 = metallic, bits 5-7 = roughness
+    return ((mat.metallic & 0x3) << 3) | ((mat.roughness & 0x7) << 5);
 }
 
 material_encode_to_float :: (mat: Material) -> float {
@@ -220,9 +236,12 @@ material_encode_to_float :: (mat: Material) -> float {
 
 material_decode_from_char :: (packedMaterial: u8) -> Material {
     mat : Material;
-    mat.emittance    = (packedMaterial >> 1) & 3;
-    mat.roughness    = (packedMaterial >> 5) & 7;
-    mat.metallic     = (packedMaterial >> 3) & 3;
+    if packedMaterial & 0x1 {
+        mat.emittance = (packedMaterial >> 1) & 0x7F;
+    } else {
+        mat.roughness = (packedMaterial >> 5) & 7;
+        mat.metallic  = (packedMaterial >> 3) & 3;
+    }
     return mat;
 }
 

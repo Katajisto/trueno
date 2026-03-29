@@ -304,7 +304,6 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     bottom  := area.y + area.h;
     sliders_h := ui_h(18, 0);
 
-    // Toggle: Palette | Color Picker
     r.h = row_h;
     half := r.w / 2;
     r.w = half;
@@ -322,7 +321,6 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     if use_color_picker {
         GR.color_picker(r, *current_color, *theme.color_picker_theme);
     } else {
-        // Palette file selector
         if g_palettes.count > 1 {
             r.h = row_h;
             pal_w := r.w / cast(float)g_palettes.count;
@@ -350,7 +348,6 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     }
     r.y += top_h;
 
-    // Trile material picker
     unique_mats : [..]Material;
     unique_mats.allocator = temp;
     for x: 0..15  for y: 0..15  for z: 0..15 {
@@ -374,11 +371,11 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
         array_add(*as_entries, e);
     }
 
-    r.h = bot_h;
+    r.h = bot_h * 0.75; 
     region2, inside2 := GR.begin_scrollable_region(r, *theme.scrollable_region_theme);
     end_y2 := draw_swatches(as_entries, inside2, block, *trile_palette_scroll, 10000, theme);
     GR.end_scrollable_region(region2, inside2.x + inside2.w, end_y2, *trile_palette_scroll);
-    r.y += bot_h;
+    r.y += bot_h * 0.75;
 
     r.h = ui_h(3, 2);
     GR.label(r, "Roughness", *t_label_left(theme));
@@ -391,7 +388,7 @@ draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r.y += r.h;
     GR.label(r, "Emittance", *t_label_left(theme));
     r.y += r.h;
-    GR.slider(r, *emittance, 0, 2, 1, *theme.slider_theme);
+    GR.slider(r, *emittance, 0, 127, 1, *theme.slider_theme);
 }
 
 

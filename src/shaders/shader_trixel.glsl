@@ -100,10 +100,17 @@ void main() {
     // Get the material info.
     vec3 albedo = color.xyz;
     int packedMaterial = int(round(color.w*255.0));
-    float emittance = float((packedMaterial >> 1) & 0x3) / 3.0;
-    int roughnessInt = (packedMaterial >> 5) & 0x7;
-    float roughness = max(float(roughnessInt) / 7.0, 0.05);
-    float metallic = float((packedMaterial >> 3) & 0x3) / 3.0;
+    float emittance  = 0.0;
+    int   roughnessInt = 0;
+    float roughness  = 0.05;
+    float metallic   = 0.0;
+    if ((packedMaterial & 0x1) != 0) {
+        emittance = float((packedMaterial >> 1) & 0x7F) / 127.0;
+    } else {
+        roughnessInt = (packedMaterial >> 5) & 0x7;
+        roughness    = max(float(roughnessInt) / 7.0, 0.05);
+        metallic     = float((packedMaterial >> 3) & 0x3) / 3.0;
+    }
     
     // Ambient light.
     vec3 light = 0.3 * albedo;
