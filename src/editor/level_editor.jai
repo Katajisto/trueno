@@ -628,13 +628,31 @@ tick_level_editor :: () {
 create_level_editor_preview_tasks :: () {
 	curworld := get_current_world();
 	if !curworld.valid then return;
+
+	px := trile_preview_x; py := trile_preview_y; pz := trile_preview_z;
+
+	if current_tool_mode == .INSPECTOR {
+		name, orientation, found := get_trile_at(*curworld.world, xx px, xx py, xx pz);
+		cursor_trile := ifx found then name else (ifx editor_current_trile then editor_current_trile.name else "");
+		if cursor_trile != "" {
+			positions: [..]Vector4;
+			positions.allocator = temp;
+			array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, cast(float)orientation});
+			task: Rendering_Task_Trile;
+			task.trile        = cursor_trile;
+			task.positions    = positions;
+			task.worldConf    = *curworld.world.conf;
+			task.preview_mode = 1;
+			add_rendering_task(task);
+		}
+		return;
+	}
+
 	if !editor_current_trile then return;
 
 	positions: [..]Vector4;
 	positions.allocator = temp;
 	ori := cast(float) get_current_orientation();
-
-	px := trile_preview_x; py := trile_preview_y; pz := trile_preview_z;
 
 	if current_tool_mode == .POINT {
 		array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, ori});
