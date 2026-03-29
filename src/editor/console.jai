@@ -69,6 +69,11 @@ add2 :: (a: int) -> int {
     return a + 2;
 } @Command
 
+help :: () -> string {
+    for console_command_names  console_add_output_line(it);
+    return "";
+} @Command
+
 console_command_procs : [..]([]string) -> string;
 console_command_names : [..]string;
 
