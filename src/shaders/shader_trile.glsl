@@ -102,6 +102,7 @@ layout(binding=3) uniform trile_fs_params {
     vec3  ambient_color;
     int   is_preview;
     vec3  rdm_tint;
+    float rdm_diff_saturation;
 };
 
 layout(binding = 0) uniform texture2D triletex;
@@ -320,14 +321,15 @@ ivec2 rdm_face_pixel_offset(vec4 atlas_rect, int face, int rdmSize) {
 
 vec3 sample_rdm(vec3 N, vec3 V, vec3 rdm_center, vec3 diff, int roughness, ivec3 local_pos) {
     int face = rdm_index_from_normal(N);
-    int rdmSizeInt = int(roughness_to_rdm_size(roughness));
-    float rdmSize = float(rdmSizeInt);
     vec4 atlas_rect = rdm_get_atlas_rect(local_pos, roughness);
     if (atlas_rect.z <= 0.0) return vec3(1.0, 0.0, 1.0); // No data - magenta
 
+    ivec2 atlasTexSize = textureSize(sampler2D(rdm_atlas, rdmsmp), 0);
+    int rdmSizeInt = int(atlas_rect.z * float(atlasTexSize.x)) / 2;
+    float rdmSize = float(rdmSizeInt);
+
     ivec2 faceOffset = rdm_face_pixel_offset(atlas_rect, face, rdmSizeInt);
 
-    // Get 2D UV on this face from the fragment's trile-space position
     vec2 uv;
     if (face == 0 || face == 1) {       // +Y / -Y
         uv = vec2(ipos.x, ipos.z);
@@ -337,16 +339,9 @@ vec3 sample_rdm(vec3 N, vec3 V, vec3 rdm_center, vec3 diff, int roughness, ivec3
         uv = vec2(ipos.z, ipos.y);
     }
 
-    // Step 1: flat UV sampling (known working)
-    // ivec2 texCoord = ivec2(faceOffset.x + int(uv.x * rdmSize),
-    //                        faceOffset.y + int(uv.y * rdmSize));
-    // vec4 rdmSample = texelFetch(sampler2D(rdm_atlas, rdmsmp), texCoord, 0);
-    // return vec3(rdmSample.a * 0.2);
-
     vec3 reflected = normalize(reflect(V, N));
 
     if (roughness > 1) {
-        // Low-res mips: sample at fixed distance with bilinear filtering
         vec3 samplePos = normalize(diff + 2.0 * reflected);
         vec2 hemiUV = rdm_get_hemioct(samplePos, face, vec2(0.0));
         vec2 atlasSize = vec2(textureSize(sampler2D(rdm_atlas, rdmsmp), 0));
@@ -354,7 +349,6 @@ vec3 sample_rdm(vec3 N, vec3 V, vec3 rdm_center, vec3 diff, int roughness, ivec3
         return texture(sampler2D(rdm_atlas, rdmsmp), texUV).rgb;
     }
 
-    // High-res: ray march with depth comparison
     float maxDist = 20.0;
     int steps = 40;
     for (int i = 0; i < steps; i++) {
@@ -363,9 +357,9 @@ vec3 sample_rdm(vec3 N, vec3 V, vec3 rdm_center, vec3 diff, int roughness, ivec3
         if (dot(samplePos, N) < 0.0) continue;
 
         vec2 hemiUV = rdm_get_hemioct(normalize(samplePos), face, vec2(0.0));
-        ivec2 texCoord = ivec2(faceOffset.x + int(hemiUV.x * rdmSize),
-                               faceOffset.y + int(hemiUV.y * rdmSize));
-        vec4 rdmSample = texelFetch(sampler2D(rdm_atlas, rdmsmp), texCoord, 0);
+        vec2 atlasSize = vec2(textureSize(sampler2D(rdm_atlas, rdmsmp), 0));
+        vec2 texCoord = (vec2(faceOffset) + hemiUV * rdmSize) / atlasSize;
+        vec4 rdmSample = texture(sampler2D(rdm_atlas, rdmsmp), texCoord, 0);
         float depth = rdmSample.a;
         float dist = length(samplePos);
         float stepSize = maxDist / float(steps);
@@ -569,6 +563,8 @@ void main() {
 
         // Indirect diffuse (interpolated from neighbor probes)
         vec3 indirectDiff = sample_rdm_diff(N, vpos - hemispherePos, local) * rdm_tint;
+        float diffLuma = dot(indirectDiff, vec3(0.2126, 0.7152, 0.0722));
+        indirectDiff = mix(vec3(diffLuma), indirectDiff, rdm_diff_saturation);
         vec3 kDiff = 1.0 - Frough;
         kDiff *= 1.0 - metallic;
         light += (kDiff * indirectDiff / PI * albedo) * ssao_sample * rdm_diff_scale;

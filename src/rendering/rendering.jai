@@ -13,6 +13,7 @@
 #load "tasks.jai";
 #load "camera.jai";
 #load "arbtri.jai";
+#load "debug_draw.jai";
 #load "meshgen.jai";
 #load "helpers.jai";
 #load "animation.jai";

@@ -77,6 +77,8 @@ gPipelines : struct {
     particle_alpha    : Pipeline_Binding;
 
     ssao: Pipeline_Binding;
+
+    debugline : Pipeline_Binding;
 }
 
 create_final_image :: () {
@@ -155,7 +157,8 @@ create_pipelines :: () {
     create_billboard_pipeline();
     create_gbuffer_billboard_pipeline();
     create_particle_pipeline();
-    
+    create_debugline_pipeline();
+
     create_shadowmap_image();
     create_final_image();
     create_ssao_images();
@@ -320,6 +323,9 @@ create_trixel_pipeline :: () {
     gPipelines.trixel.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
     gPipelines.trixel.bind.vertex_buffers[1] = sg_make_buffer(*nbuffer);
     gPipelines.trixel.bind.vertex_buffers[2] = sg_make_buffer(*instance_buffer);
+
+    secondary_instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 4096 * size_of(Position_Color)};
+    trixel_secondary_vbuf = sg_make_buffer(*secondary_instance_buffer);
 }
 
 create_gbuffer_pipeline :: () {
@@ -1271,4 +1277,33 @@ create_particle_pipeline :: () {
     }
     setup_bind(*gPipelines.particle_additive.bind, idx_buf, vtx_buf, inst1, inst2, inst3, smp);
     setup_bind(*gPipelines.particle_alpha.bind, idx_buf, vtx_buf, inst1, inst2, inst3, smp);
+}
+
+create_debugline_pipeline :: () {
+    buf_desc := sg_buffer_desc.{
+        size  = DEBUG_LINE_MAX * 2 * 7 * size_of(float),
+        usage = .DYNAMIC,
+        label = "debug_line_verts",
+    };
+    gPipelines.debugline.bind.vertex_buffers[0] = sg_make_buffer(*buf_desc);
+
+    pipeline : sg_pipeline_desc;
+    shader_desc := debugline_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.primitive_type = .LINES;
+    pipeline.layout.buffers[0].stride = 28;
+    pipeline.layout.attrs[ATTR_debugline_a_pos] = .{ format = .FLOAT3, buffer_index = 0, offset = 0 };
+    pipeline.layout.attrs[ATTR_debugline_a_col] = .{ format = .FLOAT4, buffer_index = 0, offset = 12 };
+    pipeline.depth = .{
+        write_enabled = false,
+        compare       = .LESS_EQUAL,
+        pixel_format  = .DEPTH,
+    };
+    color_state := sg_color_target_state.{
+        pixel_format = .RGBA32F,
+    };
+    pipeline.color_count = 1;
+    pipeline.colors[0]   = color_state;
+    pipeline.label       = "debugline_pipeline";
+    gPipelines.debugline.pipeline = sg_make_pipeline(*pipeline);
 }

@@ -122,21 +122,21 @@ void main() {
         vec3 halfway_dir = normalize(light_dir + view_dir);
 
         float diffuse = max(0.0, dot(normal, light_dir));
-        float spec = pow(max(0.0, dot(halfway_dir, normal)), 32);
-        float fresnel = min(1.0, fresnelSchlick(dot(view_dir, vec3(0.0, 1.0, 0.0))).x + 0.3);
+        float spec = pow(max(0.0, dot(halfway_dir, normal)), max(shininess, 1.0));
+        float fresnel = min(1.0, fresnelSchlick(max(0.0, dot(view_dir, normal))).x + 0.45);
 
-        vec4 shadow_proj_pos = mvp_shadow * vec4(pos.xyz, 1.0);
+        vec4 shadow_proj_pos = mvp_shadow * vec4(floor(pos.xyz * 16.0) / 16.0, 1.0);
         vec3 shadow_pos = shadow_proj_pos.xyz / shadow_proj_pos.w;
         shadow_pos = shadow_pos * 0.5 + 0.5;
         shadow_pos.z -= 0.001;
         float shadowp = texture(sampler2DShadow(shadow, plane_shadowsmp), shadow_pos);
 
         vec3 refracted_color = waterColor * diffuse * sunLightColor * sunIntensity * shadowp;
-        vec3 specular_highlight = sunLightColor * sunIntensity * spec * shadowp;
+        vec3 specular_highlight = sunLightColor * sunIntensity * spec * fresnel * shadowp;
 
         vec2 screen_uv = gl_FragCoord.xy / vec2(screen_w, screen_h);
         screen_uv.y = 1.0 - screen_uv.y;
-        vec2 distortion = normal.xz * 0.005;
+        vec2 distortion = normal.xz * 0.007;
         vec3 reflected_color = texture(sampler2D(reftex, refsmp), screen_uv + distortion).rgb;
 
         vec3 surface_color = mix(refracted_color, reflected_color, fresnel);

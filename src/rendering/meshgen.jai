@@ -398,7 +398,8 @@ Pool        :: #import "Pool";
 meshgenpool :  Pool.Pool;
 
 generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
-    if !meshgenpool.block_allocator.proc then Pool.set_allocators(*meshgenpool); // @ToDo: Only do this if we haven't yet done it.
+    // @ToDo: Only do this if we haven't yet done it.
+    if !meshgenpool.block_allocator.proc then Pool.set_allocators(*meshgenpool);
 
     old_alloc := context.allocator;
     new_context := context;

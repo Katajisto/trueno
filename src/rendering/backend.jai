@@ -63,6 +63,7 @@ Render_Command_Update_Trixels :: struct {
     c.type         = .UPDATE_TRIXELS;
     trile          : *Trile;
     colMultipliers : *[16][16][16]Vector3;
+    is_secondary   : bool;
 }
 
 Render_Command_Draw_Billboard :: struct {
@@ -76,8 +77,12 @@ Render_Command_Draw_Billboard :: struct {
 }
 
 Render_Command_Draw_Trixels :: struct {
-    #as using c : Render_Command;
-    c.type      = .DRAW_TRIXELS;
+    #as using c   : Render_Command;
+    c.type        = .DRAW_TRIXELS;
+    world_offset  : Vector3;
+    brightness    : float = 1.0;
+    tile_rotation : Matrix4 = .{_11=1, _22=1, _33=1, _44=1};
+    is_secondary  : bool;
 }
 
 Render_Command_Draw_Particles :: struct {

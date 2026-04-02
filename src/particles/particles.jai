@@ -26,6 +26,7 @@ Particle_Emitter_Instance :: struct {
     definition        : *Particle_Emitter_Config;
     definition_name   : string;
     position          : Vector3;
+    offset            : Vector3;
     active            : bool = true;
     spawn_accumulator : float;
 }
@@ -75,7 +76,7 @@ tick_world_emitters :: (dt: float) {
         inst.spawn_accumulator += def.emission_rate * dt;
         while inst.spawn_accumulator >= 1.0 {
             inst.spawn_accumulator -= 1.0;
-            spawn_one_particle(inst.position, def);
+            spawn_one_particle(inst.position + inst.offset, def);
         }
     }
 }
@@ -144,7 +145,7 @@ add_particle_render_tasks :: () {
         anim := batch.anim;
         frame_count := anim.frames.count;
         if frame_count == 0 then continue;
-        frame := cast(s32)(t * cast(float)(frame_count - 1));
+        frame := cast(s32)(t * cast(float)frame_count);
         if frame < 0 then frame = 0;
         if frame >= frame_count then frame = cast(s32)(frame_count - 1);
         f := anim.frames[frame];

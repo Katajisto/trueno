@@ -87,16 +87,28 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
 
     vec3 skyGradient = mix(baseSky, topSky, clamp(skypos.y * 2.0, 0.0, 0.7));
 
-    vec3 final = skyGradient;
-    final += sunHalo.xyz * clamp((sDist - 0.97) * 10.0, 0.0, 0.8) * 1.0;
+    // Sun local frame — used for both halo and disk
+    vec3 sunDir   = normalize(sunpos);
+    vec3 sunRight = normalize(cross(sunDir, vec3(0.0, 1.0, 0.0)));
+    vec3 sunUp    = normalize(cross(sunRight, sunDir));
+    vec3 sd       = normalize(skypos) - sunDir * sDist;
+    float dx      = dot(sd, sunRight);
+    float dy      = dot(sd, sunUp);
+    float squareDist = max(abs(dx), abs(dy));
 
-    // Sun disk
-    if(sDist > 0.9995) {
+    vec3 final = skyGradient;
+
+    // Sun halo (square, smooth falloff)
+    float haloFactor = clamp((0.25 - squareDist) * 6.0, 0.0, 1.0);
+    final += sunHalo.xyz * haloFactor * haloFactor;
+
+    // Sun square
+    if(squareDist < 0.032) {
         final = sunDisk.xyz * 3.0;
     }
 
     // Horizon halo
-    final += mix(horizonHalo.xyz, vec3(0.0,0.0,0.0), clamp(abs(npos.y) * 80.0, 0.0, 1.0)) * 0.1;
+    final += mix(horizonHalo.xyz, vec3(0.0,0.0,0.0), clamp(abs(npos.y) * 20.0, 0.0, 1.0)) * 0.8;
 
     final = vec3(final);
 

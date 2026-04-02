@@ -85,6 +85,42 @@ get_trile :: (name: string) -> (*Trile, success: bool) {
     return trileptr, true;
 }
 
+rename_trile :: (old_name: string, new_name: string) {
+    trile := get_trile(old_name);
+    if !trile return;
+    was_current := editor_current_trile != null && editor_current_trile.name == old_name;
+    gfx_exists, old_gfx := table_find(*trile_gfx_table, old_name);
+    if gfx_exists {
+        sg_destroy_buffer(old_gfx.vertex_buffer);
+        sg_destroy_buffer(old_gfx.normal_buffer);
+        sg_destroy_buffer(old_gfx.centre_buffer);
+        sg_destroy_image(old_gfx.trixel_colors);
+        array_reset(*old_gfx.vertices);
+        table_remove(*trile_gfx_table, old_name);
+    }
+    copy := trile.*;
+    copy.name = sprint("%", new_name);
+    set_trile(copy.name, copy);
+    table_remove(*trile_table, old_name);
+    if was_current  editor_current_trile = table_find_pointer(*trile_table, new_name);
+}
+
+delete_trile :: (name: string) {
+    gfx_exists, old_gfx := table_find(*trile_gfx_table, name);
+    if gfx_exists {
+        sg_destroy_buffer(old_gfx.vertex_buffer);
+        sg_destroy_buffer(old_gfx.normal_buffer);
+        sg_destroy_buffer(old_gfx.centre_buffer);
+        sg_destroy_image(old_gfx.trixel_colors);
+        array_reset(*old_gfx.vertices);
+        table_remove(*trile_gfx_table, name);
+    }
+    table_remove(*trile_table, name);
+    if editor_current_trile != null && editor_current_trile.name == name {
+        editor_current_trile = null;
+    }
+}
+
 get_trile_roughness_set :: (trile_name: string) -> u8 {
     trile, ok := get_trile(trile_name);
     if !ok then return 1 << 7;
@@ -100,6 +136,7 @@ get_trile_roughness_set :: (trile_name: string) -> u8 {
     }
     return mask;
 }
+
 
 lstrile :: () -> string {
     count := 0;
@@ -261,16 +298,3 @@ material_from_rgba :: (r: u8, g: u8, b: u8, a: u8) -> Material {
     return mat;
 }
 
-draw_trile_picker :: (r_in: GR.Rect, theme: *GR.Overall_Theme) {
-    r   := r_in;
-	tpt := get_trile_table_ptr();
-	r.h = ui_h(4,4);
-	count := 0;
-	for v : tpt {
-		if GR.button(r, v.name, *t_button_selectable(theme, editor_current_trile != null && editor_current_trile.name == v.name), count) {
-			editor_current_trile = get_trile(v.name);
-		}
-		count += 1;
-		r.y += r.h;
-	}
-}

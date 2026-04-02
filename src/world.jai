@@ -70,12 +70,45 @@ Editor_Note :: struct {
     text     : string;
 }
 
+Rdm_Instance_Override :: struct {
+    x                : s32;
+    y                : s32;
+    z                : s32;
+    size_override    : s32;
+    quality_override : s32;
+}
+
 World :: struct {
     name              : string;
     conf              : World_Config;
     chunks            : Table(Chunk_Key, Chunk, chunk_key_hash, chunk_key_compare);
     emitter_instances : [..]Particle_Emitter_Instance;
     notes             : [..]Editor_Note;
+    rdm_overrides     : [..]Rdm_Instance_Override;
+}
+
+get_rdm_instance_override :: (world: *World, x: s32, y: s32, z: s32) -> (size_override: s32, quality_override: s32) {
+    for world.rdm_overrides {
+        if it.x == x && it.y == y && it.z == z then return it.size_override, it.quality_override;
+    }
+    return 0, 0;
+}
+
+set_rdm_instance_override :: (world: *World, x: s32, y: s32, z: s32, size_override: s32, quality_override: s32) {
+    for *world.rdm_overrides {
+        if it.x == x && it.y == y && it.z == z {
+            if size_override == 0 && quality_override == 0 {
+                array_ordered_remove_by_index(*world.rdm_overrides, it_index);
+            } else {
+                it.size_override    = size_override;
+                it.quality_override = quality_override;
+            }
+            return;
+        }
+    }
+    if size_override != 0 || quality_override != 0 {
+        array_add(*world.rdm_overrides, .{x=x, y=y, z=z, size_override=size_override, quality_override=quality_override});
+    }
 }
 
 // Convert a world-space integer position to chunk coordinate.
@@ -191,12 +224,13 @@ WORLD_MAGIC :: u32.[0x4C575254][0]; // "TRWL" as little-endian u32
 WORLD_VERSION :: cast(u16) 3;
 
 World_Json :: struct {
-    version  : s32;
-    name     : string;
-    config   : World_Json_Config;
-    chunks   : [..]World_Json_Chunk;
-    emitters : [..]World_Json_Emitter;
-    notes    : [..]World_Json_Note;
+    version       : s32;
+    name          : string;
+    config        : World_Json_Config;
+    chunks        : [..]World_Json_Chunk;
+    emitters      : [..]World_Json_Emitter;
+    notes         : [..]World_Json_Note;
+    rdm_overrides : [..]World_Json_Rdm_Override;
 }
 
 World_Json_Config :: struct {
@@ -214,6 +248,8 @@ World_Json_Config :: struct {
     animatePlaneHeight   : s32;
     waterColor           : [3]float;
     deepColor            : [3]float;
+    waterShininess       : float;
+    rdmDiffSaturation    : float;
 }
 
 World_Json_Chunk :: struct {
@@ -229,11 +265,20 @@ World_Json_Chunk :: struct {
 World_Json_Emitter :: struct {
     definition_name : string;
     position        : [3]float;
+    offset          : [3]float;
 }
 
 World_Json_Note :: struct {
     text     : string;
     position : [3]s32;
+}
+
+World_Json_Rdm_Override :: struct {
+    x                : s32;
+    y                : s32;
+    z                : s32;
+    size_override    : s32;
+    quality_override : s32;
 }
 
 // World_Config serialized as a fixed-size binary blob.
@@ -251,8 +296,10 @@ World_Config_Binary :: struct {
     has_clouds:      s32;
     plane_height:    float;
     animate_plane_height: s32;
-    water_color:     [3]float;
-    deep_color:      [3]float;
+    water_color:         [3]float;
+    deep_color:          [3]float;
+    water_shininess:     float;
+    rdm_diff_saturation: float;
 }
 
 world_config_to_binary :: (conf: *World_Config) -> World_Config_Binary {
@@ -269,8 +316,10 @@ world_config_to_binary :: (conf: *World_Config) -> World_Config_Binary {
     b.has_clouds      = conf.hasClouds;
     b.plane_height    = conf.planeHeight;
     b.animate_plane_height = conf.animatePlaneHeight;
-    b.water_color     = conf.waterColor.component;
-    b.deep_color      = conf.deepColor.component;
+    b.water_color         = conf.waterColor.component;
+    b.deep_color          = conf.deepColor.component;
+    b.water_shininess     = conf.waterShininess;
+    b.rdm_diff_saturation = conf.rdmDiffSaturation;
     return b;
 }
 
@@ -290,6 +339,8 @@ world_config_from_binary :: (b: *World_Config_Binary) -> World_Config {
     conf.animatePlaneHeight      = b.animate_plane_height;
     conf.waterColor.component    = b.water_color;
     conf.deepColor.component     = b.deep_color;
+    conf.waterShininess          = b.water_shininess;
+    conf.rdmDiffSaturation       = b.rdm_diff_saturation;
     return conf;
 }
 
@@ -353,6 +404,8 @@ world_config_to_json :: (conf: *World_Config) -> World_Json_Config {
     jc.animatePlaneHeight = conf.animatePlaneHeight;
     jc.waterColor         = conf.waterColor.component;
     jc.deepColor          = conf.deepColor.component;
+    jc.waterShininess     = conf.waterShininess;
+    jc.rdmDiffSaturation  = conf.rdmDiffSaturation;
     return jc;
 }
 
@@ -372,6 +425,8 @@ world_config_from_json :: (jc: *World_Json_Config) -> World_Config {
     conf.animatePlaneHeight      = jc.animatePlaneHeight;
     conf.waterColor.component    = jc.waterColor;
     conf.deepColor.component     = jc.deepColor;
+    conf.waterShininess          = ifx jc.waterShininess > 0 then jc.waterShininess else 64.0;
+    conf.rdmDiffSaturation       = ifx jc.rdmDiffSaturation > 0 then jc.rdmDiffSaturation else 1.0;
     return conf;
 }
 
@@ -449,6 +504,7 @@ save_world :: (world: *World) -> (json: string, chunks_bin: string) {
         je: World_Json_Emitter;
         je.definition_name = inst.definition_name;
         je.position = inst.position.component;
+        je.offset   = inst.offset.component;
         array_add(*wj.emitters, je);
     }
 
@@ -457,6 +513,10 @@ save_world :: (world: *World) -> (json: string, chunks_bin: string) {
         jn.text = note.text;
         jn.position = .[note.position.x, note.position.y, note.position.z];
         array_add(*wj.notes, jn);
+    }
+
+    for ov: world.rdm_overrides {
+        array_add(*wj.rdm_overrides, .{x=ov.x, y=ov.y, z=ov.z, size_override=ov.size_override, quality_override=ov.quality_override});
     }
 
     json_str := Jaison.json_write_string(wj, " ");
@@ -512,6 +572,7 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
         inst: Particle_Emitter_Instance;
         inst.definition_name = sprint("%", je.definition_name);
         inst.position.component = je.position;
+        inst.offset.component   = je.offset;
         inst.active = true;
         array_add(*world.emitter_instances, inst);
     }
@@ -521,6 +582,10 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
         note.text = sprint("%", jn.text);
         note.position = .{x = jn.position[0], y = jn.position[1], z = jn.position[2]};
         array_add(*world.notes, note);
+    }
+
+    for jov: wj.rdm_overrides {
+        array_add(*world.rdm_overrides, .{x=jov.x, y=jov.y, z=jov.z, size_override=jov.size_override, quality_override=jov.quality_override});
     }
 
     return world, true;
@@ -651,6 +716,8 @@ World_Config :: struct {
     animatePlaneHeight : s32 = 1; @Slider,0,1,1
     waterColor    : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
     deepColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
+    waterShininess      : float = 64.0; @Slider,1,512,8
+    rdmDiffSaturation   : float = 1.0;  @Slider,0,2,0.05
 
     // ambientColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color
     // ambientIntensity : float   = 0.3; @Slider,0,3,0.1
@@ -662,10 +729,16 @@ World_Config :: struct {
 world_config_to_shader_type :: (wc: *World_Config, data: *$T) {
     generate_copy_code :: () -> string {
         builder : String_Builder;
-        ti := type_info(World_Config);
-        for ti.members {
-            if it.type == type_info(Vector3) then print_to_builder(*builder, "data.% = wc.%.component;\n", it.name, it.name);
-            else print_to_builder(*builder, "data.% = wc.%;\n", it.name, it.name);
+        ti_src := type_info(World_Config);
+        ti_dst := type_info(T);
+        for src_member: ti_src.members {
+            has_field := false;
+            for dst_member: ti_dst.members {
+                if dst_member.name == src_member.name { has_field = true; break; }
+            }
+            if !has_field  continue;
+            if src_member.type == type_info(Vector3) then print_to_builder(*builder, "data.% = wc.%.component;\n", src_member.name, src_member.name);
+            else print_to_builder(*builder, "data.% = wc.%;\n", src_member.name, src_member.name);
         }
         return builder_to_string(*builder);
     }

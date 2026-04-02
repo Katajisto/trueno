@@ -1,7 +1,9 @@
 camera: Camera;
 
-trixel_count        : s32     = 0;
-trixel_view_mode    : s32     = 0;
+trixel_count           : s32       = 0;
+trixel_secondary_count : s32       = 0;
+trixel_secondary_vbuf  : sg_buffer;
+trixel_view_mode       : s32       = 0;
 bypass_postprocess  : bool    = false;
 bypass_shadows      : bool    = false;
 bypass_reflections  : bool    = false;
@@ -39,7 +41,8 @@ backend_handle_command :: (cmd: *Render_Command) {
             trixel_update_command := cast(*Render_Command_Update_Trixels)cmd;
             backend_update_trixels(trixel_update_command);
         case .DRAW_TRIXELS;
-            backend_draw_trixels();
+            draw_trixels_cmd := cast(*Render_Command_Draw_Trixels)cmd;
+            backend_draw_trixels(draw_trixels_cmd.*);
         case .SET_LIGHT;
             set_light_command := cast(*Render_Command_Set_Light)cmd;
             current_world_config = set_light_command.worldConfig;
@@ -58,57 +61,66 @@ backend_handle_command :: (cmd: *Render_Command) {
 
 backend_update_trixels :: (cmd: Render_Command_Update_Trixels) {
     if cmd.trile == null then return;
-    
+
     trixels : [4096]Position_Color;
-    trixel_count = 0;
+    count   : s32 = 0;
 
     for x: 0..15 {
         for y: 0..15 {
             for z: 0..15 {
                 if cmd.trile.trixels[x][y][z].empty then continue;
 
-                trixels[trixel_count].pos.x = x * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                trixels[trixel_count].pos.y = y * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                trixels[trixel_count].pos.z = z * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
-                cm := (cmd.colMultipliers.*)[x][y][z];
-                // Encode highlight state in inst.w: non-identity colorMul means highlighted.
-                // 0=normal, 1=hovered, (future: 2=selected, 3=in-brush).
-                trixels[trixel_count].pos.w = ifx (cm.x == 1.0 && cm.y == 1.0 && cm.z == 1.0) then 0.0 else 1.0;
+                trixels[count].pos.x = x * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[count].pos.y = y * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                trixels[count].pos.z = z * (1.0 / 16.0) + TRIXEL_SIZE_HALF;
+                cm : Vector3 = .{1, 1, 1};
+                if cmd.colMultipliers  cm = (cmd.colMultipliers.*)[x][y][z];
+                trixels[count].pos.w = ifx (cm.x == 1.0 && cm.y == 1.0 && cm.z == 1.0) then 0.0 else 1.0;
                 trixel_color := cmd.trile.trixels[x][y][z].material.color * cm;
-                
-                trixels[trixel_count].col = .{trixel_color.x, trixel_color.y, trixel_color.z, material_encode_to_float(cmd.trile.trixels[x][y][z].material)};
-                trixel_count += 1;
+                trixels[count].col = .{trixel_color.x, trixel_color.y, trixel_color.z, material_encode_to_float(cmd.trile.trixels[x][y][z].material)};
+                count += 1;
             }
         }
     }
 
-    sg_update_buffer(gPipelines.trixel.bind.vertex_buffers[2], *(sg_range.{
-        ptr = trixels.data,
-        size = size_of(type_of(trixels)),
-    }));
+    range := sg_range.{ ptr = trixels.data, size = size_of(type_of(trixels)) };
+    if cmd.is_secondary {
+        trixel_secondary_count = count;
+        sg_update_buffer(trixel_secondary_vbuf, *range);
+    } else {
+        trixel_count = count;
+        sg_update_buffer(gPipelines.trixel.bind.vertex_buffers[2], *range);
+    }
 }
 
-backend_draw_trixels :: () {
-    if trixel_count == 0 then return;
+backend_draw_trixels :: (cmd: Render_Command_Draw_Trixels) {
+    count := ifx cmd.is_secondary then trixel_secondary_count else trixel_count;
+    if count == 0 then return;
 
     mvp := create_viewproj(*camera);
     vs_params : Vs_Params;
-    vs_params.mvp = mvp.floats;
-    vs_params.camera = camera.position.component;
+    vs_params.mvp           = mvp.floats;
+    vs_params.camera        = camera.position.component;
+    vs_params.world_offset  = cmd.world_offset.component;
+    vs_params.tile_rotation = cmd.tile_rotation.floats;
 
     world_conf : Trixel_World_Config;
     wc : *World_Config = *(World_Config.{});
     world_config_to_shader_type(wc, *world_conf);
-    
+
     fs_params : Trixel_Fs_Params;
-    fs_params.view_mode = trixel_view_mode;
+    fs_params.view_mode  = trixel_view_mode;
+    fs_params.brightness = cmd.brightness;
+
+    bind := gPipelines.trixel.bind;
+    if cmd.is_secondary  bind.vertex_buffers[2] = trixel_secondary_vbuf;
 
     sg_apply_pipeline(gPipelines.trixel.pipeline);
-    sg_apply_bindings(*gPipelines.trixel.bind);
+    sg_apply_bindings(*bind);
     sg_apply_uniforms(UB_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
     sg_apply_uniforms(UB_trixel_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
     sg_apply_uniforms(UB_trixel_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
-    sg_draw(0, 36, trixel_count);
+    sg_draw(0, 36, count);
 }
 
 backend_add_trile_positions :: (positions : []Vector4) {
@@ -234,7 +246,8 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params.rdm_spec_scale    = lc.rdm_spec_scale;
     fs_params.ambient_color     = lc.ambient_color.component;
     fs_params.is_preview        = preview_mode;
-    fs_params.rdm_tint          = lc.rdm_tint.component;
+    fs_params.rdm_tint               = lc.rdm_tint.component;
+    fs_params.rdm_diff_saturation    = worldConf.rdmDiffSaturation;
 
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
@@ -271,7 +284,7 @@ backend_draw_ground :: (wc: *World_Config) {
     plane_data.screen_h = h;
     plane_data.cameraPosition = camera.position.component;
     plane_data.reflectionDistortion = 0.1;
-    plane_data.shininess = 0.2;
+    plane_data.shininess = wc.waterShininess;
 
     world_config_to_shader_type(wc, *world_conf);
 
@@ -484,6 +497,7 @@ backend_process_command_buckets :: () {
     for render_command_buckets.main {
         backend_handle_command(it);
     }
+    debug_draw_flush_gpu();
 	sg_end_pass();
     end_frame_profiling_group("Main pass");
 

@@ -129,10 +129,11 @@ create_set_light_rendering_task :: (conf: *World_Config) {
 	add_rendering_task(lighttask);
 }
 
-create_trixel_rendering_task :: (trile: *Trile, muls: *[16][16][16]Vector3) {
-	trixeltask := Rendering_Task_Trixels.{type = .TRIXELS, trile = trile, colMultipliers = muls};
+TRIXEL_IDENTITY : Matrix4 : .{_11=1, _22=1, _33=1, _44=1};
+
+create_trixel_rendering_task :: (trile: *Trile, muls: *[16][16][16]Vector3, world_offset: Vector3 = .{}, brightness: float = 1.0, tile_rotation: Matrix4 = TRIXEL_IDENTITY, is_secondary: bool = false) {
+	trixeltask := Rendering_Task_Trixels.{type = .TRIXELS, trile = trile, colMultipliers = muls, world_offset = world_offset, brightness = brightness, tile_rotation = tile_rotation, is_secondary = is_secondary};
 	add_rendering_task(trixeltask);
-    
 }
 
 create_ground_rendering_task :: (world: *World) {

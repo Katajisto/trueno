@@ -1,5 +1,6 @@
 #if OS != .WASM {
     #load "iprof.jai";
+    #load "trile_thumbnails.jai";
     #load "picker.jai";
     #load "trile_editor.jai";
     #load "level_editor.jai";
@@ -26,7 +27,10 @@ in_editor_view : bool = false;
 
 init_editor :: () {
     #if !FLAG_RELEASE_BUILD {
-        #if OS != .WASM {init_profiler();}
+        #if OS != .WASM {
+            init_profiler();
+            init_trile_thumbnails();
+        }
         init_console();
     }
     init_keybinds();

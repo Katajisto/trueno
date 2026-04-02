@@ -41,11 +41,17 @@ ctx : *Tacoma.Tacoma_Context;
 
 // --- Chunk RDM bake queue ---
 
+// Default RDM sizes per roughness level (0=sharpest, 7=diffuse).
+// w = 2*size, h = 3*size. Tacoma accepts size directly.
+g_rdm_default_sizes : [8]s32 = .[256, 128, 64, 32, 16, 8, 4, 2];
+
 // A single RDM render job: one world_trile at one roughness level.
 RDM_Bake_Job :: struct {
     world_trile_index: s32;
     roughness:         s32;
     world_pos:         Vector3;
+    size_override:     s32;  // 0 = use g_rdm_default_sizes[roughness]
+    quality_override:  s32;  // 0 = use rdm_bake.quality
 }
 
 RDM_Bake_State :: struct {
@@ -57,10 +63,19 @@ RDM_Bake_State :: struct {
 
 rdm_bake : RDM_Bake_State;
 
-// Predicted pixel dimensions of a single RDM entry at a given roughness level.
-// roughness 0 → 512×768, roughness 1 → 256×384, ..., roughness 7 → 4×6.
+rdm_job_size :: (job: RDM_Bake_Job) -> s32 {
+    if job.size_override > 0 then return job.size_override;
+    return g_rdm_default_sizes[job.roughness];
+}
+
+rdm_job_quality :: (job: RDM_Bake_Job) -> s32 {
+    if job.quality_override > 0 then return job.quality_override;
+    return rdm_bake.quality;
+}
+
+// Pixel dimensions of a single RDM entry. w = 2*size, h = 3*size.
 rdm_entry_predicted_size :: (roughness: s32) -> (w: s32, h: s32) {
-    size : s32 = cast(s32)(1 << (8 - roughness));
+    size := g_rdm_default_sizes[roughness];
     return 2 * size, 3 * size;
 }
 
@@ -70,7 +85,9 @@ rdm_simulate_pack_height :: (jobs: []RDM_Bake_Job, canvas_w: s32) -> s32 {
     cy : s32 = 0;
     rh : s32 = 0;
     for job: jobs {
-        w, h := rdm_entry_predicted_size(job.roughness);
+        s := rdm_job_size(job);
+        w := 2 * s;
+        h := 3 * s;
         if cx + w > canvas_w { cy += rh; cx = 0; rh = 0; }
         cx += w;
         if h > rh  rh = h;
@@ -87,8 +104,8 @@ rdm_calc_chunk_atlas_size :: (jobs: []RDM_Bake_Job) -> (s32, s32) {
     // Estimate canvas width from sqrt(total pixel area).
     total_area : s64 = 0;
     for job: jobs {
-        w, h := rdm_entry_predicted_size(job.roughness);
-        total_area += cast(s64) w * cast(s64) h;
+        s := rdm_job_size(job);
+        total_area += cast(s64)(2 * s) * cast(s64)(3 * s);
     }
     target_w : s32 = 16;
     sqrt_area := cast(s32) sqrt(cast(float) total_area) + 1;
@@ -147,7 +164,8 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
         for group: chunk.groups {
             success, idx := table_find(*trile_name_to_index, group.trile_name);
             if !success {
-                trile := get_trile(group.trile_name);
+                trile, trile_ok := get_trile(group.trile_name);
+                if !trile_ok  continue;
                 ttrile : Tacoma.Trile_Data;
                 for x: 0..15 {
                     for y: 0..15 {
@@ -186,10 +204,16 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
                 array_add(*world_trile_roughnesses, roughness_mask);
 
                 if should_bake {
-                    // Emit one job per roughness level present.
+                    size_ov, qual_ov := get_rdm_instance_override(*world, wx, wy, wz);
                     for r: 0..7 {
                         if roughness_mask & cast(u8)(1 << r) {
-                            array_add(*rdm_bake.jobs, .{world_trile_index = world_trile_idx, roughness = cast(s32) r, world_pos = wpos});
+                            array_add(*rdm_bake.jobs, .{
+                                world_trile_index = world_trile_idx,
+                                roughness         = cast(s32) r,
+                                world_pos         = wpos,
+                                size_override     = size_ov,
+                                quality_override  = qual_ov,
+                            });
                         }
                     }
                 }
@@ -306,8 +330,10 @@ rdm_bake_tick :: () {
 
     job := rdm_bake.jobs[rdm_bake.current_job];
 
-    w, h : s32;
-    ptr := Tacoma.tacoma_render_rdm(ctx, job.world_trile_index, job.roughness, rdm_bake.quality, *w, *h);
+    size := rdm_job_size(job);
+    w    := 2 * size;
+    h    := 3 * size;
+    ptr  := Tacoma.tacoma_render_rdm(ctx, job.world_trile_index, job.roughness, rdm_job_quality(job), size);
 
     // Find this job's per-chunk bake state.
     chunk_key := world_to_chunk_coord(cast(s32) job.world_pos.x, cast(s32) job.world_pos.y, cast(s32) job.world_pos.z);
@@ -589,9 +615,9 @@ gen_reference :: (w: s32, h: s32, eye: Vector3, target: Vector3, quality: s32, i
 
 gen_rdm :: (quality: s32, include_water: bool, world: World) {
     tacoma_start(world, include_water);
-    w, h : s32;
-    ptr := Tacoma.tacoma_render_rdm(ctx, 0, 0, quality, *w, *h);
-    tacoma_handle_result(ptr, w, h);
+    size := g_rdm_default_sizes[0];
+    ptr  := Tacoma.tacoma_render_rdm(ctx, 0, 0, quality, size);
+    tacoma_handle_result(ptr, 2 * size, 3 * size);
     tacoma_stop();
 }
 

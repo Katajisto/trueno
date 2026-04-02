@@ -43,6 +43,13 @@ Editor_Action :: enum {
     TRIXEL_VIEW_NORMALS;
     TRIXEL_VIEW_ALBEDO;
     TRIXEL_VIEW_MIXED;
+    TRIXEL_VIEW_TILE;
+    // Trile editor — tiling controls
+    TRIXEL_TILING_AXIS;
+    TRIXEL_TILING_ROTATE;
+    // Trile editor — undo/redo
+    TRIXEL_UNDO;
+    TRIXEL_REDO;
 }
 
 #scope_file;
@@ -66,6 +73,7 @@ check_action :: (action: $T, status: Key_Current_State) -> bool {
         offset = EDITOR_ACTION_COUNT;
     }
     if console_open_ignore_input then return false;
+    if ui_keyboard_captured      then return false;
     combo := keys[cast(s32)action + offset];
     ctrl_down  := cast(bool)(input_button_states[Key_Code.CTRL]  & .DOWN);
     shift_down := cast(bool)(input_button_states[Key_Code.SHIFT] & .DOWN);
@@ -183,4 +191,9 @@ set_default_bindings :: () {
     set(.TRIXEL_VIEW_NORMALS, cast(Key_Code) #char "6");
     set(.TRIXEL_VIEW_ALBEDO,  cast(Key_Code) #char "7");
     set(.TRIXEL_VIEW_MIXED,   cast(Key_Code) #char "8");
+    set(.TRIXEL_VIEW_TILE,    cast(Key_Code) #char "9");
+    set(.TRIXEL_TILING_AXIS,   cast(Key_Code) #char "Q");
+    set(.TRIXEL_TILING_ROTATE, cast(Key_Code) #char "R");
+    set(.TRIXEL_UNDO,          cast(Key_Code) #char "Z", ctrl = true);
+    set(.TRIXEL_REDO,          cast(Key_Code) #char "Y", ctrl = true);
 }

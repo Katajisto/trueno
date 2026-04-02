@@ -368,7 +368,8 @@ tick_ui :: () {
     vw = (cast(float) w)/100.0;
     vh = (cast(float) h)/100.0;
     array_reset_keeping_memory(*ui_events);
-    GR.ui_per_frame_update(1, xx w, xx h, get_time());
+    _, is_active := GR.ui_per_frame_update(1, xx w, xx h, get_time());
+    ui_keyboard_captured = is_active && !GR.is_grabbing();
 
     #if !FLAG_RELEASE_BUILD {
         tick_editor_ui();
@@ -377,6 +378,7 @@ tick_ui :: () {
     }
 }
 
+ui_keyboard_captured : bool;
 checkboxTest : bool = false;
 
 get_font_at_size :: (pixel_height: int) -> *Font {

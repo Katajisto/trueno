@@ -97,7 +97,10 @@ init :: () {
         logger = .{ func = slog_func },
     }));
     sfetch_setup(*(sfetch_desc_t.{
-        logger = .{ func = slog_func },
+        max_requests = 64,
+        num_channels = 2,
+        num_lanes    = 1,
+        logger       = .{ func = slog_func },
     }));
     asset_manager_init();
     #if OS != .WASM { Thread.init(*g_mixer.mutex); }

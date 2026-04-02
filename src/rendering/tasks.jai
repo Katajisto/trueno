@@ -65,6 +65,10 @@ Rendering_Task_Trixels :: struct {
     t.type         = .TRIXELS;
     colMultipliers : *[16][16][16]Vector3;
     trile          : *Trile;
+    world_offset   : Vector3;
+    brightness     : float = 1.0;
+    tile_rotation  : Matrix4 = .{_11=1, _22=1, _33=1, _44=1};
+    is_secondary   : bool;
 }
 
 Rendering_Task_Particles :: struct {
@@ -108,10 +112,15 @@ tasks_to_commands :: () {
             case .TRIXELS;
                 trixelsTask := (cast(*Rendering_Task_Trixels)it);
                 updateCommand := New(Render_Command_Update_Trixels,, temp);
-                updateCommand.trile = trixelsTask.trile;
+                updateCommand.trile          = trixelsTask.trile;
                 updateCommand.colMultipliers = trixelsTask.colMultipliers;
+                updateCommand.is_secondary   = trixelsTask.is_secondary;
                 array_add(*render_command_buckets.setup, updateCommand);
                 drawCommand := New(Render_Command_Draw_Trixels,, temp);
+                drawCommand.world_offset  = trixelsTask.world_offset;
+                drawCommand.brightness    = trixelsTask.brightness;
+                drawCommand.tile_rotation = trixelsTask.tile_rotation;
+                drawCommand.is_secondary  = trixelsTask.is_secondary;
                 array_add(*render_command_buckets.main, drawCommand);
                 // Currently no need to draw trixels anywhere but the editor so no
                 // need for drawing them in the planar reflection pass...

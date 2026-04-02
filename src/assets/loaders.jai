@@ -75,8 +75,9 @@ load_wav_from_memory :: (data: []u8) -> Audio_Data {
     audio_samples : []s16;
     audio_samples.data = cast(*s16)samples.data;
     audio_samples.count = samples.count / 2;
-    for sample: audio_samples {
-        array_add(*audio.data, cast(float)sample / 32768.0);
+    array_resize(*audio.data, audio_samples.count);
+    for i: 0..audio_samples.count - 1 {
+        audio.data[i] = cast(float)audio_samples[i] / 32768.0;
     }
     audio.channels     = format.nChannels;
     audio.sample_rate  = format.nSamplesPerSec;

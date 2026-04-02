@@ -56,7 +56,8 @@ inspector_y             : s32;
 inspector_z             : s32;
 inspector_emitter_def   : s32 = -1;
 inspector_rdm_roughness : int = 0;
-inspector_note_input    : string = "";
+inspector_note_deactivate    : bool;
+inspector_note_activate_next : bool;
 
 editor_billboards_visible : bool = true;
 
@@ -505,6 +506,16 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 
 
 
+editor_edit_y :: () -> float {
+    y := cast(float)editY;
+    curworld := get_current_world();
+    if curworld.valid {
+        ph := effective_plane_height(*curworld.world.conf);
+        if ph > y && ph < y + 1.0 then y = ph + 0.01;
+    }
+    return y;
+}
+
 tick_level_editor :: () {
 	#if FLAG_TACOMA_ENABLED { rdm_bake_tick(); }
 	tick_level_editor_camera();
@@ -532,7 +543,7 @@ tick_level_editor :: () {
 	}
 
 	ray := get_mouse_ray(*get_level_editor_camera());
-	hit, point := ray_plane_collision_point(ray, xx editY, 20);
+	hit, point := ray_plane_collision_point(ray, editor_edit_y(), 20);
 
 	show_trile_preview = false;
 	if hit {
@@ -623,16 +634,7 @@ tick_level_editor :: () {
 				inspector_x = cast(s32)px;
 				inspector_y = cast(s32)py;
 				inspector_z = cast(s32)pz;
-				inspector_note_input = "";
-				curworld2 := get_current_world();
-				if curworld2.valid {
-					for note: curworld2.world.notes {
-						if note.position.x == inspector_x && note.position.y == inspector_y && note.position.z == inspector_z {
-							inspector_note_input = note.text;
-							break;
-						}
-					}
-				}
+				inspector_note_deactivate = true;
 			}
 		}
 	}
@@ -773,10 +775,27 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 	trile_name, orientation, has_trile := get_trile_at(world, inspector_x, inspector_y, inspector_z);
 	if has_trile {
 		GR.label(r.*, tprint("Trile: %  orient: %", trile_name, orientation), *t_label_left(theme));
+		r.y += r.h;
+		#if FLAG_TACOMA_ENABLED {
+			r.h = ui_h(3, 2);
+			GR.label(r.*, "-- Bake Config --", *t_label_left(theme));
+			r.y += r.h;
+			r.h = ui_h(4, 0);
+			size_ov, qual_ov := get_rdm_instance_override(world, inspector_x, inspector_y, inspector_z);
+			GR.label(r.*, tprint("Size override (0=default): %", size_ov), *t_label_left(theme));
+			r.y += r.h;
+			GR.slider(r.*, *size_ov, 0, 512, 1, *theme.slider_theme);
+			r.y += r.h;
+			GR.label(r.*, tprint("Samples override (0=global): %", qual_ov), *t_label_left(theme));
+			r.y += r.h;
+			GR.slider(r.*, *qual_ov, 0, 10000, 10, *theme.slider_theme);
+			r.y += r.h;
+			set_rdm_instance_override(world, inspector_x, inspector_y, inspector_z, size_ov, qual_ov);
+		}
 	} else {
 		GR.label(r.*, "Trile: (empty)", *t_label_left(theme));
+		r.y += r.h;
 	}
-	r.y += r.h;
 
 	r.y += r.h * 0.5;
 	GR.label(r.*, "-- Emitter --", *t_label_left(theme));
@@ -788,6 +807,18 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 		GR.label(r.*, tprint("Def: %", inst.definition_name), *t_label_left(theme));
 		r.y += r.h;
 		r.h = ui_h(4, 0);
+		GR.label(r.*, tprint("Offset X: %", formatFloat(inst.offset.x, trailing_width=2)), *t_label_left(theme));
+		r.y += r.h;
+		GR.slider(r.*, *inst.offset.x, -0.5, 0.5, 0.05, *theme.slider_theme);
+		r.y += r.h;
+		GR.label(r.*, tprint("Offset Y: %", formatFloat(inst.offset.y, trailing_width=2)), *t_label_left(theme));
+		r.y += r.h;
+		GR.slider(r.*, *inst.offset.y, -0.5, 0.5, 0.05, *theme.slider_theme);
+		r.y += r.h;
+		GR.label(r.*, tprint("Offset Z: %", formatFloat(inst.offset.z, trailing_width=2)), *t_label_left(theme));
+		r.y += r.h;
+		GR.slider(r.*, *inst.offset.z, -0.5, 0.5, 0.05, *theme.slider_theme);
+		r.y += r.h;
 		if GR.button(r.*, "Remove Emitter", *theme.button_theme, 300) {
 			array_ordered_remove_by_index(*world.emitter_instances, emitter_idx);
 		}
@@ -823,33 +854,32 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 	r.y += r.h;
 
 	note_idx, has_note := find_note_at(world, inspector_x, inspector_y, inspector_z);
+	note_input_action : GR.Text_Input_Action;
+	if inspector_note_activate_next {
+		note_input_action = .ACTIVATE;
+		inspector_note_activate_next = false;
+	} else if inspector_note_deactivate {
+		note_input_action = .DEACTIVATE;
+		inspector_note_deactivate = false;
+	}
 	if has_note {
 		note := *world.notes[note_idx];
 		r.h = ui_h(4, 0);
-		a, new_text, _ := GR.text_input(r.*, inspector_note_input, *theme.text_input_theme, 500);
-		if a & .ENTERED {
-			note.text = copy_string(new_text);
-			inspector_note_input = note.text;
-		}
+		a, new_text, _ := GR.text_input(r.*, note.text, *theme.text_input_theme, 500, input_action = note_input_action);
+		if (a & .TEXT_MODIFIED) || (a & .ENTERED)  note.text = copy_string(new_text);
 		r.y += r.h;
 		if GR.button(r.*, "Remove Note", *theme.button_theme, 302) {
 			array_ordered_remove_by_index(*world.notes, note_idx);
-			inspector_note_input = "";
 		}
 		r.y += r.h;
 	} else {
 		r.h = ui_h(4, 0);
-		a, new_text, _ := GR.text_input(r.*, inspector_note_input, *theme.text_input_theme, 501);
-		if a & .ENTERED {
-			inspector_note_input = copy_string(new_text);
-		}
-		r.y += r.h;
 		if GR.button(r.*, "Add Note", *theme.button_theme, 303) {
 			note : Editor_Note;
 			note.position = .{inspector_x, inspector_y, inspector_z};
-			note.text = copy_string(ifx inspector_note_input.count > 0 then inspector_note_input else "Note");
+			note.text = "";
 			array_add(*world.notes, note);
-			inspector_note_input = note.text;
+			inspector_note_activate_next = true;
 		}
 		r.y += r.h;
 	}
@@ -996,6 +1026,7 @@ draw_level_editor :: () {
 		create_level_editor_preview_tasks();
 	}
 	add_editor_billboards();
+	debug_grid(floor(cameraCenter.x), editor_edit_y(), floor(cameraCenter.y), 20, .{0.3, 0.3, 0.35, 0.7});
 }
 
 draw_level_editor_ui :: (theme: *GR.Overall_Theme) {

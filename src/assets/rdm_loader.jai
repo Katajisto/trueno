@@ -8,16 +8,17 @@ rdm_loader_enqueue_world :: (world: *World) {
     for *chunk: world.chunks {
         if chunk.rdm_valid then continue;
 
-        // Skip if this chunk is already in-flight.
-        if g_asset_manager.is_fetching {
-            cf := g_asset_manager.current_fetch;
+        // Skip if this chunk is already in-flight on the RDM channel.
+        af_rdm := *g_asset_manager.active[CHANNEL_RDM];
+        if af_rdm.occupied {
+            cf := af_rdm.req;
             if (cf.type == .RDM_ATLAS || cf.type == .RDM_LOOKUP) &&
                cf.world_name == world.name && cf.chunk_key == chunk.coord then continue;
         }
 
         // Skip if already queued (either as atlas or its follow-up lookup).
         already_queued := false;
-        for g_asset_manager.fetch_queue {
+        for g_asset_manager.rdm_queue {
             if (it.type == .RDM_ATLAS || it.type == .RDM_LOOKUP) &&
                it.world_name == world.name && it.chunk_key == chunk.coord {
                 already_queued = true;
@@ -35,34 +36,28 @@ rdm_loader_enqueue_world :: (world: *World) {
         } else {
             req.path = rdm_chunk_filename(world.name, chunk.coord, "rdm_atlas");
         }
-        array_add(*g_asset_manager.fetch_queue, req);
+        array_add(*g_asset_manager.rdm_queue, req);
     }
 }
 
 // Remove all pending RDM fetches from the queue and invalidate any in-flight
 // RDM fetch so its callback discards the result.
 rdm_loader_cancel_all :: () {
-    // Filter out RDM items, destroying any atlas images stored inside them.
-    new_count := 0;
-    for i: 0..g_asset_manager.fetch_queue.count - 1 {
-        item := g_asset_manager.fetch_queue[i];
-        if item.type == .RDM_ATLAS || item.type == .RDM_LOOKUP {
-            if item.rdm_pending_atlas.id != 0 then sg_destroy_image(item.rdm_pending_atlas);
-            continue;
-        }
-        g_asset_manager.fetch_queue[new_count] = item;
-        new_count += 1;
+    // Destroy any atlas images stored in queued RDM_LOOKUP requests, then drain.
+    for i: 0..g_asset_manager.rdm_queue.count - 1 {
+        item := g_asset_manager.rdm_queue[i];
+        if item.rdm_pending_atlas.id != 0 then sg_destroy_image(item.rdm_pending_atlas);
     }
-    g_asset_manager.fetch_queue.count = new_count;
+    array_reset(*g_asset_manager.rdm_queue);
 
-    // Blank the world name on the in-flight request so its callback discards.
-    if g_asset_manager.is_fetching &&
-       (g_asset_manager.current_fetch.type == .RDM_ATLAS ||
-        g_asset_manager.current_fetch.type == .RDM_LOOKUP) {
-        if g_asset_manager.current_fetch.rdm_pending_atlas.id != 0 {
-            sg_destroy_image(g_asset_manager.current_fetch.rdm_pending_atlas);
-            g_asset_manager.current_fetch.rdm_pending_atlas = .{};
+    // Blank the world name on the in-flight RDM request so its callback discards.
+    af := *g_asset_manager.active[CHANNEL_RDM];
+    if af.occupied &&
+       (af.req.type == .RDM_ATLAS || af.req.type == .RDM_LOOKUP) {
+        if af.req.rdm_pending_atlas.id != 0 {
+            sg_destroy_image(af.req.rdm_pending_atlas);
+            af.req.rdm_pending_atlas = .{};
         }
-        g_asset_manager.current_fetch.world_name = "";
+        af.req.world_name = "";
     }
 }

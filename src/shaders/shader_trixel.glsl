@@ -8,6 +8,8 @@ in vec4 inst_col;
 layout(binding=0) uniform vs_params {
     mat4 mvp;
     vec3 camera;
+    vec3 world_offset;
+    mat4 tile_rotation;
 };
 
 out vec4 color;
@@ -18,8 +20,10 @@ out float vtrixel_state;
 
 void main() {
     vec3 instancepos = inst.xyz;
-    gl_Position = mvp * (vec4(position.xyz + instancepos, 1.0));
-    fnormal = normal;
+    vec3 local = position.xyz + instancepos;
+    vec3 rotated = (tile_rotation * vec4(local - 0.5, 0.0)).xyz + 0.5;
+    gl_Position = mvp * vec4(rotated + world_offset, 1.0);
+    fnormal = tile_rotation * vec4(normal.xyz, 0.0);
     color = inst_col;
     pos = gl_Position;
     cam = camera;
@@ -31,6 +35,7 @@ void main() {
 
 layout(binding=2) uniform trixel_fs_params {
     int   view_mode;
+    float brightness;
 };
 
 layout(binding=1) uniform trixel_world_config {
@@ -153,6 +158,8 @@ void main() {
     } else {
         frag_color = vec4(light + emissive, 1.0);
     }
+
+    frag_color.rgb *= brightness;
 
     // Overlay highlight for hovered / selected / brush-radius trixels in all view modes.
     // State is encoded per-instance in inst.w: 0=normal, 1=hovered, 2=selected, 3=in-brush.

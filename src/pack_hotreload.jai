@@ -51,7 +51,7 @@ hot_reload_all_packs :: () {
         array_add(*pack_names, sprint("%", pack.name));
     }
 
-    array_reset(*g_asset_manager.fetch_queue);
+    array_reset(*g_asset_manager.main_queue);
 
     g_mixer.paused = true;
     g_asset_manager.hot_reload_unpause_pending = true;
