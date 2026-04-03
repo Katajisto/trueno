@@ -77,6 +77,7 @@ layout(binding=1) uniform trile_world_config {
     vec3 deepColor;
 
     float time;
+    int   hsv_lighting;
 };
 
 in vec3 cam;
@@ -200,8 +201,6 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
     return final;
 }
 
-// ---- SKY END ----
-
 // ---- PBR FUNCTIONS ----
 
 float DistributionGGX(vec3 N, vec3 H, float roughness) {
@@ -251,7 +250,6 @@ int rdm_index_from_normal(vec3 N) {
     vec3 n_frontback = vec3(1.0, 0.0, 0.0);
 
     int res = 0;
-    // res += int(dot(n_updown, N) >= 0.98) * 0; unnecessary
     res += int(dot(-n_updown, N) >= 0.98) * 1;
     res += int(dot(n_leftright, N) >= 0.98) * 2;
     res += int(dot(-n_leftright, N) >= 0.98) * 3;
@@ -282,12 +280,9 @@ vec2 rdm_get_hemioct(vec3 v, int index, vec2 off) {
     normalize(vc);
     
     vec2 p = vc.xy * (1.0 / (abs(vc.x) + abs(vc.y) + vc.z));
-    // Rotate and scale the center diamond to the unit square
     vec2 res = vec2(p.x + p.y, p.x - p.y);
     res.x = (res.x + 1.0) * 0.5;
     res.y = (res.y + 1.0) * 0.5;
-    // res.y = clamp(res.y, 0.0, 1.0);
-    // res.x = clamp(res.x, 0.0, 1.0);
     return res;
 }
 
@@ -299,8 +294,6 @@ float rdm_offset_x(int index) {
     return float((index % 2)) * (1.0/2.0);
 }
 
-// Look up atlas rect from the lookup texture for a given chunk-local position and roughness.
-// Returns atlas_rect: xy = UV offset, zw = UV size. z > 0 means valid.
 vec4 rdm_get_atlas_rect(ivec3 local_pos, int roughness) {
     int rdm_index = local_pos.x + local_pos.y * 32 + local_pos.z * 1024 + roughness * 32768;
     int tx = rdm_index % 512;
@@ -308,8 +301,6 @@ vec4 rdm_get_atlas_rect(ivec3 local_pos, int roughness) {
     return texelFetch(sampler2D(rdm_lookup, trilesmp), ivec2(tx, ty), 0);
 }
 
-// Compute pixel offset in the atlas for a given face within an atlas rect.
-// Returns ivec2(ox, oy) — the top-left pixel of this face's sub-image.
 ivec2 rdm_face_pixel_offset(vec4 atlas_rect, int face, int rdmSize) {
     ivec2 atlasSize = textureSize(sampler2D(rdm_atlas, rdmsmp), 0);
     int col = face % 2;
@@ -374,11 +365,6 @@ vec3 sample_rdm(vec3 N, vec3 V, vec3 rdm_center, vec3 diff, int roughness, ivec3
     return sky(skyDir, sunPosition);
 }
 
-
-
-
-
-// Sample diffuse irradiance from a single probe (roughness=7 RDM face)
 vec3 sample_rdm_diff_map(vec3 N, ivec3 local_pos, vec3 fallback) {
     vec4 atlas_rect = rdm_get_atlas_rect(local_pos, 7);
     if (atlas_rect.z <= 0.0) return fallback;
@@ -402,12 +388,10 @@ vec3 smix(vec3 a, vec3 b, float t) {
     return mix(a, b, smoothT);
 }
 
-// Interpolated diffuse irradiance from 4 nearest neighbor probes
 vec3 sample_rdm_diff(vec3 N, vec3 diff, ivec3 local_pos) {
     int face = rdm_index_from_normal(N);
     vec3 ambientPlaceholder = vec3(0.3, 0.3, 0.4);
 
-    // Determine the 2D delta in the face plane
     vec2 delta = vec2(0.0);
     if (face == 0 || face == 1) {
         delta = vec2(diff.x, diff.z);
@@ -417,7 +401,6 @@ vec3 sample_rdm_diff(vec3 N, vec3 diff, ivec3 local_pos) {
         delta = vec2(diff.z, diff.y);
     }
 
-    // Compute neighbor offsets in 3D
     ivec3 s0 = ivec3(0, 0, 0);
     ivec3 s1, s2, s3;
     if (face == 0 || face == 1) {
@@ -434,32 +417,31 @@ vec3 sample_rdm_diff(vec3 N, vec3 diff, ivec3 local_pos) {
         s3 = ivec3(0, isign(delta.y), isign(delta.x));
     }
 
-    // // Swizzle offsets based on face orientation
-    // if (face == 2 || face == 3) {
-    //     int temp;
-    //     temp = s1.y; s1.y = s1.z; s1.z = temp;
-    //     temp = s2.y; s2.y = s2.z; s2.z = temp;
-    //     temp = s3.y; s3.y = s3.z; s3.z = temp;
-    // }
-    // if (face == 4 || face == 5) {
-    //     int temp;
-    //     temp = s1.y; s1.y = s1.x; s1.x = temp;
-    //     temp = s2.y; s2.y = s2.x; s2.x = temp;
-    //     temp = s3.y; s3.y = s3.x; s3.x = temp;
-    // }
-
-    // Sample the four nearest probes using offset local positions
     vec3 p0 = sample_rdm_diff_map(N, ivec3(mod(vec3(local_pos + s0), 32.0)), ambientPlaceholder);
     vec3 p1 = sample_rdm_diff_map(N, ivec3(mod(vec3(local_pos + s1), 32.0)), ambientPlaceholder);
     vec3 p2 = sample_rdm_diff_map(N, ivec3(mod(vec3(local_pos + s2), 32.0)), ambientPlaceholder);
     vec3 p3 = sample_rdm_diff_map(N, ivec3(mod(vec3(local_pos + s3), 32.0)), ambientPlaceholder);
 
-    // Bilinear blend with smooth interpolation
     return smix(
         smix(p0, p1, abs(delta.x)),
         smix(p2, p3, abs(delta.x)),
         abs(delta.y)
     );
+}
+
+vec3 rgb2hsv(vec3 c) {
+    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
 void main() {
@@ -571,6 +553,9 @@ void main() {
         if (rdm_diff_scale < 0.001) {
             light += ambient_color * ambient_intensity * albedo * ssao_sample;
         }
+        if (length(light) < ambient_intensity) {
+            light += ambient_color * (ambient_intensity - length(light)) * albedo * ssao_sample;
+        }
     } else {
         // Fallback: ambient + sky reflection when no RDM data (or RDM disabled).
         light += ambient_color * ambient_intensity * albedo * ssao_sample;
@@ -579,7 +564,15 @@ void main() {
         light += F * sky(R, sunPosition) * 0.1;
     }
 
-    frag_color = vec4(mix(deepColor, light + emissive, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
+    vec3 final_color = light + emissive;
+    if (hsv_lighting == 1) {
+        float albedo_lum = dot(albedo, vec3(0.2126, 0.7152, 0.0722)) + 0.001;
+        float light_lum  = dot(final_color, vec3(0.2126, 0.7152, 0.0722));
+        vec3 hsv = rgb2hsv(albedo);
+        hsv.z = clamp(hsv.z * (light_lum / albedo_lum), 0.0, 1.0);
+        final_color = hsv2rgb(hsv);
+    }
+    frag_color = vec4(mix(deepColor, final_color, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
     if (is_preview == 1) {
         frag_color.rgb = mix(frag_color.rgb, vec3(0.3, 0.7, 1.0), 0.5);
     } else if (is_preview == 2) {

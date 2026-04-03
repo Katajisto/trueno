@@ -141,8 +141,8 @@ create_ground_rendering_task :: (world: *World) {
 	add_rendering_task(groundtask);
 }
 
-create_billboard_rendering_task :: (position: Vector3, animation: *Animation, frame: s32, flipX: bool, flipY: bool) {
-	billboardtask := Rendering_Task_Billboard.{type = .BILLBOARD, position = position, animation = animation, frame = frame, flipX = flipX, flipY = flipY };
+create_billboard_rendering_task :: (position: Vector3, animation: *Animation, frame: s32, flipX: bool, flipY: bool, faceDir : Vector3 = .{-100, -100, -100}) {
+	billboardtask := Rendering_Task_Billboard.{type = .BILLBOARD, position = position, animation = animation, frame = frame, flipX = flipX, flipY = flipY, faceDir = faceDir };
 	add_rendering_task(billboardtask);
 }
 

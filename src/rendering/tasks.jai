@@ -47,6 +47,7 @@ Rendering_Task_Billboard :: struct {
     frame       : s32;
     flipX       : bool;
     flipY       : bool;
+    faceDir     : Vector3 = .{-100, -100, -100};
 }
 
 Rendering_Task_Trile :: struct {
@@ -166,6 +167,7 @@ tasks_to_commands :: () {
                 commandDrawBillboard.frame = billboardTask.frame;
                 commandDrawBillboard.flipX = billboardTask.flipX;
                 commandDrawBillboard.flipY = billboardTask.flipY;
+                commandDrawBillboard.faceDir = billboardTask.faceDir;
                 commandDrawBillboard.animation = billboardTask.animation;
                 array_add(*render_command_buckets.gbuffer, commandDrawBillboard);
                 array_add(*render_command_buckets.main, commandDrawBillboard);

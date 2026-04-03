@@ -49,9 +49,9 @@ backend_handle_command :: (cmd: *Render_Command) {
         case .DRAW_BILLBOARD;
             command := cast(*Render_Command_Draw_Billboard)cmd;
             if !in_gbuffer_pass {
-                backend_draw_billboard(command.position, command.animation, command.frame, command.flipX);
+                backend_draw_billboard(command.position, command.animation, command.frame, command.flipX, command.faceDir);
             } else {
-                backend_gbuffer_draw_billboard(command.position, command.animation, command.frame, command.flipX);
+                backend_gbuffer_draw_billboard(command.position, command.animation, command.frame, command.flipX, command.faceDir);
             }
         case .DRAW_PARTICLES;
             particles_cmd := cast(*Render_Command_Draw_Particles)cmd;
@@ -300,7 +300,7 @@ backend_draw_ground :: (wc: *World_Config) {
     sg_draw(0, 6, 2);    
 }
 
-backend_draw_billboard :: (position: Vector3, anim: *Animation, frame_idx: s32, flipX: bool) {
+backend_draw_billboard :: (position: Vector3, anim: *Animation, frame_idx: s32, flipX: bool, faceDir: Vector3) {
     if !anim then return;
     mvp := create_viewproj(*camera);
     vs_params : Billboard_Vs_Params;
@@ -318,6 +318,7 @@ backend_draw_billboard :: (position: Vector3, anim: *Animation, frame_idx: s32, 
     }
     vs_params.size = Vector2.{cast(float)(frame.w / 16), cast(float)(frame.h / 16)}.component;
     vs_params.cam = camera.position.component;
+    vs_params.faceDir = faceDir.component;
     if !in_shadowmap_pass {
         vs_params.mvp = mvp.floats;
     } else {
@@ -330,7 +331,7 @@ backend_draw_billboard :: (position: Vector3, anim: *Animation, frame_idx: s32, 
     sg_draw(0, 6, 1);    
 }
 
-backend_gbuffer_draw_billboard :: (position: Vector3, anim: *Animation, frame_idx: s32, flipX: bool) {
+backend_gbuffer_draw_billboard :: (position: Vector3, anim: *Animation, frame_idx: s32, flipX: bool, faceDir: Vector3) {
     if !anim then return;
     mvp := create_viewproj(*camera);
     view := create_lookat(*camera);
@@ -350,6 +351,7 @@ backend_gbuffer_draw_billboard :: (position: Vector3, anim: *Animation, frame_id
     }
     vs_params.size = Vector2.{cast(float)(frame.w / 16), cast(float)(frame.h / 16)}.component;
     vs_params.cam = camera.position.component;
+    vs_params.faceDir = faceDir.component;
     if !in_shadowmap_pass {
         vs_params.mvp = mvp.floats;
     } else {

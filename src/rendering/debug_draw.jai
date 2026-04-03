@@ -77,23 +77,25 @@ debug_grid :: (cx: float, y: float, cz: float, half_extent: int, col: Vector4) {
     }
 }
 
-debug_box_2d :: (rect: Collision_Rect, y: float, col: Vector4) {
+// Todo: This should probably allow for any axis to be the constant one.
+// Currently this is this way to support the game being currently made.
+debug_box_2d :: (rect: Collision_Rect, x: float, col: Vector4) {
     if !debug_draw_enabled || !debug_draw_colliders then return;
     hw := rect.width  * 0.5;
     hh := rect.height * 0.5;
     cx := rect.position.x;
     cz := rect.position.y;
-    p0 := Vector3.{cx - hw, y, cz - hh};
-    p1 := Vector3.{cx + hw, y, cz - hh};
-    p2 := Vector3.{cx + hw, y, cz + hh};
-    p3 := Vector3.{cx - hw, y, cz + hh};
+    p0 := Vector3.{ x, cz - hh, cx - hw };
+    p1 := Vector3.{ x, cz - hh, cx + hw };
+    p2 := Vector3.{ x, cz + hh, cx + hw };
+    p3 := Vector3.{ x, cz + hh, cx - hw };
     debug_line(p0, p1, col);
     debug_line(p1, p2, col);
     debug_line(p2, p3, col);
     debug_line(p3, p0, col);
 }
 
-debug_circle_2d :: (circle: Collision_Circle, y: float, col: Vector4, segments: int = 16) {
+debug_circle_2d :: (circle: Collision_Circle, x: float, col: Vector4, segments: int = 16) {
     if !debug_draw_enabled || !debug_draw_colliders then return;
     TAU :: cast(float)(2.0 * 3.14159265358979);
     cx := circle.position.x;
@@ -102,8 +104,8 @@ debug_circle_2d :: (circle: Collision_Circle, y: float, col: Vector4, segments: 
     for i: 0..segments-1 {
         t0 := (cast(float)i       / cast(float)segments) * TAU;
         t1 := (cast(float)(i + 1) / cast(float)segments) * TAU;
-        a  := Vector3.{cx + cos(t0) * r, y, cz + sin(t0) * r};
-        b  := Vector3.{cx + cos(t1) * r, y, cz + sin(t1) * r};
+        a  := Vector3.{x, cz + sin(t0) * r, cx + cos(t0) * r};
+        b  := Vector3.{x, cz + sin(t1) * r, cx + cos(t1) * r};
         debug_line(a, b, col);
     }
 }

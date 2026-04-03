@@ -16,8 +16,6 @@ Active_Fetch :: struct {
     chunk_buf   : []u8;
 }
 
-// Shared types and the global must be #scope_export so that rdm_loader.jai
-// (a separate file, even when #load-ed) can access them.
 #scope_export
 
 CHANNEL_MAIN : u32 : 0;
@@ -34,16 +32,20 @@ Fetch_Type :: enum {
 Fetch_Request :: struct {
     type                : Fetch_Type;
     path                : string;
+    
     // Pack
     pack_name           : string;
     should_block        : bool;
     should_block_engine : bool;
+    
     // World / RDM
     world_name          : string;
     chunk_key           : Chunk_Key;
+    
     // Atlas GPU image held between RDM_ATLAS and its paired RDM_LOOKUP fetch.
     rdm_pending_atlas   : sg_image;
-    // Heap copy of world.json carried between WORLD and WORLD_CHUNKS fetches.
+
+    // Copy of world.json carried between WORLD and WORLD_CHUNKS fetches.
     world_json_data     : []u8;
 }
 

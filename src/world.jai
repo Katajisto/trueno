@@ -718,6 +718,7 @@ World_Config :: struct {
     deepColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
     waterShininess      : float = 64.0; @Slider,1,512,8
     rdmDiffSaturation   : float = 1.0;  @Slider,0,2,0.05
+    hsv_lighting        : s32   = 1;    @Slider,0,1,1
 
     // ambientColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color
     // ambientIntensity : float   = 0.3; @Slider,0,3,0.1

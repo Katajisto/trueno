@@ -8,6 +8,7 @@ layout(binding=0) uniform billboard_vs_params {
     vec3 offset;
     vec2 size;
     vec3 cam;
+    vec3 faceDir;
 };
 
 out vec2 uv_in;
@@ -18,6 +19,7 @@ void main() {
     vec3 look_dir = offset - cam;
     look_dir.y = 0.0;
     look_dir = normalize(look_dir);
+    if(faceDir.x > -10) look_dir = faceDir;
     vec3 world_right = normalize(cross(world_up, look_dir));
     vec3 world_pos = offset + (world_right * local_pos.x) + (world_up * local_pos.y);
     gl_Position = mvp * vec4(world_pos, 1.0);

@@ -33,10 +33,10 @@ animation_player_tick :: (player: *Animation_Player) {
     }
 }
 
-animation_draw :: (player: *Animation_Player, position: Vector3, flipX: bool = false, flipY: bool = false) {
+animation_draw :: (player: *Animation_Player, position: Vector3, flipX: bool = false, flipY: bool = false, faceDir : Vector3 = .{-100, -100, -100}) {
     animation_player_tick(player);
     if player.current_animation == null then return;
-    create_billboard_rendering_task(position, player.current_animation, player.current_frame, flipX, flipY);
+    create_billboard_rendering_task(position, player.current_animation, player.current_frame, flipX, flipY, faceDir);
 }
 
 animation_set :: (player: *Animation_Player, animation: string) {

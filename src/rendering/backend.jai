@@ -74,6 +74,7 @@ Render_Command_Draw_Billboard :: struct {
     frame          : s32;
     flipX          : bool;
     flipY          : bool;
+    faceDir        : Vector3 = .{-100, -100, -100};
 }
 
 Render_Command_Draw_Trixels :: struct {

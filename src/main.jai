@@ -256,9 +256,13 @@ frame :: () {
     ui_clear_mouse_occluders();
     ui_pass();
     add_frame_profiling_point("After UI draw");
-    #if !FLAG_RELEASE_BUILD { prepare_text(debug_font, tprint("frametime: % ms", latest_frametime * 1000)); }
-    draw_prepared_text(debug_font, 10, 10, .{0.0, 1.0, 0.0, 1.0});
-    #if !FLAG_RELEASE_BUILD { draw_editor(); }
+
+    #if !FLAG_RELEASE_BUILD {
+        prepare_text(debug_font, tprint("frametime: % ms", latest_frametime * 1000));
+        draw_prepared_text(debug_font, 10, 10, .{0.0, 1.0, 0.0, 1.0});
+        draw_editor();
+    }
+   
     add_particle_render_tasks();
     add_frame_profiling_point("After editor draw");
     render();
