@@ -172,7 +172,7 @@ get_low_res :: (width: s32, height: s32, max_dimension: s32 = 720) -> (s32, s32)
 get_render_size :: () -> (s32, s32) {
 	w,h := get_window_size();
 	// w, h = get_low_res(w,h, 480);
-	return w * 2, h * 2;
+	return w, h;
 }
 
 flip_y_if_plat :: inline (v: Vector2) -> Vector2 {
