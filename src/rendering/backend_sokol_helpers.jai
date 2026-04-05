@@ -1,28 +1,12 @@
 bloom_process :: () {
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_postprocess_attach_a }));
-    sg_apply_pipeline(gPipelines.op.pipeline);
-    op_uniform_bloom : Op_Fs_Params;
-    op_uniform_bloom.blur_size = current_post_process.bloom_size;
-    op_uniform_bloom.separation = current_post_process.bloom_separation;
-    op_uniform_bloom.bloom_treshold = current_post_process.bloom_treshold;
-    op_uniform_bloom.bloom_amount = current_post_process.bloom_amount;
-    op_uniform_bloom.op=3;
-    gPipelines.op.bind.images[0] = g_rendertex;
-    sg_apply_uniforms(UB_op_fs_params, *(sg_range.{ ptr = *op_uniform_bloom, size = size_of(type_of(op_uniform_bloom)) }));
-    sg_apply_bindings(*gPipelines.op.bind);
-    sg_draw(0, 6, 1);    
-    sg_end_pass();
-
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_postprocess_attach_b }));
-    sg_apply_pipeline(gPipelines.mix.pipeline);
-    mix_uniform : Mix_Fs_Params;
-    mix_uniform.op = 1;
-    gPipelines.mix.bind.images[0] = g_postprocess_a;
-    gPipelines.mix.bind.images[1] = g_rendertex;
-    gPipelines.mix.bind.images[2] = g_gbuf_position;
-    sg_apply_uniforms(UB_op_fs_params, *(sg_range.{ ptr = *mix_uniform, size = size_of(type_of(mix_uniform)) }));
-    sg_apply_bindings(*gPipelines.mix.bind);
-    sg_draw(0, 6, 1);    
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_bloom_attach }));
+    sg_apply_pipeline(gPipelines.bloom.pipeline);
+    params : Bloom_Params;
+    params.bloom_treshold = current_post_process.bloom_treshold;
+    gPipelines.bloom.bind.images[IMG_bloom_src] = g_rendertex;
+    sg_apply_uniforms(UB_bloom_params, *(sg_range.{ ptr = *params, size = size_of(type_of(params)) }));
+    sg_apply_bindings(*gPipelines.bloom.bind);
+    sg_draw(0, 6, 1);
     sg_end_pass();
 }
 

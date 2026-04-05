@@ -258,7 +258,7 @@ frame :: () {
     add_frame_profiling_point("After UI draw");
 
     #if !FLAG_RELEASE_BUILD {
-        prepare_text(debug_font, tprint("frametime: % ms", latest_frametime * 1000));
+        prepare_text(debug_font, tprint("frametime: % ms", delta_time * 1000));
         draw_prepared_text(debug_font, 10, 10, .{0.0, 1.0, 0.0, 1.0});
         draw_editor();
     }
@@ -276,7 +276,6 @@ frame :: () {
     #if OS != .WASM { profiler_update(); }
     reset_temporary_storage();
     frame_end_time := get_time();
-    latest_frametime = frame_end_time - frame_start_time;
     input_per_frame_event_and_flag_update();
 }
 

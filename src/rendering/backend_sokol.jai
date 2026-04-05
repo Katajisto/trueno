@@ -239,7 +239,7 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params.screen_w = w;
     fs_params.screen_h = h;
     lc := *current_lighting_config;
-    fs_params.rdm_enabled       = lc.rdm_enabled;
+    fs_params.rdm_enabled       = ifx in_reflection_pass then 0 else lc.rdm_enabled;
     fs_params.ambient_intensity = lc.ambient_intensity;
     fs_params.emissive_scale    = lc.emissive_scale;
     fs_params.rdm_diff_scale    = lc.rdm_diff_scale;
@@ -464,7 +464,7 @@ backend_process_command_buckets :: () {
     end_frame_profiling_group("G-Buffer pass");
      
     start_frame_profiling_group("SSAO pass");
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_postprocess_attach_a }));
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_ssao_attachments }));
     sg_apply_pipeline(gPipelines.ssao.pipeline);
     gPipelines.ssao.bind.images[0] = g_gbuf_position;
     gPipelines.ssao.bind.images[1] = g_gbuf_normal;
@@ -480,19 +480,6 @@ backend_process_command_buckets :: () {
     sg_end_pass();
     end_frame_profiling_group("SSAO pass");   
 
-    start_frame_profiling_group("SSAO blur pass");
-    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_ssao_attachments }));
-    sg_apply_pipeline(gPipelines.op.pipeline);
-    op_uniform : Op_Fs_Params;
-    op_uniform.blur_size = current_post_process.ssao_size;
-    op_uniform.op = 0;
-    gPipelines.op.bind.images[0] = g_postprocess_a;
-    sg_apply_uniforms(UB_op_fs_params, *(sg_range.{ ptr = *op_uniform, size = size_of(type_of(op_uniform)) }));
-    sg_apply_bindings(*gPipelines.op.bind);
-    sg_draw(0, 6, 1);    
-    sg_end_pass();
-    end_frame_profiling_group("SSAO blur pass");
-
     // 5. Main pass
     start_frame_profiling_group("Main pass");
 	sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_rendertex_attachments}));
@@ -506,8 +493,8 @@ backend_process_command_buckets :: () {
     start_frame_profiling_group("Postprocess pass");
     if !bypass_postprocess {
         bloom_process();
-        dof_process();
     }
+    
     end_frame_profiling_group("Postprocess pass");
 
     start_frame_profiling_group("Final pass");
@@ -516,8 +503,9 @@ backend_process_command_buckets :: () {
 
     // Draw the render texture and do post processing:
     sg_apply_pipeline(gPipelines.postprocess.pipeline);
-    gPipelines.postprocess.bind.images[0] = ifx bypass_postprocess then g_rendertex else g_postprocess_a;
+    gPipelines.postprocess.bind.images[0] = g_rendertex;
     gPipelines.postprocess.bind.images[1] = LUT_list[g_current_lut_texture_index].image;
+    gPipelines.postprocess.bind.images[2] = g_bloom_tex;
     sg_apply_bindings(*gPipelines.postprocess.bind);
     post_process_config_uniform : Post_Process_Config;
     if bypass_postprocess {

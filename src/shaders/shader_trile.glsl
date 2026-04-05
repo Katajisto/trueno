@@ -341,7 +341,7 @@ vec3 sample_rdm(vec3 N, vec3 V, vec3 rdm_center, vec3 diff, int roughness, ivec3
     }
 
     float maxDist = 20.0;
-    int steps = 40;
+    int steps = 10;
     for (int i = 0; i < steps; i++) {
         float t = maxDist * float(i + 1) / float(steps);
         vec3 samplePos = diff + t * reflected;
@@ -453,7 +453,9 @@ void main() {
     vec3 pos_after_adjust = ipos - orig_normal * 0.02;
     int count = 0;
     vec4 trixel_material;
-    while (count < 5) {
+    int maxCount = 5;
+    if(is_reflection == 1) maxCount = 1;
+    while (count < maxCount) {
         int xpos = int(clamp(pos_after_adjust.z, 0.0001, 0.99999) * 16.0);
         int ypos = int(clamp(pos_after_adjust.y, 0.0001, 0.99999) * 16.0);
         int zpos = int(clamp(pos_after_adjust.x, 0.0001, 0.99999) * 16.0);
@@ -489,6 +491,16 @@ void main() {
         N = vec3(0.0, 0.0, sign(fnormal.z));
     }
 
+    if (is_reflection == 1) {
+        vec3 V = normalize(cam - vpos.xyz);
+        vec3 L = normalize(sunPosition);
+        float NdotL = max(dot(N, L), 0.0);
+        vec3 light = albedo * NdotL * sunLightColor * sunIntensity;
+        light += 0.1 * albedo;
+        frag_color = vec4(light, 1.0);
+        return;
+    }
+
     vec3 V = normalize(cam - vpos.xyz);
     vec3 L = normalize(sunPosition);
     vec3 H = normalize(V + L);
@@ -519,7 +531,7 @@ void main() {
     vec3 hemispherePos = trileCenter + N * 0.49;
     ivec3 local = ivec3(mod(floor(trileCenter), 32.0));
     vec4 atlas_rect_check = rdm_get_atlas_rect(local, roughnessInt);
-    float ssao_sample = texture(sampler2D(ssaotex, trilesmp), vec2(gl_FragCoord.x / float(screen_w), gl_FragCoord.y / float(screen_h)), 0).r;
+    float ssao_sample = texture(sampler2D(ssaotex, rdmsmp), vec2(gl_FragCoord.x / float(screen_w), gl_FragCoord.y / float(screen_h)), 0).r;
 
     // Emissive — self-lit, not shadowed.
     vec3 emissive = albedo * emittance * emissive_scale;

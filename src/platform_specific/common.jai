@@ -1,13 +1,13 @@
-#import,dir "../../modules/sokol-jai/sokol/app"(DEBUG = !FLAG_RELEASE_BUILD);
-#import,dir "../../modules/sokol-jai/sokol/gfx"(DEBUG = !FLAG_RELEASE_BUILD);
-#import,dir "../../modules/sokol-jai/sokol/gl"(DEBUG = !FLAG_RELEASE_BUILD);
-#import,dir "../../modules/sokol-jai/sokol/glue"(DEBUG = !FLAG_RELEASE_BUILD);
-#import,dir "../../modules/sokol-jai/sokol/shape"(DEBUG = !FLAG_RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/app"(DEBUG = FLAG_RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/gfx"(DEBUG = FLAG_RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/gl"(DEBUG = FLAG_RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/glue"(DEBUG = FLAG_RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/shape"(DEBUG = FLAG_RELEASE_BUILD);
 #import,dir "../../modules/sokol-jai/sokol/fontstash";
-#import,dir "../../modules/sokol-jai/sokol/log"(DEBUG = !FLAG_RELEASE_BUILD);
-#import,dir "../../modules/sokol-jai/sokol/time"(DEBUG = !FLAG_RELEASE_BUILD);
-#import,dir "../../modules/sokol-jai/sokol/fetch"(DEBUG = !FLAG_RELEASE_BUILD);
-#import,dir "../../modules/sokol-jai/sokol/audio"(DEBUG = !FLAG_RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/log"(DEBUG = FLAG_RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/time"(DEBUG = FLAG_RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/fetch"(DEBUG = FLAG_RELEASE_BUILD);
+#import,dir "../../modules/sokol-jai/sokol/audio"(DEBUG = FLAG_RELEASE_BUILD);
 
 #load "../main.jai";
 

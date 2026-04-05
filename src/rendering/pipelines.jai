@@ -36,6 +36,9 @@ g_postprocess_a_depth   : sg_image;
 g_postprocess_b_depth   : sg_image;
 g_postprocess_attach_a  : sg_attachments;
 g_postprocess_attach_b  : sg_attachments;
+
+g_bloom_tex    : sg_image;
+g_bloom_attach : sg_attachments;
   
 
 gPipelines : struct {
@@ -66,8 +69,10 @@ gPipelines : struct {
     postprocess : Pipeline_Binding;
 
     op : Pipeline_Binding;
-    
+
     mix : Pipeline_Binding;
+
+    bloom : Pipeline_Binding;
     
     billboard : Pipeline_Binding;
     
@@ -154,6 +159,7 @@ create_pipelines :: () {
     create_ssao_pipeline();
     create_op_pipeline();
     create_mix_pipeline();
+    create_bloom_pipeline();
     create_billboard_pipeline();
     create_gbuffer_billboard_pipeline();
     create_particle_pipeline();
@@ -531,14 +537,14 @@ create_plane_pipeline_reflection_images :: () {
 
     w, h := get_render_size();
     img_desc := sg_image_desc.{
-        width = w/2,
-        height = h/2,
-        pixel_format = .RGBA32F,
+        width = w/3,
+        height = h/3,
+        pixel_format = .RGBA8,
         render_target = true,
     };
     depth_desc := sg_image_desc.{
-        width = w/2,
-        height = h/2,
+        width = w/3,
+        height = h/3,
         pixel_format = .DEPTH,
         render_target = true,
     };
@@ -734,6 +740,13 @@ create_postprocess_pipeline :: () {
     }));
 
     gPipelines.postprocess.bind.samplers[1] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
+    }));
+
+    gPipelines.postprocess.bind.samplers[2] = sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .CLAMP_TO_EDGE,
         wrap_v = .CLAMP_TO_EDGE,
         min_filter = .LINEAR,
@@ -979,6 +992,52 @@ create_mix_pipeline :: () {
 
 }
 
+create_bloom_pipeline :: () {
+    platconf := get_plat_conf();
+    pipeline: sg_pipeline_desc;
+    shader_desc := bloom_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+
+    pipeline.layout.attrs[ATTR_bloom_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_bloom_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+
+    pipeline.color_count = 1;
+    pipeline.colors[0] = .{ pixel_format = .RGBA32F };
+
+    gPipelines.bloom.pipeline = sg_make_pipeline(*pipeline);
+
+    quad_vertices : [16]float = .[
+        -1.0,  1.0, 0.0, flip_if_plat(1.0),
+        -1.0, -1.0, 0.0, flip_if_plat(0.0),
+         1.0, -1.0, 1.0, flip_if_plat(0.0),
+         1.0,  1.0, 1.0, flip_if_plat(1.0),
+    ];
+    quad_indices : [6]u16 = .[
+        0, 1, 2, 0, 2, 3
+    ];
+
+    vbuffer := sg_buffer_desc.{ size = size_of(float) * 16, data = .{
+        ptr = quad_vertices.data,
+        size = 16 * 4
+    }};
+    ibuffer := sg_buffer_desc.{ size = size_of(u16) * 6, data = .{
+        ptr = quad_indices.data,
+        size = 6 * 2
+    },
+    type = .INDEXBUFFER,
+    };
+
+    gPipelines.bloom.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    gPipelines.bloom.bind.index_buffer = sg_make_buffer(*ibuffer);
+    gPipelines.bloom.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+}
+
 create_ssao_images :: () {
     if g_ssaobuf.id != INVALID_ID then sg_destroy_image(g_ssaobuf);
     if g_ssaobuf_depth.id != INVALID_ID then sg_destroy_image(g_ssaobuf_depth);
@@ -991,7 +1050,7 @@ create_ssao_images :: () {
         width = w/2,
         height = h/2,
         render_target = true,
-        pixel_format = .RGBA32F
+        pixel_format = .RGBA8
     };
     img_desc.sample_count = 1;
     g_ssaobuf = sg_make_image(*img_desc);
@@ -1029,6 +1088,21 @@ create_ssao_images :: () {
     g_postprocess_attach_a = sg_make_attachments(*attachmentsDescA);
     sg_destroy_attachments(g_postprocess_attach_b);
     g_postprocess_attach_b = sg_make_attachments(*attachmentsDescB);
+
+    if g_bloom_tex.id != INVALID_ID then sg_destroy_image(g_bloom_tex);
+    bloom_img_desc := sg_image_desc.{
+        width = w/8,
+        height = h/8,
+        pixel_format = .RGBA32F,
+        render_target = true,
+        sample_count = 1,
+    };
+    g_bloom_tex = sg_make_image(*bloom_img_desc);
+    bloom_attach_desc := sg_attachments_desc.{
+        colors[0].image = g_bloom_tex,
+    };
+    sg_destroy_attachments(g_bloom_attach);
+    g_bloom_attach = sg_make_attachments(*bloom_attach_desc);
 }
 
 create_ssao_pipeline :: () {

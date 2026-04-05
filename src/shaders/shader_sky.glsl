@@ -62,18 +62,6 @@ float noise(vec3 x)
     mix(hash(n + 270.0), hash(n + 271.0), f.x), f.y), f.z);
 }
 
-const mat3 m = mat3(0.0, 1.60,  1.20, -1.6, 0.72, -0.96, -1.2, -0.96, 1.28);
-float fbm(vec3 p)
-{
-    float f = 0.0;
-    f += noise(p) / 2.0; p = m * p * 1.1;
-    f += noise(p) / 4.0; p = m * p * 1.2;
-    f += noise(p) / 6.0; p = m * p * 1.3;
-    f += noise(p) / 12.0; p = m * p * 1.4;
-    f += noise(p) / 24.0;
-    return f;
-}
-
 vec3 sky(vec3 skypos, vec3 sunpos) {
 
     vec3 sunCol = sunDisk.xyz;
@@ -111,13 +99,6 @@ vec3 sky(vec3 skypos, vec3 sunpos) {
     final += mix(horizonHalo.xyz, vec3(0.0,0.0,0.0), clamp(abs(npos.y) * 20.0, 0.0, 1.0)) * 0.8;
 
     final = vec3(final);
-
-    // Cirrus Clouds
-    if(hasClouds == 1) { 
-        float density = smoothstep(1.0 - cirrus, 1.0, fbm(npos.xyz / npos.y * 2.0 + time * 0.05)) * 0.3;
-        final.rgb = mix(final.rgb, vec3(1.0, 1.0, 1.0), max(0.0, npos.y) * density * 2.0);
-    }
-
     return final;
 }
 

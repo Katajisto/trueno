@@ -18,6 +18,8 @@ layout(binding = 0) uniform texture2D pptex;
 layout(binding = 0) uniform sampler ppsmp;
 layout(binding = 1) uniform texture2D lut;
 layout(binding = 1) uniform sampler lut_linear;
+layout(binding = 2) uniform texture2D bloom_tex;
+layout(binding = 2) uniform sampler bloom_smp;
 
 layout(binding=0) uniform post_process_config {
     float exposure;
@@ -34,6 +36,7 @@ layout(binding=0) uniform post_process_config {
     float barrel_distortion_intensity;
     int   lut_mode;
     float dither_intensity;
+    float bloom_amount;
 };
 
 vec3 aces(vec3 x) {
@@ -85,8 +88,8 @@ void main() {
     float b = texture(sampler2D(pptex, ppsmp), distorted_texcoord - vec2(chromatic_aberration_intensity, 0.0)).b;
     vec3 sampled_color_hdr = vec4(r, g, b, 1.0).rgb;
 
-    
-    vec3 color_hdr = sampled_color_hdr * exposure;
+    vec3 bloom_color = texture(sampler2D(bloom_tex, bloom_smp), distorted_texcoord).rgb;
+    vec3 color_hdr = (sampled_color_hdr + bloom_color * bloom_amount) * exposure;
 
     vec3 color_ldr_linear;
     if(tonemap > 0.5) {

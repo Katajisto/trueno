@@ -183,6 +183,7 @@ tasks_to_commands :: () {
                 memcpy(drawCmd.uv_rects.data, particleTask.uv_rects.data, particleTask.count * size_of(Vector4));
                 memcpy(drawCmd.colors.data, particleTask.colors.data, particleTask.count * size_of(Vector4));
                 array_add(*render_command_buckets.main, drawCmd);
+                array_add(*render_command_buckets.reflection, drawCmd);
             case .SET_CAMERA;
                 task := (cast(*Rendering_Task_Set_Camera)it);
                 command := New(Render_Command_Set_Camera,, temp);
