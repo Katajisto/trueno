@@ -340,7 +340,7 @@ vec3 hsv2rgb(vec3 c) {
 void main() {
     if (vpos.y < planeHeight - 0.01 && is_reflection == 1) discard;
 
-    Get trixel material.
+    // Get trixel material.
     vec3 sample_pos = ipos - orig_normal * 0.02;
     vec4 trixel_material;
     int maxSteps = is_reflection == 1 ? 1 : 3;
@@ -355,12 +355,12 @@ void main() {
         sample_pos += to_center * 0.1;
     }
 
-    vec3 albedo = vec3(1.0, 1.0, 1.0);
+    vec3 albedo = trixel_material.xyz;
 
     int packed = int(round(trixel_material.w * 255.0));
     float emittance    = 0.0;
-    int   roughnessInt = 7;
-    float roughness    = 1.0;
+    int   roughnessInt = 0;
+    float roughness    = 0.0;
     float metallic     = 0.0;
 
     if ((packed & 0x1) != 0) {
@@ -418,7 +418,7 @@ void main() {
 
     vec3 emissive = albedo * emittance * emissive_scale;
 
-    if (rdm_enabled == 100 && atlas_rect.z > 0.0) {
+    if (rdm_enabled == 1 && atlas_rect.z > 0.0) {
         vec3 Frough = FresnelSchlickRoughness(NdotV, F0, roughness);
         vec3 hemispherePos = trileCenter + N * 0.49;
         vec3 diff = vpos - hemispherePos;

@@ -39,6 +39,9 @@ g_postprocess_attach_b  : sg_attachments;
 
 g_bloom_tex    : sg_image;
 g_bloom_attach : sg_attachments;
+
+g_dof_tex    : sg_image;
+g_dof_attach : sg_attachments;
   
 
 gPipelines : struct {
@@ -73,6 +76,7 @@ gPipelines : struct {
     mix : Pipeline_Binding;
 
     bloom : Pipeline_Binding;
+    dof: Pipeline_Binding;
     
     billboard : Pipeline_Binding;
     
@@ -160,6 +164,7 @@ create_pipelines :: () {
     create_op_pipeline();
     create_mix_pipeline();
     create_bloom_pipeline();
+    create_dof_pipeline();
     create_billboard_pipeline();
     create_gbuffer_billboard_pipeline();
     create_particle_pipeline();
@@ -753,6 +758,13 @@ create_postprocess_pipeline :: () {
         mag_filter = .LINEAR,
     }));
 
+    gPipelines.postprocess.bind.samplers[3] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
+    }));
+
 }
 
 // Takes in a texture, manipulates it and outputs it.
@@ -1038,6 +1050,52 @@ create_bloom_pipeline :: () {
     }));
 }
 
+create_dof_pipeline :: () {
+    platconf := get_plat_conf();
+    pipeline: sg_pipeline_desc;
+    shader_desc := dof_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+
+    pipeline.layout.attrs[ATTR_dof_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_dof_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+
+    pipeline.color_count = 1;
+    pipeline.colors[0] = .{ pixel_format = .RGBA32F };
+
+    gPipelines.dof.pipeline = sg_make_pipeline(*pipeline);
+
+    quad_vertices : [16]float = .[
+        -1.0,  1.0, 0.0, flip_if_plat(1.0),
+        -1.0, -1.0, 0.0, flip_if_plat(0.0),
+         1.0, -1.0, 1.0, flip_if_plat(0.0),
+         1.0,  1.0, 1.0, flip_if_plat(1.0),
+    ];
+    quad_indices : [6]u16 = .[
+        0, 1, 2, 0, 2, 3
+    ];
+
+    vbuffer := sg_buffer_desc.{ size = size_of(float) * 16, data = .{
+        ptr = quad_vertices.data,
+        size = 16 * 4
+    }};
+    ibuffer := sg_buffer_desc.{ size = size_of(u16) * 6, data = .{
+        ptr = quad_indices.data,
+        size = 6 * 2
+    },
+    type = .INDEXBUFFER,
+    };
+
+    gPipelines.dof.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    gPipelines.dof.bind.index_buffer = sg_make_buffer(*ibuffer);
+    gPipelines.dof.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+}
+
 create_ssao_images :: () {
     if g_ssaobuf.id != INVALID_ID then sg_destroy_image(g_ssaobuf);
     if g_ssaobuf_depth.id != INVALID_ID then sg_destroy_image(g_ssaobuf_depth);
@@ -1103,6 +1161,21 @@ create_ssao_images :: () {
     };
     sg_destroy_attachments(g_bloom_attach);
     g_bloom_attach = sg_make_attachments(*bloom_attach_desc);
+    
+    if g_dof_tex.id != INVALID_ID then sg_destroy_image(g_dof_tex);
+    dof_img_desc := sg_image_desc.{
+        width = cast(s32)((cast(float)w)/1.5),
+        height = cast(s32)((cast(float)h)/1.5),
+        pixel_format = .RGBA32F,
+        render_target = true,
+        sample_count = 1,
+    };
+    g_dof_tex = sg_make_image(*dof_img_desc);
+    dof_attach_desc := sg_attachments_desc.{
+        colors[0].image = g_dof_tex,
+    };
+    sg_destroy_attachments(g_dof_attach);
+    g_dof_attach = sg_make_attachments(*dof_attach_desc);
 }
 
 create_ssao_pipeline :: () {

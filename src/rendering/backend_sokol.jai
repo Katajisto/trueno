@@ -493,6 +493,7 @@ backend_process_command_buckets :: () {
     start_frame_profiling_group("Postprocess pass");
     if !bypass_postprocess {
         bloom_process();
+        dof_process();
     }
     
     end_frame_profiling_group("Postprocess pass");
@@ -506,16 +507,28 @@ backend_process_command_buckets :: () {
     gPipelines.postprocess.bind.images[0] = g_rendertex;
     gPipelines.postprocess.bind.images[1] = LUT_list[g_current_lut_texture_index].image;
     gPipelines.postprocess.bind.images[2] = g_bloom_tex;
+    gPipelines.postprocess.bind.images[3] = g_dof_tex;
+    gPipelines.postprocess.bind.images[4] = g_gbuf_position;
     sg_apply_bindings(*gPipelines.postprocess.bind);
     post_process_config_uniform : Post_Process_Config;
+    post_process_dof_config_uniform : Dof_Config;
     if bypass_postprocess {
         neutral : Post_Process;
         neutral.tonemap = current_post_process.tonemap;
         fill_uniform_with_engine_data(*post_process_config_uniform, *neutral);
     } else {
         fill_uniform_with_engine_data(*post_process_config_uniform, *current_post_process);
+        w,h := get_render_size();
+
+        post_process_dof_config_uniform.dof_tex_width = cast(float)w/2;
+        post_process_dof_config_uniform.dof_tex_height = cast(float)h/2;
+        post_process_dof_config_uniform.dof_point = current_post_process.dof_point;
+        post_process_dof_config_uniform.dof_min = current_post_process.dof_min;
+        post_process_dof_config_uniform.dof_max = current_post_process.dof_max;
+        
     }
     sg_apply_uniforms(UB_post_process_config, *(sg_range.{ ptr = *post_process_config_uniform, size = size_of(type_of(post_process_config_uniform)) }));
+    sg_apply_uniforms(UB_dof_config, *(sg_range.{ ptr = *post_process_dof_config_uniform, size = size_of(type_of(post_process_dof_config_uniform)) }));
     sg_draw(0, 6, 1);    
 
     sgl_defaults();

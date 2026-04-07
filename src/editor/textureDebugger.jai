@@ -13,7 +13,7 @@ theme_ptr         : GR.Overall_Theme;
 
 current_pipeline : s32 = 0;
 current_slot     : s32 = 0;
-pipeline_names   : []string = .["shadowmap", "reflection", "main", "position", "normal", "ssao", "rdm_atlas (chunk)", "rdm_lookup (chunk)"];
+pipeline_names   : []string = .["shadowmap", "reflection", "main", "position", "normal", "ssao", "bloom", "dof", "rdm_atlas (chunk)", "rdm_lookup (chunk)"];
 
 draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *void) {
     r2 := r;
@@ -36,8 +36,10 @@ draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *
         case 3; image = g_gbuf_position;
         case 4; image = g_gbuf_normal;
         case 5; image = g_ssaobuf;
-        case 6; #through;
-        case 7;
+        case 6; image = g_bloom_tex;
+        case 7; image = g_dof_tex;
+        case 8; #through;
+        case 9;
             cw := get_current_world();
             for chunk: cw.world.chunks {
                 if chunk.rdm_valid {

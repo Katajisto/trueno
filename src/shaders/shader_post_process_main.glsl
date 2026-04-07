@@ -20,6 +20,10 @@ layout(binding = 1) uniform texture2D lut;
 layout(binding = 1) uniform sampler lut_linear;
 layout(binding = 2) uniform texture2D bloom_tex;
 layout(binding = 2) uniform sampler bloom_smp;
+layout(binding = 3) uniform texture2D dof_tex;
+layout(binding = 3) uniform sampler dof_smp;
+layout(binding = 4) uniform texture2D pos_buf;
+layout(binding = 4) uniform sampler pos_smp;
 
 layout(binding=0) uniform post_process_config {
     float exposure;
@@ -37,6 +41,14 @@ layout(binding=0) uniform post_process_config {
     int   lut_mode;
     float dither_intensity;
     float bloom_amount;
+};
+
+layout(binding=1) uniform dof_config {
+    float dof_min;
+    float dof_max;
+    float dof_point;
+    float dof_tex_width;
+    float dof_tex_height;
 };
 
 vec3 aces(vec3 x) {
@@ -69,6 +81,35 @@ float bayer8(vec2 pos) {
     return (float(bayer[index]) / 64.0) - 0.5;
 }
 
+vec3 texture_bicubic(texture2D tex, sampler smp, vec2 uv, vec2 tex_size) {
+    vec2 pixel = uv * tex_size - 0.5;
+    vec2 f = fract(pixel);
+    vec2 pixel_floor = (floor(pixel) + 0.5) / tex_size;
+
+    vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    vec2 w3 = f * f * (-0.5 + 0.5 * f);
+
+    vec2 w12 = w1 + w2;
+    vec2 offset0 = -1.0 / tex_size;
+    vec2 offset12 = (w2 / w12) / tex_size;
+    vec2 offset3 = 2.0 / tex_size;
+
+    vec3 result =
+        texture(sampler2D(tex, smp), pixel_floor + vec2(offset0.x, offset0.y)).rgb * w0.x * w0.y +
+        texture(sampler2D(tex, smp), pixel_floor + vec2(offset12.x, offset0.y)).rgb * w12.x * w0.y +
+        texture(sampler2D(tex, smp), pixel_floor + vec2(offset3.x, offset0.y)).rgb * w3.x * w0.y +
+        texture(sampler2D(tex, smp), pixel_floor + vec2(offset0.x, offset12.y)).rgb * w0.x * w12.y +
+        texture(sampler2D(tex, smp), pixel_floor + vec2(offset12.x, offset12.y)).rgb * w12.x * w12.y +
+        texture(sampler2D(tex, smp), pixel_floor + vec2(offset3.x, offset12.y)).rgb * w3.x * w12.y +
+        texture(sampler2D(tex, smp), pixel_floor + vec2(offset0.x, offset3.y)).rgb * w0.x * w3.y +
+        texture(sampler2D(tex, smp), pixel_floor + vec2(offset12.x, offset3.y)).rgb * w12.x * w3.y +
+        texture(sampler2D(tex, smp), pixel_floor + vec2(offset3.x, offset3.y)).rgb * w3.x * w3.y;
+
+    return result;
+}
+
 void main() {
     vec2 distorted_texcoord = texcoord;
     float barrel_dist = length(texcoord - 0.5);
@@ -86,7 +127,12 @@ void main() {
     float r = texture(sampler2D(pptex, ppsmp), distorted_texcoord + vec2(chromatic_aberration_intensity, 0.0)).r;
     float g = texture(sampler2D(pptex, ppsmp), distorted_texcoord).g;
     float b = texture(sampler2D(pptex, ppsmp), distorted_texcoord - vec2(chromatic_aberration_intensity, 0.0)).b;
-    vec3 sampled_color_hdr = vec4(r, g, b, 1.0).rgb;
+
+    vec3 out_focus = texture_bicubic(dof_tex, dof_smp, distorted_texcoord, vec2(dof_tex_width, dof_tex_height)).xyz;
+    vec3 in_focus = vec3(r, g, b);
+    vec4 position = texture(sampler2D(pos_buf, dof_smp), distorted_texcoord);
+    float blur = smoothstep(dof_min, dof_max, abs(position.z + dof_point));
+    vec3 sampled_color_hdr = mix(in_focus, out_focus, blur);
 
     vec3 bloom_color = texture(sampler2D(bloom_tex, bloom_smp), distorted_texcoord).rgb;
     vec3 color_hdr = (sampled_color_hdr + bloom_color * bloom_amount) * exposure;
