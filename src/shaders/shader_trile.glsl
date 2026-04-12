@@ -104,6 +104,7 @@ layout(binding=3) uniform trile_fs_params {
     int   is_preview;
     vec3  rdm_tint;
     float rdm_diff_saturation;
+    int   sh_enabled;
 };
 
 layout(binding = 0) uniform texture2D triletex;
@@ -115,6 +116,7 @@ layout(binding = 2) uniform sampler shadowsmp;
 layout(binding = 3) uniform texture2D rdm_lookup;
 layout(binding = 4) uniform texture2D rdm_atlas;
 layout(binding = 5) uniform texture2D brdf_lut;
+layout(binding = 6) uniform texture2D sh_chunk;
 layout(binding = 3) uniform sampler rdmsmp;
 
 const float PI = 3.1415927;
@@ -308,14 +310,79 @@ vec3 rdm_indirect_diffuse(vec3 N, vec3 diff, ivec3 local_pos) {
         s3 = ivec3(0, isign(delta.y), isign(delta.x));
     }
 
-    vec3 p0 = rdm_sample_diff_probe(N, ivec3(mod(vec3(local_pos),          32.0)), ambient);
-    vec3 p1 = rdm_sample_diff_probe(N, ivec3(mod(vec3(local_pos + s1),     32.0)), ambient);
-    vec3 p2 = rdm_sample_diff_probe(N, ivec3(mod(vec3(local_pos + s2),     32.0)), ambient);
-    vec3 p3 = rdm_sample_diff_probe(N, ivec3(mod(vec3(local_pos + s1 + s2),32.0)), ambient);
+    vec3 p0 = rdm_sample_diff_probe(N, clamp(local_pos,           ivec3(0), ivec3(31)), ambient);
+    vec3 p1 = rdm_sample_diff_probe(N, clamp(local_pos + s1,     ivec3(0), ivec3(31)), ambient);
+    vec3 p2 = rdm_sample_diff_probe(N, clamp(local_pos + s2,     ivec3(0), ivec3(31)), ambient);
+    vec3 p3 = rdm_sample_diff_probe(N, clamp(local_pos + s1 + s2,ivec3(0), ivec3(31)), ambient);
 
     return smix(smix(p0, p1, abs(delta.x)),
                 smix(p2, p3, abs(delta.x)),
                 abs(delta.y));
+}
+
+// ---- SH PROBE GRID ----
+// Each probe stores 27 L2 SH coefficients (9 per RGB channel), packed into
+// 3 RGBA16F texels per probe along the X axis of a 192x4096 2D texture.
+// Row = probe.z * 64 + probe.y, col = probe.x * 3 + k.
+// Texel layout per probe (px,py,pz):
+//   t0: R.c0-3   t1: G.c0-3   t2: B.c0-3
+// Probe index from chunk-local world position p (0..32 range):
+//   ivec3(floor(p * 2.0)) clamped to [0,63]
+// SH evaluation: Lambertian irradiance (L1 only), A0=PI, A1=2PI/3.
+
+vec3 sh_eval(ivec3 probe, vec3 N) {
+    int base = probe.x * 3;
+    int row  = probe.z * 64 + probe.y;
+    vec4 t0 = texelFetch(sampler2D(sh_chunk, rdmsmp), ivec2(base,   row), 0);
+    vec4 t1 = texelFetch(sampler2D(sh_chunk, rdmsmp), ivec2(base+1, row), 0);
+    vec4 t2 = texelFetch(sampler2D(sh_chunk, rdmsmp), ivec2(base+2, row), 0);
+
+    float x = N.x, y = N.y, z = N.z;
+    float r = 0.886227*t0.x + 1.023327*(t0.w*x + t0.y*y + t0.z*z);
+    float g = 0.886227*t1.x + 1.023327*(t1.w*x + t1.y*y + t1.z*z);
+    float b = 0.886227*t2.x + 1.023327*(t2.w*x + t2.y*y + t2.z*z);
+
+    return max(vec3(r, g, b) / PI, vec3(0.0));
+}
+
+// Sum of L0 irradiance across RGB — proxy for total incoming energy.
+// Near-zero means the probe is buried inside solid geometry.
+float sh_probe_energy(ivec3 probe) {
+    int base = probe.x * 3;
+    int row  = probe.z * 64 + probe.y;
+    vec4 t0 = texelFetch(sampler2D(sh_chunk, rdmsmp), ivec2(base,   row), 0);
+    vec4 t1 = texelFetch(sampler2D(sh_chunk, rdmsmp), ivec2(base+1, row), 0);
+    vec4 t2 = texelFetch(sampler2D(sh_chunk, rdmsmp), ivec2(base+2, row), 0);
+    return max(0.886227 * (t0.x + t1.x + t2.x), 0.0);
+}
+
+// Trilinear SH evaluation with confidence weighting.
+// Probes with near-zero energy (buried in geometry) are downweighted
+// so they don't pull the result toward black.
+vec3 sh_eval_trilinear(ivec3 p0, ivec3 p1, vec3 t, vec3 N) {
+    float wx[2] = float[2](1.0 - t.x, t.x);
+    float wy[2] = float[2](1.0 - t.y, t.y);
+    float wz[2] = float[2](1.0 - t.z, t.z);
+
+    vec3  result  = vec3(0.0);
+    float total_w = 0.0;
+
+    for (int iz = 0; iz < 2; iz++) {
+        for (int iy = 0; iy < 2; iy++) {
+            for (int ix = 0; ix < 2; ix++) {
+                ivec3 probe = ivec3(
+                    ix == 0 ? p0.x : p1.x,
+                    iy == 0 ? p0.y : p1.y,
+                    iz == 0 ? p0.z : p1.z
+                );
+                float w = wx[ix] * wy[iy] * wz[iz] * sh_probe_energy(probe);
+                result  += sh_eval(probe, N) * w;
+                total_w += w;
+            }
+        }
+    }
+
+    return total_w > 0.001 ? result / total_w : vec3(0.0);
 }
 
 // ---- HSV ----
@@ -386,7 +453,7 @@ void main() {
         return;
     }
 
-    // Evaluate direct light.
+    // ---- 1. VIEW / LIGHT VECTORS ----
     vec3 V = normalize(cam - vpos);
     vec3 L = normalize(sunPosition);
     vec3 H = normalize(V + L);
@@ -394,82 +461,98 @@ void main() {
     float NdotV = max(dot(N, V), 0.0);
     float HdotV = max(dot(H, V), 0.0);
 
+    // ---- 2. PBR TERMS ----
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 F  = fresnelSchlick(HdotV, F0);
     float NDF = DistributionGGX(N, H, roughness);
     float G   = GeometrySmith(N, V, L, roughness);
+    vec3 kD   = (1.0 - F) * (1.0 - metallic);
 
-    vec3 specular = (NDF * G * F) / (4.0 * NdotV * NdotL + 0.0001);
-    vec3 kD = (1.0 - F) * (1.0 - metallic);
-
-    // Shadow lookup.
+    // ---- 3. DIRECT LIGHT (sun + shadow) ----
     vec4 light_proj = mvp_shadow * vec4(floor(vpos * 16.0) / 16.0, 1.0);
     vec3 light_ndc  = light_proj.xyz / light_proj.w * 0.5 + 0.5;
     light_ndc.z -= 0.001;
     float shadow = texture(sampler2DShadow(shadowtex, shadowsmp), light_ndc);
 
-    vec3 light = shadow * (kD * albedo / PI + specular) * NdotL * sunLightColor * sunIntensity;
+    vec3 direct_specular = (NDF * G * F) / (4.0 * NdotV * NdotL + 0.0001);
+    vec3 light = shadow * (kD * albedo / PI + direct_specular) * NdotL * sunLightColor * sunIntensity;
 
-    // --- Indirect lighting ---
-    ivec3 local = ivec3(mod(floor(trileCenter), 32.0));
+    // ---- 4. INDIRECT LIGHT (RDM / SH / ambient fallback) ----
+    ivec3 local     = ivec3(mod(floor(trileCenter), 32.0));
     vec4 atlas_rect = rdm_atlas_rect(local, roughnessInt);
-    float ssao = texture(sampler2D(ssaotex, rdmsmp),
-                         gl_FragCoord.xy / vec2(float(screen_w), float(screen_h))).r;
+    float ssao      = texture(sampler2D(ssaotex, rdmsmp),
+                              gl_FragCoord.xy / vec2(float(screen_w), float(screen_h))).r;
+    vec3 emissive   = albedo * emittance * emissive_scale;
 
-    vec3 emissive = albedo * emittance * emissive_scale;
-
-    if (rdm_enabled == 1 && atlas_rect.z > 0.0) {
-        vec3 Frough = FresnelSchlickRoughness(NdotV, F0, roughness);
+    if (rdm_enabled == 1) {
+        vec3 Frough        = FresnelSchlickRoughness(NdotV, F0, roughness);
         vec3 hemispherePos = trileCenter + N * 0.49;
-        vec3 diff = vpos - hemispherePos;
+        vec3 diff          = vpos - hemispherePos;
 
-        // Indirect specular
-        if (roughness < ROUGHNESS_SPEC_CUTOFF) {
+        // 4a. Indirect specular.
+        //     roughnessInt 0-1 with a baked RDM: ray-march or single-sample into the atlas.
+        //     roughnessInt 2+ without RDM data: sky reflection.
+        //     roughnessInt > ROUGHNESS_SPEC_CUTOFF: skip specular entirely.
+        if (roughnessInt <= 1 && atlas_rect.z > 0.0) {
             int face = rdm_face_from_normal(N);
-            ivec2 atlasSize = textureSize(sampler2D(rdm_atlas, rdmsmp), 0);
-            vec2 atlasInvSize = 1.0 / vec2(atlasSize);
-            int rdmSize = int(atlas_rect.z * float(atlasSize.x)) / 2;
-            ivec2 fOff = rdm_face_offset(atlas_rect, face, rdmSize, atlasSize);
+            ivec2 atlasSize   = textureSize(sampler2D(rdm_atlas, rdmsmp), 0);
+            vec2  atlasInvSz  = 1.0 / vec2(atlasSize);
+            int   rdmSize     = int(atlas_rect.z * float(atlasSize.x)) / 2;
+            ivec2 fOff        = rdm_face_offset(atlas_rect, face, rdmSize, atlasSize);
 
-            vec3 indirectSpec;
-            if (roughness < ROUGHNESS_RAYMARCH_MAX) {
-                indirectSpec = rdm_spec_raymarch(N, -cv, diff, face, fOff, rdmSize, atlasInvSize);
-            } else {
-                indirectSpec = rdm_spec_single(N, -cv, diff, face, fOff, rdmSize, atlasInvSize);
-            }
+            vec3 indirectSpec = roughness < ROUGHNESS_RAYMARCH_MAX
+                ? rdm_spec_raymarch(N, -cv, diff, face, fOff, rdmSize, atlasInvSz)
+                : rdm_spec_single (N, -cv, diff, face, fOff, rdmSize, atlasInvSz);
             indirectSpec *= rdm_tint;
 
-            // Desaturate for metals to avoid double-tinting
             float specLum = dot(indirectSpec, vec3(0.2126, 0.7152, 0.0722));
-            indirectSpec = mix(indirectSpec, vec3(specLum), metallic);
+            indirectSpec  = mix(indirectSpec, vec3(specLum), metallic);
 
-            vec2 envBRDF = texture(sampler2D(brdf_lut, rdmsmp), vec2(NdotV, roughness)).rg;
-            float roughnessBell    = 1.0 - 0.7 * sin(roughness * PI);
-            float grazingSuppress  = 1.0 - 0.9 * roughness * sin(roughness * PI) * pow(1.0 - NdotV, 2.0);
-            float specRoughFade   = 1.0 - clamp((roughness - 0.5) / 0.3, 0.0, 1.0);
+            vec2  envBRDF       = texture(sampler2D(brdf_lut, rdmsmp), vec2(NdotV, roughness)).rg;
+            float roughnessBell = 1.0 - 0.7 * sin(roughness * PI);
+            float grazingSuppr  = 1.0 - 0.9 * roughness * sin(roughness * PI) * pow(1.0 - NdotV, 2.0);
+            float specRoughFade = 1.0 - clamp((roughness - 0.5) / 0.3, 0.0, 1.0);
 
             light += indirectSpec * (Frough * envBRDF.x + envBRDF.y)
-                   * rdm_spec_scale * roughnessBell * grazingSuppress * specRoughFade;
+                   * rdm_spec_scale * roughnessBell * grazingSuppr * specRoughFade;
+        } else if (roughness < ROUGHNESS_SPEC_CUTOFF) {
+            vec3  R           = reflect(-V, N);
+            vec2  envBRDF     = texture(sampler2D(brdf_lut, rdmsmp), vec2(NdotV, roughness)).rg;
+            float specRoughFd = 1.0 - clamp((roughness - 0.5) / 0.3, 0.0, 1.0);
+            light += sky_reflect(R, sunPosition) * (Frough * envBRDF.x + envBRDF.y)
+                   * rdm_spec_scale * specRoughFd;
         }
 
-        // Indirect diffuse
-        vec3 indirectDiff = rdm_indirect_diffuse(N, diff, local) * rdm_tint;
+        // 4b. Indirect diffuse.
+        //     SH probe grid when available (trilinear, confidence-weighted).
+        //     Falls back to RDM level-7 diffuse probes.
+        vec3 indirectDiff;
+        if (sh_enabled == 1) {
+            vec3  trile_origin = floor(trileCenter);
+            vec3  local_frag   = vec3(local) + (vpos - trile_origin);
+            vec3  probe_f      = clamp(local_frag * 2.0, vec3(0.0), vec3(63.0));
+            ivec3 p0 = ivec3(floor(probe_f));
+            ivec3 p1 = min(p0 + ivec3(1), ivec3(63));
+            indirectDiff = sh_eval_trilinear(p0, p1, fract(probe_f), N) * rdm_tint;
+        } else {
+            indirectDiff = rdm_indirect_diffuse(N, diff, local) * rdm_tint;
+        }
         float diffLuma = dot(indirectDiff, vec3(0.2126, 0.7152, 0.0722));
-        indirectDiff = mix(vec3(diffLuma), indirectDiff, rdm_diff_saturation);
-        vec3 kDiff = (1.0 - Frough) * (1.0 - metallic);
+        indirectDiff   = mix(vec3(diffLuma), indirectDiff, rdm_diff_saturation);
 
-        light += kDiff * indirectDiff / PI * albedo * ssao * rdm_diff_scale;
+        light += (1.0 - Frough) * (1.0 - metallic) * indirectDiff / PI * albedo * ssao * rdm_diff_scale;
 
-        // Ambient floor
+        // 4c. Ambient floor — kicks in when indirect light is below the configured minimum.
         if (rdm_diff_scale < 0.001 || length(light) < ambient_intensity)
             light += ambient_color * max(ambient_intensity - length(light), 0.0) * albedo * ssao;
 
     } else {
+        // No baked data: flat ambient + sky specular.
         light += ambient_color * ambient_intensity * albedo * ssao;
-        vec3 R = reflect(-V, N);
-        light += F * sky_reflect(R, sunPosition) * 0.1;
+        light += F * sky_reflect(reflect(-V, N), sunPosition) * 0.1;
     }
 
+    // ---- 5. FINAL COMPOSITE ----
     vec3 final_color = light + emissive;
     frag_color = vec4(mix(deepColor, final_color, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
 

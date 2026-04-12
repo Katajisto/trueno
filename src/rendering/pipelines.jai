@@ -10,6 +10,7 @@ Pipeline_Binding :: struct {
 g_specular_lut  : sg_image;
 g_brdf_lut      : sg_image;
 g_rdm_fallback  : sg_image; // 1x1 black image used when a chunk has no baked RDM data
+g_sh_fallback   : sg_image; // 1x1 black 2D image used when a chunk has no SH probe grid
 
 g_shadowmap             : sg_image;
 g_shadowmap_img         : sg_image;
@@ -1286,6 +1287,18 @@ init_brdf_lut :: () {
             data = imgdata,
         };
         g_rdm_fallback = sg_make_image(*desc);
+
+        // 1x1 RGBA16F 2D texture — fallback when a chunk has no SH probe grid.
+        zero_sh : [4]u16 = .[0, 0, 0, 0];
+        sh_imgdata : sg_image_data;
+        sh_imgdata.subimage[0][0] = .{ zero_sh.data, size_of(type_of(zero_sh)) };
+        sh_desc := sg_image_desc.{
+            width        = 1,
+            height       = 1,
+            pixel_format = .RGBA16F,
+            data         = sh_imgdata,
+        };
+        g_sh_fallback = sg_make_image(*sh_desc);
     }
 }
 

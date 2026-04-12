@@ -264,11 +264,22 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 			}
 		}
 		r.y += r.h;
+		if GR.button(r, "Bake all chunk SH grids", *t_button_selectable(theme, !sh_bake.active)) {
+			if curworld.valid && !sh_bake.active  sh_bake_start(tacomaSamples);
+		}
+		r.y += r.h;
 		if rdm_bake.active {
 			total := cast(s32) rdm_bake.jobs.count;
 			done  := rdm_bake.current_job;
 			pct   := ifx total > 0 then done * 100 / total else 0;
 			GR.label(r, tprint("Baking RDMs: %/% (\%%)", done, total, pct), *t_label_left(theme));
+			r.y += r.h;
+		}
+		if sh_bake.active {
+			total := cast(s32) sh_bake.chunk_keys.count;
+			done  := sh_bake.current_chunk;
+			pct   := ifx total > 0 then done * 100 / total else 0;
+			GR.label(r, tprint("Baking SH grids: %/% (\%%)", done, total, pct), *t_label_left(theme));
 			r.y += r.h;
 		}
 		if current_screenshot.valid {
@@ -303,6 +314,14 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	    GR.label(r, "Saturation", *t_label_left(theme));
 	    r.y += r.h;
 	    GR.slider(r, *tacomaSaturation, 0.5, 3.0, 0.1, *theme.slider_theme);
+		r.y += r.h;
+		GR.label(r, tprint("Sky Scale (bake): %", formatFloat(bake_sky_scale, trailing_width=2)), *t_label_left(theme));
+		r.y += r.h;
+		GR.slider(r, *bake_sky_scale, 0.0, 5.0, 0.05, *theme.slider_theme);
+		r.y += r.h;
+		GR.label(r, tprint("Sky Desaturation (bake): %", formatFloat(bake_sky_desaturation, trailing_width=2)), *t_label_left(theme));
+		r.y += r.h;
+		GR.slider(r, *bake_sky_desaturation, 0.0, 1.0, 0.05, *theme.slider_theme);
 		r.y += r.h;
 
 		
@@ -517,7 +536,7 @@ editor_edit_y :: () -> float {
 }
 
 tick_level_editor :: () {
-	#if FLAG_TACOMA_ENABLED { rdm_bake_tick(); }
+	#if FLAG_TACOMA_ENABLED { rdm_bake_tick(); sh_bake_tick(); }
 	tick_level_editor_camera();
 	tick_particles(cast(float)delta_time);
 

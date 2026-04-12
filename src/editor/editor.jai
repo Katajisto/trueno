@@ -80,8 +80,6 @@ draw_editor :: () {
     #if OS != .WASM {
         if !in_editor_view then return;
 
-        bypass_postprocess = (current_editor_view == .Trile_Editor);
-
         if current_editor_view == {
             case .Trile_Editor;
                 draw_trile_editor();
@@ -97,7 +95,6 @@ tick_editor_ui :: () {
     if is_action_start(Editor_Action.TOGGLE_EDITOR) {
         in_editor_view = !in_editor_view;
         g_mixer.paused = in_editor_view;
-        if !in_editor_view then bypass_postprocess = false;
         clear_particles();
     }
 

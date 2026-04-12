@@ -58,7 +58,7 @@ create_shadow_viewproj :: (cam: *Camera, conf: *World_Config) -> Matrix4 {
 		B.z, C.z, A.z, 0,
 		-dot(B, sunCameraPosition), -dot(C, sunCameraPosition), -dot(A, sunCameraPosition), 1
 	};
-    proj := matrix_ortho(-15, 15, -15, 15, 0, 100);
+    proj := matrix_ortho(-60, 60, -60, 60, 0, 100);
     return view*proj;
 }
 

@@ -27,6 +27,7 @@ Fetch_Type :: enum {
     WORLD_CHUNKS;
     RDM_ATLAS;
     RDM_LOOKUP;
+    SHGRID;
 }
 
 Fetch_Request :: struct {
@@ -63,6 +64,7 @@ g_asset_manager : Asset_Manager;
 #scope_file
 
 #load "rdm_loader.jai";
+#load "sh_loader.jai";
 
 fetch_callback :: (res: *sfetch_response_t) #c_call {
     push_context,defer_pop default_context;
@@ -139,6 +141,9 @@ handle_fetch_failed :: (req: *Fetch_Request) {
         if req.rdm_pending_atlas.id != 0 then sg_destroy_image(req.rdm_pending_atlas);
         log_error("RDM: failed to load lookup for chunk %", req.chunk_key);
 
+    case .SHGRID;
+        sh_loader_handle_failed(req);
+
     }
 }
 
@@ -178,6 +183,7 @@ process_completed_fetch :: (req: *Fetch_Request, data: []u8) {
             if ok {
                 set_loaded_world(world);
                 rdm_loader_enqueue_world(*get_current_world().world);
+                shgrid_loader_enqueue_world(*get_current_world().world);
                 log_info("Loaded world (legacy): %", req.world_name);
             } else {
                 log_error("Failed to parse world '%'", req.world_name);
@@ -196,6 +202,7 @@ process_completed_fetch :: (req: *Fetch_Request, data: []u8) {
         if ok {
             set_loaded_world(world);
             rdm_loader_enqueue_world(*get_current_world().world);
+            shgrid_loader_enqueue_world(*get_current_world().world);
             log_info("Loaded world: %", req.world_name);
         } else {
             log_error("Failed to parse world '%'", req.world_name);
@@ -289,6 +296,9 @@ process_completed_fetch :: (req: *Fetch_Request, data: []u8) {
         } else {
             sg_destroy_image(req.rdm_pending_atlas);
         }
+
+    case .SHGRID;
+        sh_loader_handle_completed(req, data);
 
     }
 }

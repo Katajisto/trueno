@@ -63,6 +63,16 @@ RDM_Bake_State :: struct {
 
 rdm_bake : RDM_Bake_State;
 
+SH_Bake_State :: struct {
+    active        : bool;
+    quality       : s32;
+    include_water : bool;
+    chunk_keys    : [..]Chunk_Key;
+    current_chunk : s32;
+}
+
+sh_bake : SH_Bake_State;
+
 rdm_job_size :: (job: RDM_Bake_Job) -> s32 {
     if job.size_override > 0 then return job.size_override;
     return g_rdm_default_sizes[job.roughness];
@@ -221,20 +231,9 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
         }
     }
 
-    sky : Tacoma.Sky_Config;
-    sky.skyBase = world.conf.skyBase;
-    sky.skyTop = world.conf.skyTop;
-    sky.sunDisk = world.conf.sunDisk;
-    sky.horizonHalo = world.conf.horizonHalo;
-    sky.sunHalo = world.conf.sunHalo;
-    sky.sunLightColor = world.conf.sunLightColor;
-    sky.sunPosition = world.conf.sunPosition;
-    sky.sunIntensity = world.conf.sunIntensity;
-    sky.skyIntensity = world.conf.skyIntensity;
-
-    blases : Tacoma.Trile_Set = .{trile_list.data, cast(s32)trile_list.count};
-    tlas : Tacoma.World = .{world_triles.data, cast(s32)world_triles.count};
-
+    sky    : Tacoma.Sky_Config = world_to_sky_config(world);
+    blases : Tacoma.Trile_Set  = .{trile_list.data,   cast(s32) trile_list.count};
+    tlas   : Tacoma.World      = .{world_triles.data, cast(s32) world_triles.count};
     ctx = Tacoma.tacoma_init("./modules/Tacoma/");
     Tacoma.tacoma_load_scene(ctx, sky, blases, tlas, cast(s32) include_water);
 
@@ -493,72 +492,64 @@ rdm_cleanup_chunk_bakes :: () {
     rdm_chunk_bakes = .{};
 }
 
-tacoma_start :: (world: World, include_water: bool) {
-    // Trile BLASes.
-    trile_list : [..]Tacoma.Trile_Data;
-    trile_list.allocator = temp;
-    // BLAS instances to create TLAS.
-    world_triles : [..]Tacoma.World_Trile;
-    world_triles.allocator = temp;
+bake_sky_scale       : float = 1.0;
+bake_sky_desaturation : float = 0.0;
 
-    // Build trile type list and gather world positions from chunks.
-    trile_name_to_index: Table(string, s32);
-    trile_name_to_index.allocator = temp;
+world_to_sky_config :: (world: World) -> Tacoma.Sky_Config {
+    sky : Tacoma.Sky_Config;
+    sky.skyBase          = world.conf.skyBase;
+    sky.skyTop           = world.conf.skyTop;
+    sky.sunDisk          = world.conf.sunDisk;
+    sky.horizonHalo      = world.conf.horizonHalo;
+    sky.sunHalo          = world.conf.sunHalo;
+    sky.sunLightColor    = world.conf.sunLightColor;
+    sky.sunPosition      = world.conf.sunPosition;
+    sky.sunIntensity     = world.conf.sunIntensity;
+    sky.skyIntensity     = world.conf.skyIntensity * bake_sky_scale;
+    sky.skyDesaturation  = bake_sky_desaturation;
+    return sky;
+}
+
+// Build trile BLASes + world TLAS from a world, then initialize ctx.
+tacoma_init_scene :: (world: World, include_water: bool) {
+    trile_list          : [..]Tacoma.Trile_Data;  trile_list.allocator          = temp;
+    world_triles        : [..]Tacoma.World_Trile; world_triles.allocator        = temp;
+    trile_name_to_index : Table(string, s32);     trile_name_to_index.allocator = temp;
 
     for chunk: world.chunks {
         for group: chunk.groups {
-            // Ensure this trile type is in the list.
             success, idx := table_find(*trile_name_to_index, group.trile_name);
             if !success {
-                trile := get_trile(group.trile_name);
+                trile, trile_ok := get_trile(group.trile_name);
+                if !trile_ok  continue;
                 ttrile : Tacoma.Trile_Data;
-                for x: 0..15 {
-                    for y: 0..15 {
-                        for z: 0..15 {
-                            ttrile.trixels[x][y][z] = .{
-                                trile.trixels[x][y][z].empty,
-                                trile.trixels[x][y][z].material.color,
-                                material_encode_to_float(trile.trixels[x][y][z].material)
-                            };
-                        }
-                    }
+                for x: 0..15  for y: 0..15  for z: 0..15 {
+                    ttrile.trixels[x][y][z] = .{
+                        trile.trixels[x][y][z].empty,
+                        trile.trixels[x][y][z].material.color,
+                        material_encode_to_float(trile.trixels[x][y][z].material)
+                    };
                 }
                 gfx := get_trile_gfx(group.trile_name);
-                ttrile.vertices = gfx.vertices.data;
-                ttrile.vertexCount = cast(s32) (gfx.vertices.count / 3);
+                ttrile.vertices    = gfx.vertices.data;
+                ttrile.vertexCount = cast(s32)(gfx.vertices.count / 3);
                 idx = cast(s32) trile_list.count;
                 array_add(*trile_list, ttrile);
                 table_set(*trile_name_to_index, group.trile_name, idx);
             }
-
             for inst: group.instances {
                 wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
-                array_add(*world_triles, Tacoma.World_Trile.{idx, Vector3.{cast(float) wx, cast(float) wy, cast(float) wz}, cast(s32) inst.orientation});
+                array_add(*world_triles, Tacoma.World_Trile.{idx,
+                    Vector3.{cast(float) wx, cast(float) wy, cast(float) wz},
+                    cast(s32) inst.orientation});
             }
         }
     }
 
-    sky : Tacoma.Sky_Config;
-
-    sky.skyBase = world.conf.skyBase;
-    sky.skyTop = world.conf.skyTop;
-    sky.sunDisk = world.conf.sunDisk;
-    sky.horizonHalo = world.conf.horizonHalo;
-    sky.sunHalo = world.conf.sunHalo;
-    sky.sunLightColor = world.conf.sunLightColor;
-    sky.sunPosition = world.conf.sunPosition;
-    sky.sunIntensity = world.conf.sunIntensity;
-    sky.skyIntensity = world.conf.skyIntensity;
-
-    blases : Tacoma.Trile_Set = .{trile_list.data, cast(s32)trile_list.count};
-    for world_triles {
-        log_debug("World trile %", it);
-    }
-    tlas : Tacoma.World = .{world_triles.data, cast(s32)world_triles.count};
-
+    sky    : Tacoma.Sky_Config = world_to_sky_config(world);
+    blases : Tacoma.Trile_Set  = .{trile_list.data,   cast(s32) trile_list.count};
+    tlas   : Tacoma.World      = .{world_triles.data, cast(s32) world_triles.count};
     ctx = Tacoma.tacoma_init("./modules/Tacoma/");
-    log_debug("CTX: %", ctx);
-
     Tacoma.tacoma_load_scene(ctx, sky, blases, tlas, cast(s32) include_water);
 }
 
@@ -607,18 +598,124 @@ tacoma_handle_result :: (ptr: *float, w: s32, h: s32) {
 }
 
 gen_reference :: (w: s32, h: s32, eye: Vector3, target: Vector3, quality: s32, include_water: bool, world: World) {
-    tacoma_start(world, include_water);
+    tacoma_init_scene(world, include_water);
     ptr := Tacoma.tacoma_render_reference(ctx, w, h, eye, target, 0.01, quality);
     tacoma_handle_result(ptr, w, h);
     tacoma_stop();
 }
 
 gen_rdm :: (quality: s32, include_water: bool, world: World) {
-    tacoma_start(world, include_water);
+    tacoma_init_scene(world, include_water);
     size := g_rdm_default_sizes[0];
     ptr  := Tacoma.tacoma_render_rdm(ctx, 0, 0, quality, size);
     tacoma_handle_result(ptr, 2 * size, 3 * size);
     tacoma_stop();
+}
+
+sh_bake_start :: (quality: s32 = 50, include_water: bool = false) {
+    if sh_bake.active then return;
+    curworld := get_current_world();
+    if !curworld.valid { log_warn("sh_bake_start: no world loaded"); return; }
+
+    world := *curworld.world;
+    for _, key: world.chunks  array_add(*sh_bake.chunk_keys, key);
+
+    if sh_bake.chunk_keys.count == 0 then return;
+
+    tacoma_init_scene(world.*, include_water);
+    sh_bake.active        = true;
+    sh_bake.quality       = quality;
+    sh_bake.include_water = include_water;
+    sh_bake.current_chunk = 0;
+} @Command
+
+sh_bake_tick :: () {
+    if !sh_bake.active then return;
+    if sh_bake.current_chunk >= cast(s32) sh_bake.chunk_keys.count {
+        sh_bake_finish();
+        return;
+    }
+
+    curworld := get_current_world();
+    if !curworld.valid { sh_bake_finish(); return; }
+
+    n     :: SH_PROBE_N;
+    tex_w :: SH_TEX_W;
+
+    chunk_key := sh_bake.chunk_keys[sh_bake.current_chunk];
+    chunk := table_find_pointer(*curworld.world.chunks, chunk_key);
+    sh_bake.current_chunk += 1;
+    if chunk == null then return;
+
+    ox, oy, oz := chunk_local_to_world(chunk_key, 0, 0, 0);
+    ptr := Tacoma.tacoma_render_sh_chunk(ctx,
+        cast(float) ox, cast(float) oy, cast(float) oz,
+        n, 0.5, sh_bake.quality);
+
+    tex_halfs :: tex_w * n * n * 4;
+    packed : *u16 = cast(*u16) alloc(tex_halfs * size_of(u16));
+    defer free(packed);
+
+    src := ptr;
+    for pz: 0..n-1  for py: 0..n-1  for px: 0..n-1 {
+        probe_idx := px + py * n + pz * n * n;
+        s := src + probe_idx * 12;
+        for k: 0..2 {
+            tex_idx := (pz * n + py) * tex_w + (px * 3 + k);
+            d := packed + tex_idx * 4;
+            for ch: 0..3 {
+                (d + ch).* = f32_to_f16((s + k * 4 + ch).*);
+            }
+        }
+    }
+
+    tex_byte_size := cast(u64)(tex_halfs * size_of(u16));
+    imgdata : sg_image_data;
+    imgdata.subimage[0][0] = .{packed, tex_byte_size};
+    sh_desc : sg_image_desc = .{
+        width        = tex_w,
+        height       = n * n,
+        pixel_format = sg_pixel_format.RGBA16F,
+        sample_count = 1,
+        data         = imgdata,
+    };
+
+    if chunk.sh_valid  sg_destroy_image(chunk.sh_probe_grid);
+    chunk.sh_probe_grid = sg_make_image(*sh_desc);
+    chunk.sh_valid  = true;
+    chunk.sh_dirty  = false;
+
+    #if OS != .WASM {
+        shgrid_save_to_disk(curworld.world.name, chunk_key, ptr, n);
+    }
+
+    Tacoma.tacoma_free_result(ptr);
+    log_info("SH baked chunk % (%/%)", chunk_key, sh_bake.current_chunk, sh_bake.chunk_keys.count);
+}
+
+sh_bake_finish :: () {
+    tacoma_stop();
+    array_free(sh_bake.chunk_keys);
+    sh_bake = .{};
+    log_info("SH bake complete.");
+}
+
+shgrid_save_to_disk :: (world_name: string, chunk_key: Chunk_Key, data: *float, probe_n: s32) {
+    #if OS != .WASM {
+        file :: #import "File";
+        path := shgrid_filename(world_name, chunk_key);
+
+        builder : String_Builder;
+        header := SH_Grid_File_Header.{
+            magic   = SH_FILE_MAGIC,
+            version = 1,
+            probe_n = probe_n,
+        };
+        write_bytes(*builder, *header, size_of(SH_Grid_File_Header));
+        total_floats := cast(s64) probe_n * probe_n * probe_n * 12;
+        write_bytes(*builder, data, total_floats * size_of(float));
+        file.write_entire_file(path, builder_to_string(*builder));
+    }
 }
 
 // --- RDM disk persistence ---

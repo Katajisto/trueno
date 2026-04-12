@@ -58,6 +58,10 @@ Chunk :: struct {
     rdm_dirty:      bool;
     rdm_atlas_path:  string;
     rdm_lookup_path: string;
+
+    sh_probe_grid:  sg_image;  // 192x4096 RGBA16F 2D texture (2 probes/trile/axis)
+    sh_valid:       bool;
+    sh_dirty:       bool;
     #if !FLAG_RELEASE_BUILD {
         rdm_lookup_cpu: []float;
         rdm_lookup_w:   s32;
@@ -707,8 +711,8 @@ World_Config :: struct {
     sunHalo       : Vector3 = .{1.0, 1.0, 1.0}; @Color
     sunLightColor : Vector3 = .{1.0, 1.0, 1.0}; @Color
     sunPosition   : Vector3 = #run normalize(Vector3.{0.2, 0.3, 0.4});
-    sunIntensity  : float = 2.0; @Slider,0,100,0.5
-    skyIntensity  : float = 1.0; @Slider,0,10,0.5
+    sunIntensity  : float = 1.0; @Slider,0,4,0.1
+    skyIntensity  : float = 0.3; @Slider,0,5,0.1
 
     hasClouds     : s32 = 1; @Slider,0,1,1
 

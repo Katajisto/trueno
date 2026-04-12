@@ -124,15 +124,16 @@ void main() {
         }
     }
 
-    float r = texture(sampler2D(pptex, ppsmp), distorted_texcoord + vec2(chromatic_aberration_intensity, 0.0)).r;
-    float g = texture(sampler2D(pptex, ppsmp), distorted_texcoord).g;
-    float b = texture(sampler2D(pptex, ppsmp), distorted_texcoord - vec2(chromatic_aberration_intensity, 0.0)).b;
+    vec3 sampled_color_hdr;
+    if(chromatic_aberration_intensity > 0.01) {
+        float r = texture(sampler2D(pptex, ppsmp), distorted_texcoord + vec2(chromatic_aberration_intensity, 0.0)).r;
+        float g = texture(sampler2D(pptex, ppsmp), distorted_texcoord).g;
+        float b = texture(sampler2D(pptex, ppsmp), distorted_texcoord - vec2(chromatic_aberration_intensity, 0.0)).b;
+        sampled_color_hdr = vec3(r,g,b + dof_min * 0.00000000000001);
+    } else {
+        sampled_color_hdr = texture(sampler2D(pptex, ppsmp), distorted_texcoord).rgb;
+    }
 
-    vec3 out_focus = texture_bicubic(dof_tex, dof_smp, distorted_texcoord, vec2(dof_tex_width, dof_tex_height)).xyz;
-    vec3 in_focus = vec3(r, g, b);
-    vec4 position = texture(sampler2D(pos_buf, dof_smp), distorted_texcoord);
-    float blur = smoothstep(dof_min, dof_max, abs(position.z + dof_point));
-    vec3 sampled_color_hdr = mix(in_focus, out_focus, blur);
 
     vec3 bloom_color = texture(sampler2D(bloom_tex, bloom_smp), distorted_texcoord).rgb;
     vec3 color_hdr = (sampled_color_hdr + bloom_color * bloom_amount) * exposure;

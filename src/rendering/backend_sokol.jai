@@ -221,15 +221,20 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     // The shader gates all RDM sampling on atlas_rect.z > 0, which the
     // fallback texture returns as 0, so the ambient fallback path is taken.
     curworld := get_current_world();
-    rdm_chunk := table_find_pointer(*curworld.world.chunks, chunk_key);
-    if rdm_chunk != null && rdm_chunk.rdm_valid {
-        bindings.images[3] = rdm_chunk.rdm_lookup;
-        bindings.images[4] = rdm_chunk.rdm_atlas;
+    chunk := table_find_pointer(*curworld.world.chunks, chunk_key);
+    if chunk != null && chunk.rdm_valid {
+        bindings.images[3] = chunk.rdm_lookup;
+        bindings.images[4] = chunk.rdm_atlas;
     } else {
         bindings.images[3] = g_rdm_fallback;
         bindings.images[4] = g_rdm_fallback;
     }
     bindings.images[5] = g_brdf_lut;
+    if chunk != null && chunk.sh_valid {
+        bindings.images[6] = chunk.sh_probe_grid;
+    } else {
+        bindings.images[6] = g_sh_fallback;
+    }
     bindings.samplers[3] = gPipelines.trile.bind.samplers[3];
 
     fs_params : Trile_Fs_Params;
@@ -248,6 +253,7 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params.is_preview        = preview_mode;
     fs_params.rdm_tint               = lc.rdm_tint.component;
     fs_params.rdm_diff_saturation    = worldConf.rdmDiffSaturation;
+    fs_params.sh_enabled             = ifx (chunk != null && chunk.sh_valid && !in_reflection_pass) then cast(s32)1 else cast(s32)0;
 
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
