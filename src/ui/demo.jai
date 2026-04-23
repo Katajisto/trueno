@@ -17,15 +17,15 @@ demo_toggle_float :: (val: *float, saved: *float, default: float) {
 draw_demo_ui :: (theme: *GR.Overall_Theme) {
     r := GR.get_rect(ui_w(86,0), ui_h(1,0), ui_w(13,0), ui_h(3,0));
 
-    rdm_diff_on := current_lighting_config.rdm_diff_scale > 0;
-    if GR.button(r, ifx rdm_diff_on then "RDM Diffuse: ON" else "RDM Diffuse: OFF") {
-        demo_toggle_float(*current_lighting_config.rdm_diff_scale, *demo_saved_rdm_diff, 1.0);
+    diff_on := current_lighting_config.indirect_diff_scale > 0;
+    if GR.button(r, ifx diff_on then "Indirect Diffuse: ON" else "Indirect Diffuse: OFF") {
+        demo_toggle_float(*current_lighting_config.indirect_diff_scale, *demo_saved_rdm_diff, 1.0);
     }
     r.y += r.h * 1.3;
 
-    rdm_spec_on := current_lighting_config.rdm_spec_scale > 0;
-    if GR.button(r, ifx rdm_spec_on then "RDM Specular: ON" else "RDM Specular: OFF") {
-        demo_toggle_float(*current_lighting_config.rdm_spec_scale, *demo_saved_rdm_spec, 1.0);
+    spec_on := current_lighting_config.indirect_spec_scale > 0;
+    if GR.button(r, ifx spec_on then "Indirect Specular: ON" else "Indirect Specular: OFF") {
+        demo_toggle_float(*current_lighting_config.indirect_spec_scale, *demo_saved_rdm_spec, 1.0);
     }
     r.y += r.h * 1.3;
 

@@ -45,10 +45,18 @@ Blob :: struct {
 g_settings : Settings_State;
 g_settings_config : Settings_Menu_Config;
 
-MAIN_ITEMS     :: string.["Resume", "Settings", "Exit"];
+#if OS == .WASM {
+    MAIN_ITEMS :: string.["Resume", "Settings"];
+} else {
+    MAIN_ITEMS :: string.["Resume", "Settings", "Exit"];
+}
 SETTINGS_ITEMS :: string.["Audio", "Graphics"];
 AUDIO_LABELS   :: string.["Master Volume", "Music Volume", "Sound Effects"];
-GRAPHICS_ITEMS :: string.["Fullscreen"];
+#if OS == .WASM {
+    GRAPHICS_ITEMS :: string.[];
+} else {
+    GRAPHICS_ITEMS :: string.["Fullscreen"];
+}
 
 page_items :: () -> []string {
     if g_settings.page == .MAIN      return MAIN_ITEMS;
@@ -223,7 +231,7 @@ handle_enter :: (index: s32 = -1) {
             if i == 0 then navigate_to(.AUDIO);
             if i == 1 then navigate_to(.GRAPHICS);
         case .GRAPHICS;
-            if i == 0 then sapp_toggle_fullscreen();
+            #if OS != .WASM { if i == 0 then sapp_toggle_fullscreen(); }
     }
 }
 
@@ -422,8 +430,10 @@ draw_settings_menu :: () {
             bt.label_theme.alignment = GR.Text_Alignment.Center;
 
             label := items[i];
-            if g_settings.page == .GRAPHICS && i == 0
-                label = tprint("Fullscreen: %", ifx sapp_is_fullscreen() then "On" else "Off");
+            #if OS != .WASM {
+                if g_settings.page == .GRAPHICS && i == 0
+                    label = tprint("Fullscreen: %", ifx sapp_is_fullscreen() then "On" else "Off");
+            }
 
             pressed, _, _ := GR.button(r, label, *bt, identifier = cast(s64)i);
             if pressed then handle_enter(cast(s32)i);

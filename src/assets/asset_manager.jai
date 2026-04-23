@@ -6,57 +6,60 @@ Pool :: #import "Pool";
 
 #load "loaders.jai";
 
-MAIN_CHUNK_BUFFER_SIZE : s64 : 256 * 1024;
-RDM_CHUNK_BUFFER_SIZE  : s64 : 64 * 1024 * 1024;
+// MAX_PACK_SIZE, MAX_WORLD_SIZE, MAX_CHUNKS_SIZE, MAX_SHGRID_SIZE,
+// MAX_RDM_ATLAS_SIZE, MAX_RDM_MANIFEST_SIZE are injected as build strings
+// by first.jai after scanning the actual asset files at compile time.
 
-Active_Fetch :: struct {
-    occupied    : bool;
-    req         : Fetch_Request;
-    accumulated : [..]u8;
-    chunk_buf   : []u8;
-}
+MAX_FETCH_SLOTS :: 16;
 
 #scope_export
 
-CHANNEL_MAIN : u32 : 0;
-CHANNEL_RDM  : u32 : 1;
+// Replaces the old should_block / should_block_engine bool pair.
+Load_Priority :: enum u8 {
+    BLOCK_ENGINE;    // must finish before the first game frame
+    LOADING_SCREEN;  // show loading screen while pending
+    BACKGROUND;      // stream silently; game runs normally
+}
 
 Fetch_Type :: enum {
     PACK;
     WORLD;
     WORLD_CHUNKS;
     RDM_ATLAS;
-    RDM_LOOKUP;
+    RDM_MANIFEST;
     SHGRID;
 }
 
 Fetch_Request :: struct {
-    type                : Fetch_Type;
-    path                : string;
-    
-    // Pack
-    pack_name           : string;
-    should_block        : bool;
-    should_block_engine : bool;
-    
-    // World / RDM
-    world_name          : string;
-    chunk_key           : Chunk_Key;
-    
-    // Atlas GPU image held between RDM_ATLAS and its paired RDM_LOOKUP fetch.
-    rdm_pending_atlas   : sg_image;
+    type              : Fetch_Type;
+    path              : string;
+    priority          : Load_Priority;
 
-    // Copy of world.json carried between WORLD and WORLD_CHUNKS fetches.
-    world_json_data     : []u8;
+    // PACK
+    pack_name         : string;
+
+    // WORLD / RDM / SH
+    world_name        : string;
+    chunk_key         : Chunk_Key;
+
+    // WORLD_CHUNKS: JSON carried forward from the WORLD fetch
+    world_json_data   : []u8;
+}
+
+// One in-flight sfetch request.  `buf` is allocated when dispatched and
+// freed (or handed to Loaded_Pack) when the callback fires.
+Fetch_Slot :: struct {
+    occupied : bool;
+    req      : Fetch_Request;
+    buf      : []u8;
 }
 
 Asset_Manager :: struct {
-    active                      : [2]Active_Fetch;
-    main_queue                  : [..]Fetch_Request;
-    rdm_queue                   : [..]Fetch_Request;
-    loadedPacks                 : [..]Loaded_Pack;
-    pending_hot_reload          : bool;
-    hot_reload_unpause_pending  : bool;
+    slots                      : [MAX_FETCH_SLOTS]Fetch_Slot;
+    queue                      : [..]Fetch_Request;
+    loadedPacks                : [..]Loaded_Pack;
+    pending_hot_reload         : bool;
+    hot_reload_unpause_pending : bool;
 }
 
 g_asset_manager : Asset_Manager;
@@ -66,49 +69,48 @@ g_asset_manager : Asset_Manager;
 #load "rdm_loader.jai";
 #load "sh_loader.jai";
 
+fetch_type_buffer_size :: (type: Fetch_Type) -> s64 {
+    if #complete type == {
+        case .PACK;         return MAX_PACK_SIZE;
+        case .WORLD;        return MAX_WORLD_SIZE;
+        case .WORLD_CHUNKS; return MAX_CHUNKS_SIZE;
+        case .RDM_ATLAS;    return MAX_RDM_ATLAS_SIZE;
+        case .RDM_MANIFEST; return MAX_RDM_MANIFEST_SIZE;
+        case .SHGRID;       return MAX_SHGRID_SIZE;
+    }
+}
+
 fetch_callback :: (res: *sfetch_response_t) #c_call {
     push_context,defer_pop default_context;
 
-    af := *g_asset_manager.active[res.channel];
-
-    if res.fetched {
-        chunk_count := res.data.size.(s64);
-        needed      := af.accumulated.count + chunk_count;
-        if af.accumulated.allocated < needed {
-            new_cap := max(needed, max(af.accumulated.allocated * 2, 1024 * 1024));
-            array_reserve(*af.accumulated, new_cap);
-        }
-        memcpy(af.accumulated.data + af.accumulated.count, res.data.ptr, chunk_count);
-        af.accumulated.count = needed;
-    }
+    // sokol copied the slot index into res.user_data when we sent the request.
+    slot_idx := (cast(*u32) res.user_data).*;
+    slot     := *g_asset_manager.slots[slot_idx];
 
     if !res.finished then return;
 
-    // Mark channel free before processing so that enqueued follow-up requests
-    // (WORLD -> WORLD_CHUNKS, RDM_ATLAS -> RDM_LOOKUP) are visible on the next tick.
-    af.occupied = false;
-    req := af.req;
+    slot.occupied = false;
+    req := slot.req;
 
     if res.failed {
         handle_fetch_failed(*req);
-        array_reset(*af.accumulated);
+        free(slot.buf.data);
+        slot.buf = .{};
         return;
     }
 
-    data : []u8;
-    data.data  = af.accumulated.data;
-    data.count = af.accumulated.count;
+    data: []u8;
+    data.data  = cast(*u8) res.data.ptr;
+    data.count = cast(s64) res.data.size;
 
     process_completed_fetch(*req, data);
 
     if req.type == .PACK {
-        // process_completed_fetch either stored data in Loaded_Pack.data_buffer or
-        // freed it on parse failure. Either way, zero af.accumulated without freeing.
-        af.accumulated.data      = null;
-        af.accumulated.count     = 0;
-        af.accumulated.allocated = 0;
+        // process_completed_fetch transferred ownership to Loaded_Pack.data_buffer.
+        slot.buf = .{};
     } else {
-        array_reset(*af.accumulated);
+        free(slot.buf.data);
+        slot.buf = .{};
     }
 }
 
@@ -120,12 +122,12 @@ handle_fetch_failed :: (req: *Fetch_Request) {
 
     case .WORLD;
         if ends_with(req.path, "world.json") {
-            fallback_req : Fetch_Request;
-            fallback_req.type         = .WORLD;
-            fallback_req.world_name   = req.world_name;
-            fallback_req.path         = sprint("%/worlds/%/index.world", GAME_RESOURCES_DIR, req.world_name);
-            fallback_req.should_block = true;
-            array_add(*g_asset_manager.main_queue, fallback_req);
+            fallback: Fetch_Request;
+            fallback.type       = .WORLD;
+            fallback.priority   = req.priority;
+            fallback.world_name = req.world_name;
+            fallback.path       = sprint("%/worlds/%/index.world", GAME_RESOURCES_DIR, req.world_name);
+            array_add(*g_asset_manager.queue, fallback);
             return;
         }
         log_error("Failed to load world '%'", req.world_name);
@@ -135,11 +137,10 @@ handle_fetch_failed :: (req: *Fetch_Request) {
         log_error("Failed to load chunks.bin for world '%'", req.world_name);
 
     case .RDM_ATLAS;
-        log_error("RDM: failed to load atlas for chunk %", req.chunk_key);
+        log_info("RDM: no global atlas for world '%' (ok if none baked yet)", req.world_name);
 
-    case .RDM_LOOKUP;
-        if req.rdm_pending_atlas.id != 0 then sg_destroy_image(req.rdm_pending_atlas);
-        log_error("RDM: failed to load lookup for chunk %", req.chunk_key);
+    case .RDM_MANIFEST;
+        log_info("RDM: no manifest for world '%' (ok if none baked yet)", req.world_name);
 
     case .SHGRID;
         sh_loader_handle_failed(req);
@@ -171,13 +172,13 @@ process_completed_fetch :: (req: *Fetch_Request, data: []u8) {
         if is_json {
             json_copy := NewArray(data.count, u8, false);
             memcpy(json_copy.data, data.data, data.count);
-            chunks_req : Fetch_Request;
+            chunks_req: Fetch_Request;
             chunks_req.type            = .WORLD_CHUNKS;
+            chunks_req.priority        = req.priority;
             chunks_req.world_name      = req.world_name;
             chunks_req.path            = sprint("%/worlds/%/chunks.bin", GAME_RESOURCES_DIR, req.world_name);
-            chunks_req.should_block    = true;
             chunks_req.world_json_data = json_copy;
-            array_add(*g_asset_manager.main_queue, chunks_req);
+            array_add(*g_asset_manager.queue, chunks_req);
         } else {
             world, ok := load_world_from_data(data);
             if ok {
@@ -214,88 +215,44 @@ process_completed_fetch :: (req: *Fetch_Request, data: []u8) {
 
         header_size := cast(s64) size_of(RDM_File_Header);
         if data.count < header_size {
-            log_error("RDM: atlas too small for chunk %", req.chunk_key);
+            log_error("RDM: global atlas too small (world %)", req.world_name);
             return;
         }
         header := cast(*RDM_File_Header) data.data;
         if header.magic != RDM_FILE_MAGIC {
-            log_error("RDM: bad atlas magic for chunk %", req.chunk_key);
+            log_error("RDM: bad atlas magic (world %)", req.world_name);
             return;
         }
-        atlas_pixel_bytes := cast(u64) header.width * cast(u64) header.height * 4 * size_of(float);
-        atlas_imgdata : sg_image_data;
+        atlas_pixel_bytes := cast(u64) header.width * cast(u64) header.height * 4 * size_of(u16);
+        atlas_imgdata: sg_image_data;
         atlas_imgdata.subimage[0][0] = .{ data.data + header_size, atlas_pixel_bytes };
-        atlas_desc : sg_image_desc = .{
+        atlas_desc: sg_image_desc = .{
             render_target = false,
             width         = header.width,
             height        = header.height,
-            pixel_format  = sg_pixel_format.RGBA32F,
+            pixel_format  = sg_pixel_format.RGBA16F,
             sample_count  = 1,
             data          = atlas_imgdata,
         };
-        chunk_ptr := table_find_pointer(*curworld.world.chunks, req.chunk_key);
-        lookup_path: string;
-        if chunk_ptr != null && chunk_ptr.rdm_lookup_path.count > 0 {
-            lookup_path = sprint("%/worlds/%/%", GAME_RESOURCES_DIR, req.world_name, chunk_ptr.rdm_lookup_path);
-        } else {
-            lookup_path = rdm_chunk_filename(req.world_name, req.chunk_key, "rdm_lookup");
-        }
-        lookup_req : Fetch_Request;
-        lookup_req.type              = .RDM_LOOKUP;
-        lookup_req.world_name        = req.world_name;
-        lookup_req.chunk_key         = req.chunk_key;
-        lookup_req.path              = lookup_path;
-        lookup_req.rdm_pending_atlas = sg_make_image(*atlas_desc);
-        array_add(*g_asset_manager.rdm_queue, lookup_req);
+        if g_rdm_atlas.id != 0 then sg_destroy_image(g_rdm_atlas);
+        g_rdm_atlas = sg_make_image(*atlas_desc);
+        log_debug("RDM: loaded global atlas (%x%)", header.width, header.height);
 
-    case .RDM_LOOKUP;
-        curworld  := get_current_world();
-        world_ok  := curworld.valid && curworld.world.name == req.world_name;
+    case .RDM_MANIFEST;
+        curworld := get_current_world();
+        if !curworld.valid || curworld.world.name != req.world_name then return;
 
-        if !world_ok {
-            if req.rdm_pending_atlas.id != 0 then sg_destroy_image(req.rdm_pending_atlas);
+        json_str : string;
+        json_str.data  = data.data;
+        json_str.count = data.count;
+        ok, entries := Jaison.json_parse_string(json_str, [..]Rdm_Atlas_Entry,, temp);
+        if !ok {
+            log_error("RDM: failed to parse manifest for world '%'", req.world_name);
             return;
         }
-        header_size := cast(s64) size_of(RDM_File_Header);
-        if data.count < header_size {
-            log_error("RDM: lookup too small for chunk %", req.chunk_key);
-            sg_destroy_image(req.rdm_pending_atlas);
-            return;
-        }
-        header := cast(*RDM_File_Header) data.data;
-        if header.magic != RDM_FILE_MAGIC {
-            log_error("RDM: bad lookup magic for chunk %", req.chunk_key);
-            sg_destroy_image(req.rdm_pending_atlas);
-            return;
-        }
-        lookup_pixel_bytes := cast(u64) header.width * cast(u64) header.height * 4 * size_of(float);
-        lookup_imgdata : sg_image_data;
-        lookup_imgdata.subimage[0][0] = .{ data.data + header_size, lookup_pixel_bytes };
-        lookup_desc : sg_image_desc = .{
-            render_target = false,
-            width         = header.width,
-            height        = header.height,
-            pixel_format  = sg_pixel_format.RGBA32F,
-            sample_count  = 1,
-            data          = lookup_imgdata,
-        };
-        chunk := table_find_pointer(*curworld.world.chunks, req.chunk_key);
-        if chunk != null {
-            chunk.rdm_atlas  = req.rdm_pending_atlas;
-            chunk.rdm_lookup = sg_make_image(*lookup_desc);
-            #if !FLAG_RELEASE_BUILD {
-                chunk.rdm_lookup_w = header.width;
-                chunk.rdm_lookup_h = header.height;
-                num_floats := cast(s64)(header.width * header.height * 4);
-                cpu_copy   := NewArray(num_floats, float);
-                memcpy(cpu_copy.data, data.data + header_size, cast(s64)lookup_pixel_bytes);
-                chunk.rdm_lookup_cpu = cpu_copy;
-            }
-            chunk.rdm_valid = true;
-            log_debug("RDM: loaded chunk %", req.chunk_key);
-        } else {
-            sg_destroy_image(req.rdm_pending_atlas);
-        }
+        array_reset_keeping_memory(*curworld.world.rdm_lookup);
+        for e: entries  array_add(*curworld.world.rdm_lookup, e);
+        log_debug("RDM: loaded manifest (% entries)", entries.count);
 
     case .SHGRID;
         sh_loader_handle_completed(req, data);
@@ -384,15 +341,12 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
                 array_add(*g_palettes, pal);
                 log_info("Loaded % colors from hex palette(%)", pal.entries.count, v.name);
             case "ttf";
-            // Load into a font. Add to free list.
             case;
                 log_warn("File(%) in pack(%) has unknown format", v.name, pack.name);
         }
         log_debug("% -> %", v.name, extension);
     }
 
-    // Properly initialize animations from the pack now that we have the images
-    // and the JSON files both combined.
     for qsheet : sheets_to_init {
         for qsheet.sheet.meta.frameTags {
             anim : Animation;
@@ -427,29 +381,51 @@ find_pack_by_name :: (name: string) -> (bool, Loaded_Pack) {
     return false, .{};
 }
 
-dispatch_channel :: (queue: *[..]Fetch_Request, channel: u32) {
-    af := *g_asset_manager.active[channel];
-    if af.occupied || queue.count == 0 then return;
-
-    req := queue.data[0];
-    for i: 0..queue.count - 2 {
-        queue.data[i] = queue.data[i + 1];
+// Removes the highest-priority item from the queue (lowest enum value = most urgent).
+// Within equal priority, the earliest-queued item wins (stable).
+dequeue_highest_priority :: (queue: *[..]Fetch_Request) -> (Fetch_Request, bool) {
+    if queue.count == 0 return .{}, false;
+    best := 0;
+    for i: 1..queue.count - 1 {
+        if queue.*[i].priority < queue.*[best].priority then best = i;
     }
-    queue.count -= 1;
+    req := queue.*[best];
+    array_ordered_remove_by_index(queue, best);
+    return req, true;
+}
 
-    af.occupied          = true;
-    af.req               = req;
-    af.accumulated.count = 0;
+dispatch_slots :: () {
+    for i: 0..MAX_FETCH_SLOTS - 1 {
+        slot := *g_asset_manager.slots[i];
+        if slot.occupied continue;
+        if g_asset_manager.queue.count == 0 break;
 
-    path_c := to_c_string(req.path);
-    defer free(path_c);
-    sfetch_send(*(sfetch_request_t.{
-        channel    = channel,
-        path       = path_c,
-        callback   = fetch_callback,
-        chunk_size = cast(u32) af.chunk_buf.count,
-        buffer     = .{ ptr = af.chunk_buf.data, size = cast(u64) af.chunk_buf.count },
-    }));
+        req, found := dequeue_highest_priority(*g_asset_manager.queue);
+        if !found break;
+
+        slot.occupied = true;
+        slot.req      = req;
+        slot.buf      = NewArray(fetch_type_buffer_size(req.type), u8, false);
+
+        // sokol copies user_data bytes immediately on sfetch_send, so a
+        // stack-local index is safe here.
+        slot_idx : u32 = cast(u32) i;
+
+        // Route BACKGROUND requests to channel 1 so they don't starve
+        // LOADING_SCREEN / BLOCK_ENGINE work on native (two IO threads).
+        channel : u32 = ifx req.priority == .BACKGROUND then cast(u32)1 else cast(u32)0;
+
+        path_c := to_c_string(req.path);
+        defer free(path_c);
+
+        sfetch_send(*(sfetch_request_t.{
+            channel   = channel,
+            path      = path_c,
+            callback  = fetch_callback,
+            buffer    = .{ ptr = slot.buf.data, size = cast(u64) slot.buf.count },
+            user_data = .{ ptr = *slot_idx,     size = cast(u64) size_of(u32) },
+        }));
+    }
 }
 
 #scope_export
@@ -467,43 +443,35 @@ free_resources_from_pack :: (pack: *Loaded_Pack) {
 }
 
 asset_manager_init :: () {
-    g_asset_manager.active[CHANNEL_MAIN].chunk_buf = NewArray(MAIN_CHUNK_BUFFER_SIZE, u8, false);
-    g_asset_manager.active[CHANNEL_RDM].chunk_buf  = NewArray(RDM_CHUNK_BUFFER_SIZE,  u8, false);
+    // No upfront allocations; buffers are allocated per-request in dispatch_slots.
 }
 
 mandatory_loads_done :: () -> bool {
-    for channel: 0..1 {
-        af := *g_asset_manager.active[channel];
-        if af.occupied && af.req.should_block_engine then return false;
+    for g_asset_manager.slots {
+        if it.occupied && it.req.priority == .BLOCK_ENGINE then return false;
     }
-    for g_asset_manager.main_queue {
-        if it.should_block_engine then return false;
-    }
-    for g_asset_manager.rdm_queue {
-        if it.should_block_engine then return false;
+    for g_asset_manager.queue {
+        if it.priority == .BLOCK_ENGINE then return false;
     }
     return true;
 }
 
 show_loading_screen :: () -> bool {
-    for channel: 0..1 {
-        af := *g_asset_manager.active[channel];
-        if af.occupied && af.req.should_block then return true;
+    for g_asset_manager.slots {
+        if it.occupied && it.req.priority != .BACKGROUND then return true;
     }
-    for g_asset_manager.main_queue {
-        if it.should_block then return true;
-    }
-    for g_asset_manager.rdm_queue {
-        if it.should_block then return true;
+    for g_asset_manager.queue {
+        if it.priority != .BACKGROUND then return true;
     }
     return false;
 }
 
 asset_manager_tick :: () {
     #if !FLAG_RELEASE_BUILD && OS != .WASM {
-        if g_asset_manager.pending_hot_reload
-           && !g_asset_manager.active[CHANNEL_MAIN].occupied
-           && g_asset_manager.main_queue.count == 0 {
+        all_idle := true;
+        for g_asset_manager.slots if it.occupied { all_idle = false; break; }
+
+        if g_asset_manager.pending_hot_reload && all_idle && g_asset_manager.queue.count == 0 {
             g_asset_manager.pending_hot_reload = false;
             hot_reload_all_packs();
         }
@@ -513,33 +481,30 @@ asset_manager_tick :: () {
         }
     }
 
-    dispatch_channel(*g_asset_manager.main_queue, CHANNEL_MAIN);
-    dispatch_channel(*g_asset_manager.rdm_queue,  CHANNEL_RDM);
-
     sfetch_dowork();
+    dispatch_slots();
 }
 
 load_world :: (name: string) {
     unload_current_world();
-    req : Fetch_Request;
-    req.type         = .WORLD;
-    req.world_name   = sprint("%", name);
-    req.path         = sprint("%/worlds/%/world.json", GAME_RESOURCES_DIR, name);
-    req.should_block = true;
-    array_add(*g_asset_manager.main_queue, req);
+    req: Fetch_Request;
+    req.type       = .WORLD;
+    req.priority   = .LOADING_SCREEN;
+    req.world_name = sprint("%", name);
+    req.path       = sprint("%/worlds/%/world.json", GAME_RESOURCES_DIR, name);
+    array_add(*g_asset_manager.queue, req);
 }
 
-load_pack :: (name: string, shouldBlock: bool = true, shouldBlockEngine: bool = false) {
-    req : Fetch_Request;
-    req.type                = .PACK;
-    req.pack_name           = sprint("%", name);
-    req.path                = sprint("%/%.pack", PACK_DIR, name);
-    req.should_block        = shouldBlock;
-    req.should_block_engine = shouldBlockEngine;
-    array_add(*g_asset_manager.main_queue, req);
+load_pack :: (name: string, priority: Load_Priority = .LOADING_SCREEN) {
+    req: Fetch_Request;
+    req.type      = .PACK;
+    req.priority  = priority;
+    req.pack_name = sprint("%", name);
+    req.path      = sprint("%/%.pack", PACK_DIR, name);
+    array_add(*g_asset_manager.queue, req);
 }
 
-// Asset management:
+// Asset accessors:
 
 #scope_file
 #scope_export
@@ -549,7 +514,6 @@ get_texture_from_pack :: (pack: string, path: string) -> (sg_image) {
     invalid_img : sg_image;
 
     if !found {
-        // find_pack_by_name already logs this
         return invalid_img;
     }
 

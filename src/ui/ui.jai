@@ -429,14 +429,15 @@ font_boundary :: () {
 render_ui :: () {
     voxel_theme := get_voxel_theme();
     GR.set_default_theme(voxel_theme);
+    loading := show_loading_screen();
     #if !FLAG_RELEASE_BUILD {
         draw_editor_ui(*voxel_theme);
-        if !in_editor_view then game_ui(*voxel_theme);
+        if !in_editor_view && !loading then game_ui(*voxel_theme);
         draw_console(*voxel_theme);
     } else {
-        game_ui(*voxel_theme);
+        if !loading then game_ui(*voxel_theme);
     }
-    #if FLAG_DEMO_BUILD { if !in_editor_view then draw_demo_ui(*voxel_theme); }
+    #if FLAG_DEMO_BUILD { if !in_editor_view && !loading then draw_demo_ui(*voxel_theme); }
     draw_settings_menu();
 }
 

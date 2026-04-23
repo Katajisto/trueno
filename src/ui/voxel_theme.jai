@@ -92,6 +92,8 @@ get_voxel_theme :: () -> GR.Overall_Theme {
     t.slider_theme.background.frame_color         = cfg.frame_color;
     t.slider_theme.background.frame_color_over    = cfg.frame_color;
 
+    t.slider_theme.foreground.label_theme.text_color = .{1, 1, 1, 1};
+
     apply_voxel_btn(*t.slider_theme.spinbox_theme, cfg, true);
 
     t.slider_theme.surface_style  = .EXTEND_FROM_LEFT;

@@ -1,11 +1,11 @@
-@vs vs_trile
+@vs vs_trile_rdm
 
 in vec4 position;
 in vec4 normal;
 in vec4 centre;
 in vec4 instance;
 
-layout(binding=0) uniform trile_vs_params {
+layout(binding=0) uniform trile_rdm_vs_params {
     mat4 mvp;
     mat4 mvp_shadow;
     vec3 camera;
@@ -17,6 +17,7 @@ out vec3 vpos;
 out vec3 ipos;
 out vec4 fnormal;
 out vec3 orig_normal;
+out vec3 trileCenter;
 out vec3 cv;
 
 mat3 rot_x(float a) { float c=cos(a),s=sin(a); return mat3(1,0,0, 0,c,-s, 0,s,c); }
@@ -51,12 +52,13 @@ void main() {
     ipos        = position.xyz;
     cam         = camera;
     cv          = normalize(camera - vpos);
+    trileCenter = instance.xyz + vec3(0.5);
 }
 @end
 
-@fs fs_trile
+@fs fs_trile_rdm
 
-layout(binding=1) uniform trile_world_config {
+layout(binding=1) uniform trile_rdm_world_config {
     vec3 skyBase;
     vec3 skyTop;
     vec3 sunDisk;
@@ -84,10 +86,11 @@ in vec3 vpos;
 in vec3 ipos;
 in vec4 fnormal;
 in vec3 orig_normal;
+in vec3 trileCenter;
 in vec3 cv;
 out vec4 frag_color;
 
-layout(binding=3) uniform trile_fs_params {
+layout(binding=3) uniform trile_rdm_fs_params {
     mat4  mvp_shadow;
     int   is_reflection;
     int   screen_h;
@@ -100,36 +103,22 @@ layout(binding=3) uniform trile_fs_params {
     int   is_preview;
     vec3  indirect_tint;
     int   sh_enabled;
+    vec4  atlas_rect;
 };
 
-layout(binding = 0) uniform texture2D triletex;
-layout(binding = 0) uniform sampler trilesmp;
-layout(binding = 1) uniform texture2D ssaotex;
-layout(binding = 2) uniform texture2D shadowtex;
-layout(binding = 2) uniform sampler shadowsmp;
-layout(binding = 3) uniform texture2D brdf_lut;
-layout(binding = 4) uniform texture2D sh_irradiance;
-layout(binding = 3) uniform sampler linsmp;
+layout(binding = 0) uniform texture2D rdm_triletex;
+layout(binding = 0) uniform sampler rdm_trilesmp;
+layout(binding = 1) uniform texture2D rdm_ssaotex;
+layout(binding = 2) uniform texture2D rdm_shadowtex;
+layout(binding = 2) uniform sampler rdm_shadowsmp;
+layout(binding = 3) uniform texture2D rdm_brdflut;
+layout(binding = 4) uniform texture2D rdm_shirradiance;
+layout(binding = 5) uniform texture2D rdm_atlas;
+layout(binding = 3) uniform sampler rdm_linsmp;
 
 const float PI = 3.1415927;
-const float ROUGHNESS_SPEC_CUTOFF = 0.7;
-
-const float cirrus = 0.5;
-
-float hash(float n) {
-    return fract(sin(n) * 43758.5453123);
-}
-
-float noise(vec3 x) {
-    vec3 f = fract(x);
-    float n = dot(floor(x), vec3(1.0, 157.0, 113.0));
-    return mix(mix(mix(hash(n +   0.0), hash(n +   1.0), f.x),
-                   mix(hash(n + 157.0), hash(n + 158.0), f.x), f.y),
-               mix(mix(hash(n + 113.0), hash(n + 114.0), f.x),
-                   mix(hash(n + 270.0), hash(n + 271.0), f.x), f.y), f.z);
-}
-
-const mat3 fbm_m = mat3(0.0, 1.60, 1.20, -1.6, 0.72, -0.96, -1.2, -0.96, 1.28);
+const float ROUGHNESS_SPEC_CUTOFF   = 0.7;
+const float ROUGHNESS_RAYMARCH_MAX  = 0.2;
 
 vec3 sky(vec3 skypos, vec3 sunpos) {
     vec3 npos = normalize(skypos);
@@ -178,6 +167,62 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+vec2 rdm_hemioct(vec3 v, int face) {
+    vec3 vc = v;
+    if (face / 2 == 0) { vc.z = v.y; vc.y = v.z; }
+    if (face / 2 == 2) { vc.z = v.x; vc.x = v.z; }
+    if (face % 2 == 1) { vc.z *= -1.0; }
+
+    vec2 p = vc.xy * (1.0 / (abs(vc.x) + abs(vc.y) + vc.z));
+    return vec2(p.x + p.y, p.x - p.y) * 0.5 + 0.5;
+}
+
+int rdm_face_from_normal(vec3 N) {
+    vec3 a = abs(N);
+    if (a.y >= a.x && a.y >= a.z) return N.y >= 0.0 ? 0 : 1;
+    if (a.z >= a.x && a.z >= a.y) return N.z >= 0.0 ? 2 : 3;
+    return N.x >= 0.0 ? 4 : 5;
+}
+
+ivec2 rdm_face_offset(vec4 rect, int face, int rdmSize, ivec2 atlasSize) {
+    int col = face % 2;
+    int row = face / 2;
+    return ivec2(int(rect.x * float(atlasSize.x)) + col * rdmSize,
+                 int(rect.y * float(atlasSize.y)) + row * rdmSize);
+}
+
+vec3 rdm_spec_raymarch(vec3 N, vec3 V, vec3 diff, int face, ivec2 faceOffset, int rdmSize, vec2 atlasInvSize) {
+    vec3 reflected = reflect(V, N);
+    float maxDist = 20.0;
+    int steps = 40;
+    float stepSize = maxDist / float(steps);
+
+    for (int i = 0; i < steps; i++) {
+        float t = stepSize * float(i + 1);
+        vec3 samplePos = diff + t * reflected;
+        if (dot(samplePos, N) < 0.0) continue;
+
+        vec3 dir = normalize(samplePos);
+        vec2 hemiUV = rdm_hemioct(dir, face);
+        vec2 texCoord = (vec2(faceOffset) + hemiUV * float(rdmSize)) * atlasInvSize;
+        vec4 s = texture(sampler2D(rdm_atlas, rdm_linsmp), texCoord, 0);
+
+        float dist = length(samplePos);
+        if (s.a > 0.0 && s.a < dist && s.a + stepSize > dist)
+            return s.rgb;
+    }
+
+    return sky_reflect(reflected, sunPosition);
+}
+
+vec3 rdm_spec_single(vec3 N, vec3 V, vec3 diff, int face, ivec2 faceOffset, int rdmSize, vec2 atlasInvSize) {
+    vec3 reflected = reflect(V, N);
+    vec3 sampleDir = normalize(diff + 2.0 * reflected);
+    vec2 hemiUV = rdm_hemioct(sampleDir, face);
+    vec2 texCoord = (vec2(faceOffset) + hemiUV * float(rdmSize)) * atlasInvSize;
+    return texture(sampler2D(rdm_atlas, rdm_linsmp), texCoord).rgb;
+}
+
 void main() {
     if (vpos.y < planeHeight - 0.01 && is_reflection == 1) discard;
 
@@ -190,7 +235,7 @@ void main() {
             int(clamp(sample_pos.y, 0.0001, 0.99999) * 16.0) +
             int(clamp(sample_pos.x, 0.0001, 0.99999) * 16.0) * 16
         );
-        trixel_material = texelFetch(sampler2D(triletex, trilesmp), texel, 0);
+        trixel_material = texelFetch(sampler2D(rdm_triletex, rdm_trilesmp), texel, 0);
         if (dot(trixel_material, trixel_material) > 0.0001) break;
         sample_pos += to_center * 0.1;
     }
@@ -240,20 +285,41 @@ void main() {
     vec4 light_proj = mvp_shadow * vec4(floor(vpos * 16.0) / 16.0, 1.0);
     vec3 light_ndc  = light_proj.xyz / light_proj.w * 0.5 + 0.5;
     light_ndc.z -= 0.001;
-    float shadow = texture(sampler2DShadow(shadowtex, shadowsmp), light_ndc);
+    float shadow = texture(sampler2DShadow(rdm_shadowtex, rdm_shadowsmp), light_ndc);
 
     vec3 direct_specular = (NDF * G * F) / (4.0 * NdotV * NdotL + 0.0001);
     vec3 light = shadow * (kD * albedo / PI + direct_specular) * NdotL * sunLightColor * sunIntensity;
 
-    float ssao    = texture(sampler2D(ssaotex, linsmp),
+    float ssao    = texture(sampler2D(rdm_ssaotex, rdm_linsmp),
                             gl_FragCoord.xy / vec2(float(screen_w), float(screen_h))).r;
     vec3 emissive = albedo * emittance * emissive_scale;
 
     vec3 Frough = FresnelSchlickRoughness(NdotV, F0, roughness);
 
-    if (roughness < ROUGHNESS_SPEC_CUTOFF) {
+    vec3 hemispherePos = trileCenter + N * 0.49;
+    vec3 diff          = vpos - hemispherePos;
+
+    if (roughnessInt <= 1) {
+        int   face        = rdm_face_from_normal(N);
+        ivec2 atlasSize   = textureSize(sampler2D(rdm_atlas, rdm_linsmp), 0);
+        vec2  atlasInvSz  = 1.0 / vec2(atlasSize);
+        int   rdmSize     = int(atlas_rect.z * float(atlasSize.x)) / 2;
+        ivec2 fOff        = rdm_face_offset(atlas_rect, face, rdmSize, atlasSize);
+
+        vec3 indirectSpec = roughness < ROUGHNESS_RAYMARCH_MAX
+            ? rdm_spec_raymarch(N, -cv, diff, face, fOff, rdmSize, atlasInvSz)
+            : rdm_spec_single (N, -cv, diff, face, fOff, rdmSize, atlasInvSz);
+
+        vec2  envBRDF       = texture(sampler2D(rdm_brdflut, rdm_linsmp), vec2(NdotV, roughness)).rg;
+        float roughnessBell = 1.0 - 0.7 * sin(roughness * PI);
+        float grazingSuppr  = 1.0 - 0.9 * roughness * sin(roughness * PI) * pow(1.0 - NdotV, 2.0);
+        float specRoughFade = 1.0 - clamp((roughness - 0.5) / 0.3, 0.0, 1.0);
+
+        light += indirectSpec * (Frough * envBRDF.x + envBRDF.y)
+               * indirect_spec_scale * roughnessBell * grazingSuppr * specRoughFade;
+    } else if (roughness < ROUGHNESS_SPEC_CUTOFF) {
         vec3  R           = reflect(-V, N);
-        vec2  envBRDF     = texture(sampler2D(brdf_lut, linsmp), vec2(NdotV, roughness)).rg;
+        vec2  envBRDF     = texture(sampler2D(rdm_brdflut, rdm_linsmp), vec2(NdotV, roughness)).rg;
         float specRoughFd = 1.0 - clamp((roughness - 0.5) / 0.3, 0.0, 1.0);
         light += sky_reflect(R, sunPosition) * (Frough * envBRDF.x + envBRDF.y)
                * indirect_spec_scale * specRoughFd;
@@ -262,7 +328,7 @@ void main() {
     vec3 indirectDiff;
     if (sh_enabled == 1) {
         vec2 sh_uv   = gl_FragCoord.xy / vec2(float(screen_w), float(screen_h));
-        indirectDiff = texture(sampler2D(sh_irradiance, linsmp), sh_uv).rgb * indirect_tint;
+        indirectDiff = texture(sampler2D(rdm_shirradiance, rdm_linsmp), sh_uv).rgb * indirect_tint;
     } else {
         indirectDiff = ambient_color * ambient_intensity;
     }
@@ -277,4 +343,4 @@ void main() {
 }
 @end
 
-@program trile vs_trile fs_trile
+@program trile_rdm vs_trile_rdm fs_trile_rdm

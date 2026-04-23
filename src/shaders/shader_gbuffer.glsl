@@ -13,6 +13,7 @@ in vec4 instance;
 
 out vec3 view_space_pos;
 out vec3 view_space_normal;
+out vec3 v_world_pos;
 
 mat3 gbuf_rot_x(float a) { float c=cos(a),s=sin(a); return mat3(1,0,0, 0,c,-s, 0,s,c); }
 mat3 gbuf_rot_z(float a) { float c=cos(a),s=sin(a); return mat3(c,-s,0, s,c,0, 0,0,1); }
@@ -39,6 +40,7 @@ void main() {
         gl_Position = mvp * world_pos;
         view_space_pos = view_pos_4.xyz;
         view_space_normal = mat3(view_matrix) * normal.xyz;
+        v_world_pos = world_pos.xyz;
     } else {
         int ori      = int(round(instance.w));
         mat3 rot     = gbuf_get_orientation_matrix(ori);
@@ -49,6 +51,7 @@ void main() {
         gl_Position      = mvp * world_pos;
         view_space_pos   = view_pos_4.xyz;
         view_space_normal = mat3(view_matrix) * (rot * normal.xyz);
+        v_world_pos = world_pos.xyz;
     }
 }
 @end
@@ -57,13 +60,16 @@ void main() {
 
 in vec3 view_space_pos;
 in vec3 view_space_normal;
+in vec3 v_world_pos;
 
 layout(location=0) out vec4 out_position;
 layout(location=1) out vec4 out_normal;
+layout(location=2) out vec4 out_worldpos;
 
 void main() {
     out_position = vec4(view_space_pos, 1.0);
     out_normal = vec4(normalize(view_space_normal), 1.0);
+    out_worldpos = vec4(v_world_pos, 1.0);
 }
 @end
 

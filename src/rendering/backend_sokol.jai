@@ -8,7 +8,8 @@ bypass_postprocess  : bool    = false;
 bypass_shadows      : bool    = false;
 bypass_reflections  : bool    = false;
 
-trile_offsets : [..]s32;
+trile_offsets     : [..]s32;
+trile_rdm_offsets : [..]s32;
 
 current_world_config : *World_Config = null;
 in_shadowmap_pass    : bool = false;
@@ -24,6 +25,12 @@ backend_handle_command :: (cmd: *Render_Command) {
         case .DRAW_TRILE_POSITIONS;
             draw_command := cast(*Render_Command_Draw_Trile_Positions)cmd;
             backend_draw_trile_positions(draw_command.trile, draw_command.amount, draw_command.conf, draw_command.chunk_key, draw_command.preview_mode, draw_command.offset_index);
+        case .ADD_TRILE_RDM_POSITION;
+            add_command := cast(*Render_Command_Add_Trile_RDM_Position)cmd;
+            backend_add_trile_rdm_position(add_command.position);
+        case .DRAW_TRILE_RDM;
+            draw_command := cast(*Render_Command_Draw_Trile_RDM)cmd;
+            backend_draw_trile_rdm(draw_command.trile, draw_command.conf, draw_command.atlas_rect, draw_command.offset_index);
         case .DRAW_SKY;
             sky_command := cast(*Render_Command_Sky)cmd;
             backend_draw_sky(sky_command.worldConfig);
@@ -53,6 +60,9 @@ backend_handle_command :: (cmd: *Render_Command) {
             } else {
                 backend_gbuffer_draw_billboard(command.position, command.animation, command.frame, command.flipX, command.faceDir);
             }
+        case .UPDATE_PARTICLES;
+            update_cmd := cast(*Render_Command_Update_Particles)cmd;
+            backend_update_particle_buffers(update_cmd);
         case .DRAW_PARTICLES;
             particles_cmd := cast(*Render_Command_Draw_Particles)cmd;
             backend_draw_particles(particles_cmd);
@@ -215,27 +225,12 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     bindings.images[1]                 = g_ssaobuf;
     bindings.samplers[2]               = g_shadowmap_sampler;
     bindings.images[2]                 = g_shadowmap;
+    bindings.images[3]                 = g_brdf_lut;
+    bindings.images[4]                 = g_sh_irradiance;
+    bindings.samplers[3]               = gPipelines.trile.bind.samplers[3];
 
-    // Bind RDM textures for this chunk. Fall back to a 1x1 black image when
-    // no baked data is available so sokol doesn't drop the draw call.
-    // The shader gates all RDM sampling on atlas_rect.z > 0, which the
-    // fallback texture returns as 0, so the ambient fallback path is taken.
     curworld := get_current_world();
     chunk := table_find_pointer(*curworld.world.chunks, chunk_key);
-    if chunk != null && chunk.rdm_valid {
-        bindings.images[3] = chunk.rdm_lookup;
-        bindings.images[4] = chunk.rdm_atlas;
-    } else {
-        bindings.images[3] = g_rdm_fallback;
-        bindings.images[4] = g_rdm_fallback;
-    }
-    bindings.images[5] = g_brdf_lut;
-    if chunk != null && chunk.sh_valid {
-        bindings.images[6] = chunk.sh_probe_grid;
-    } else {
-        bindings.images[6] = g_sh_fallback;
-    }
-    bindings.samplers[3] = gPipelines.trile.bind.samplers[3];
 
     fs_params : Trile_Fs_Params;
     fs_params.mvp_shadow = shadow_mvp.floats;
@@ -244,16 +239,14 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params.screen_w = w;
     fs_params.screen_h = h;
     lc := *current_lighting_config;
-    fs_params.rdm_enabled       = ifx in_reflection_pass then 0 else lc.rdm_enabled;
-    fs_params.ambient_intensity = lc.ambient_intensity;
-    fs_params.emissive_scale    = lc.emissive_scale;
-    fs_params.rdm_diff_scale    = lc.rdm_diff_scale;
-    fs_params.rdm_spec_scale    = lc.rdm_spec_scale;
-    fs_params.ambient_color     = lc.ambient_color.component;
-    fs_params.is_preview        = preview_mode;
-    fs_params.rdm_tint               = lc.rdm_tint.component;
-    fs_params.rdm_diff_saturation    = worldConf.rdmDiffSaturation;
-    fs_params.sh_enabled             = ifx (chunk != null && chunk.sh_valid && !in_reflection_pass) then cast(s32)1 else cast(s32)0;
+    fs_params.ambient_intensity   = lc.ambient_intensity;
+    fs_params.emissive_scale      = lc.emissive_scale;
+    fs_params.indirect_diff_scale = lc.indirect_diff_scale;
+    fs_params.indirect_spec_scale = lc.indirect_spec_scale;
+    fs_params.ambient_color       = lc.ambient_color.component;
+    fs_params.is_preview          = preview_mode;
+    fs_params.indirect_tint       = lc.indirect_tint.component;
+    fs_params.sh_enabled          = ifx (chunk != null && chunk.sh_valid && !in_reflection_pass) then cast(s32)1 else cast(s32)0;
 
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
@@ -263,6 +256,73 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
     end_frame_profiling_group("Draw trile positions");
 }
+backend_add_trile_rdm_position :: (position: Vector4) {
+    pos := position;
+    offset := sg_append_buffer(gPipelines.trile_rdm.bind.vertex_buffers[3], *(sg_range.{
+        ptr  = *pos,
+        size = size_of(Vector4),
+    }));
+    array_add(*trile_rdm_offsets, offset);
+}
+
+backend_draw_trile_rdm :: (trile: string, worldConf: *World_Config, atlas_rect: Vector4, offset_index: s32) {
+    if offset_index >= trile_rdm_offsets.count then return;
+
+    trilegfx := get_trile_gfx(trile);
+    offset := trile_rdm_offsets[offset_index];
+
+    mvp := create_viewproj(*camera);
+    vs_params : Trile_Rdm_Vs_Params;
+    vs_params.mvp        = mvp.floats;
+    vs_params.mvp_shadow = shadow_mvp.floats;
+    vs_params.camera     = camera.position.component;
+
+    sg_apply_pipeline(gPipelines.trile_rdm.pipeline);
+    world_conf : Trile_Rdm_World_Config;
+    world_config_to_shader_type(worldConf, *world_conf);
+    world_conf.planeHeight = effective_plane_height(worldConf);
+
+    bindings : sg_bindings;
+    bindings.vertex_buffers[0]         = trilegfx.vertex_buffer;
+    bindings.vertex_buffers[1]         = trilegfx.normal_buffer;
+    bindings.vertex_buffers[2]         = trilegfx.centre_buffer;
+    bindings.vertex_buffers[3]         = gPipelines.trile_rdm.bind.vertex_buffers[3];
+    bindings.vertex_buffer_offsets[3]  = offset;
+    bindings.samplers[SMP_rdm_trilesmp]   = gPipelines.trile_rdm.bind.samplers[SMP_rdm_trilesmp];
+    bindings.samplers[SMP_rdm_shadowsmp]  = g_shadowmap_sampler;
+    bindings.samplers[SMP_rdm_linsmp]     = gPipelines.trile_rdm.bind.samplers[SMP_rdm_linsmp];
+    bindings.images[IMG_rdm_triletex]     = trilegfx.trixel_colors;
+    bindings.images[IMG_rdm_ssaotex]      = g_ssaobuf;
+    bindings.images[IMG_rdm_shadowtex]    = g_shadowmap;
+    bindings.images[IMG_rdm_brdflut]      = g_brdf_lut;
+    bindings.images[IMG_rdm_shirradiance] = g_sh_irradiance;
+    bindings.images[IMG_rdm_atlas]        = g_rdm_atlas;
+
+    curworld := get_current_world();
+    fs_params : Trile_Rdm_Fs_Params;
+    fs_params.mvp_shadow = shadow_mvp.floats;
+    fs_params.is_reflection = 0;
+    w, h := get_render_size();
+    fs_params.screen_w = w;
+    fs_params.screen_h = h;
+    lc := *current_lighting_config;
+    fs_params.ambient_intensity   = lc.ambient_intensity;
+    fs_params.emissive_scale      = lc.emissive_scale;
+    fs_params.indirect_diff_scale = lc.indirect_diff_scale;
+    fs_params.indirect_spec_scale = lc.indirect_spec_scale;
+    fs_params.ambient_color       = lc.ambient_color.component;
+    fs_params.is_preview          = 0;
+    fs_params.indirect_tint       = lc.indirect_tint.component;
+    fs_params.sh_enabled          = ifx curworld.valid then cast(s32)1 else cast(s32)0;
+    fs_params.atlas_rect          = atlas_rect.component;
+
+    sg_apply_bindings(*bindings);
+    sg_apply_uniforms(UB_trile_rdm_fs_params,    *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
+    sg_apply_uniforms(UB_trile_rdm_vs_params,    *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
+    sg_apply_uniforms(UB_trile_rdm_world_config, *(sg_range.{ ptr = *world_conf, size = size_of(type_of(world_conf)) }));
+    sg_draw(0, cast(s32) trilegfx.vertex_count, 1);
+}
+
 backend_draw_sky :: (wc: *World_Config) {
     mvp := create_viewproj(*camera);
     vs_params : Sky_Vs_Params;
@@ -370,23 +430,27 @@ backend_gbuffer_draw_billboard :: (position: Vector3, anim: *Animation, frame_id
     sg_draw(0, 6, 1);    
 }
 
+backend_update_particle_buffers :: (cmd: *Render_Command_Update_Particles) {
+    if cmd.total_count <= 0 then return;
+    byte_size := cast(u64)(cmd.total_count * size_of(Vector4));
+    inst_buf1 := gPipelines.particle_additive.bind.vertex_buffers[1];
+    inst_buf2 := gPipelines.particle_additive.bind.vertex_buffers[2];
+    inst_buf3 := gPipelines.particle_additive.bind.vertex_buffers[3];
+    sg_update_buffer(inst_buf1, *(sg_range.{ ptr = cmd.pos_size.data,  size = byte_size }));
+    sg_update_buffer(inst_buf2, *(sg_range.{ ptr = cmd.uv_rects.data,  size = byte_size }));
+    sg_update_buffer(inst_buf3, *(sg_range.{ ptr = cmd.colors.data,    size = byte_size }));
+}
+
 backend_draw_particles :: (cmd: *Render_Command_Draw_Particles) {
     if cmd.count <= 0 then return;
 
     pip := ifx cmd.blend_mode == .ALPHA then *gPipelines.particle_alpha else *gPipelines.particle_additive;
 
-    sg_update_buffer(pip.bind.vertex_buffers[1], *(sg_range.{
-        ptr = cmd.pos_size.data,
-        size = cast(u64)(cmd.count * size_of(Vector4)),
-    }));
-    sg_update_buffer(pip.bind.vertex_buffers[2], *(sg_range.{
-        ptr = cmd.uv_rects.data,
-        size = cast(u64)(cmd.count * size_of(Vector4)),
-    }));
-    sg_update_buffer(pip.bind.vertex_buffers[3], *(sg_range.{
-        ptr = cmd.colors.data,
-        size = cast(u64)(cmd.count * size_of(Vector4)),
-    }));
+    byte_offset := cmd.instance_offset * size_of(Vector4);
+    bind := pip.bind;
+    bind.vertex_buffer_offsets[1] = byte_offset;
+    bind.vertex_buffer_offsets[2] = byte_offset;
+    bind.vertex_buffer_offsets[3] = byte_offset;
 
     mvp := create_viewproj(*camera);
     vs_params : Particle_Vs_Params;
@@ -394,8 +458,8 @@ backend_draw_particles :: (cmd: *Render_Command_Draw_Particles) {
     vs_params.cam = camera.position.component;
 
     sg_apply_pipeline(pip.pipeline);
-    pip.bind.images[IMG_particle_sprite] = cmd.sheet;
-    sg_apply_bindings(*pip.bind);
+    bind.images[IMG_particle_sprite] = cmd.sheet;
+    sg_apply_bindings(*bind);
     sg_apply_uniforms(UB_particle_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
     sg_draw(0, 6, cmd.count);
 }
@@ -419,6 +483,39 @@ backend_draw_ground_gbuf :: (wc: *World_Config) {
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_gbuffer_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
     sg_draw(0, 6, 1);
+}
+
+draw_sh_irradiance_pass :: () {
+    curworld := get_current_world();
+    if !curworld.valid then return;
+
+    sg_begin_pass(*(sg_pass.{ action = state.pass_action_clear, attachments = g_sh_irradiance_attach }));
+    sg_apply_pipeline(gPipelines.sh_irradiance.pipeline);
+
+    view     := create_lookat(*camera);
+    inv_view := isometry_inverse(view);
+
+    lc := *current_lighting_config;
+
+    params : Sh_Deferred_Params;
+    params.inv_view = inv_view.floats;
+    params.ambient  = .[lc.ambient_color.x, lc.ambient_color.y, lc.ambient_color.z, lc.ambient_intensity];
+
+    for *chunk: curworld.world.chunks {
+        if !chunk.sh_valid then continue;
+
+        gPipelines.sh_irradiance.bind.images[0] = g_gbuf_worldpos;
+        gPipelines.sh_irradiance.bind.images[1] = g_gbuf_normal;
+        gPipelines.sh_irradiance.bind.images[2] = chunk.sh_probe_grid;
+        sg_apply_bindings(*gPipelines.sh_irradiance.bind);
+
+        ck := chunk.coord;
+        params.chunk_origin = .[cast(float)(ck.x * 32), cast(float)(ck.y * 32), cast(float)(ck.z * 32), 0];
+        sg_apply_uniforms(UB_sh_deferred_params, *(sg_range.{ ptr = *params, size = size_of(type_of(params)) }));
+        sg_draw(0, 6, 1);
+    }
+
+    sg_end_pass();
 }
 
 backend_process_command_buckets :: () {
@@ -484,7 +581,11 @@ backend_process_command_buckets :: () {
     sg_apply_uniforms(UB_ssao_fs_params, *(sg_range.{ ptr = *ssao_fs_uniform, size = size_of(type_of(ssao_fs_uniform)) }));
     sg_draw(0, 6, 1);    
     sg_end_pass();
-    end_frame_profiling_group("SSAO pass");   
+    end_frame_profiling_group("SSAO pass");
+
+    start_frame_profiling_group("SH irradiance pass");
+    draw_sh_irradiance_pass();
+    end_frame_profiling_group("SH irradiance pass");
 
     // 5. Main pass
     start_frame_profiling_group("Main pass");
@@ -554,5 +655,6 @@ backend_process_command_buckets :: () {
     array_reset_keeping_memory(*render_command_buckets.gbuffer);
     array_reset_keeping_memory(*render_command_buckets.ui);
     array_reset_keeping_memory(*trile_offsets);
+    array_reset_keeping_memory(*trile_rdm_offsets);
     current_world_config = null;
 }

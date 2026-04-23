@@ -2,6 +2,8 @@
 #load "load.jai";
 #load "mixer.jai";
 
+g_audio_sample_rate : s32 = 44100;
+
 audio_init :: () {
     // load_wav_file();
 }

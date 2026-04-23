@@ -51,7 +51,7 @@ hot_reload_all_packs :: () {
         array_add(*pack_names, sprint("%", pack.name));
     }
 
-    array_reset(*g_asset_manager.main_queue);
+    array_reset(*g_asset_manager.queue);
 
     g_mixer.paused = true;
     g_asset_manager.hot_reload_unpause_pending = true;
@@ -76,7 +76,7 @@ hot_reload_all_packs :: () {
     recreate_packs_on_disk();
 
     for name: pack_names {
-        load_pack(name, true, false);
+        load_pack(name);
     }
     log_info("Hot-reload: queued % pack(s) for reload", pack_names.count);
 }

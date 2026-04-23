@@ -97,9 +97,9 @@ init :: () {
         logger = .{ func = slog_func },
     }));
     sfetch_setup(*(sfetch_desc_t.{
-        max_requests = 64,
+        max_requests = 128,
         num_channels = 2,
-        num_lanes    = 1,
+        num_lanes    = 8,
         logger       = .{ func = slog_func },
     }));
     asset_manager_init();
@@ -109,6 +109,7 @@ init :: () {
         logger = .{ func = slog_func },
         stream_cb = sokol_audio_callback,
     }));
+    g_audio_sample_rate = saudio_sample_rate();
     stm_setup();
     state.dpi_scale = sapp_dpi_scale();
     atlas_dim := round_pow2(1024.0 * state.dpi_scale);
@@ -122,13 +123,16 @@ init :: () {
 
     state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 0, a = 0 } };
     state.pass_action_clear_gbuf.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 1000, a = 0 } };
+    state.pass_action_clear_gbuf.colors[2] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 0,    a = 0 } };
     state.pass_action.colors[0] = .{ load_action = .LOAD };
+
+    g_mixer.paused = true;
 
     useless_mem : [1]u8;
     debug_font = get_font_at_size(useless_mem, 15);
-    load_pack("boot", true, true);
-    load_pack("core", true, false);
-    load_pack("game_core", true, false);
+    load_pack("boot",      .BLOCK_ENGINE);
+    load_pack("core");
+    load_pack("game_core");
 
     #if FLAG_TEST_EXE_ENGINE {
         engine_exe_tests_add();
@@ -209,6 +213,10 @@ frame :: () {
     if !init_after_core_done {
         init_after_core();
         init_after_core_done = true;
+    }
+
+    if g_mixer.paused && !in_editor_view && !show_loading_screen() {
+        g_mixer.paused = false;
     }
 
     fonsClearState(state.fons);

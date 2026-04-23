@@ -18,6 +18,11 @@ Gathered_Positions :: struct {
     positions: [..]Vector4;
 }
 
+Gathered_Rdm_Position :: struct {
+    name:     string;
+    position: Vector4;
+}
+
 extract_frustum_planes :: (mvp: Matrix4) -> [6]Vector4 {
     planes : [6]Vector4;
     m := mvp;
@@ -40,7 +45,7 @@ aabb_in_frustum :: (planes: [6]Vector4, bmin: Vector3, bmax: Vector3) -> bool {
     return true;
 }
 
-create_world_rendering_tasks :: (world: *World, camera: Camera) {
+create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: float = 0) {
     create_sky_rendering_task(*world.conf);
     create_set_light_rendering_task(*world.conf);
 
@@ -49,12 +54,24 @@ create_world_rendering_tasks :: (world: *World, camera: Camera) {
     cam_planes    := extract_frustum_planes(cam_mvp);
     shadow_planes := extract_frustum_planes(shadow_mvp);
 
+    reflect_cam := camera;
+    reflect_cam.position   *= .{1, -1, 1};
+    reflect_cam.position.y += plane_height * 2;
+    reflect_cam.target     *= .{1, -1, 1};
+    reflect_cam.target.y   += plane_height * 2;
+    reflect_mvp    := create_viewproj(*reflect_cam);
+    reflect_planes := extract_frustum_planes(reflect_mvp);
+
     // Gather positions for camera-visible instances (all passes) and
     // shadow-only instances (chunks visible from sun but not camera).
     gathered      : [..]Gathered_Positions;
     gathered.allocator = temp;
     shad_gathered : [..]Gathered_Positions;
     shad_gathered.allocator = temp;
+    rdm_extra     : [..]Gathered_Positions;   // RDM-flagged instances visible to camera; shadow/gbuffer/reflection use base pipeline
+    rdm_extra.allocator = temp;
+    rdm_main      : [..]Gathered_Rdm_Position; // one entry per RDM-flagged instance for the main pass
+    rdm_main.allocator = temp;
 
     find_or_create :: (list: *[..]Gathered_Positions, name: string, chunk_key: Chunk_Key) -> *Gathered_Positions {
         for *g: list.* {
@@ -70,9 +87,10 @@ create_world_rendering_tasks :: (world: *World, camera: Camera) {
         bmin := Vector3.{chunk.coord.x * 32.0, chunk.coord.y * 32.0, chunk.coord.z * 32.0};
         bmax := bmin + .{32, 32, 32};
 
-        in_cam  := aabb_in_frustum(cam_planes,    bmin, bmax);
-        in_shad := aabb_in_frustum(shadow_planes, bmin, bmax);
-        if !in_cam && !in_shad  continue;
+        in_cam     := aabb_in_frustum(cam_planes,     bmin, bmax);
+        in_reflect := aabb_in_frustum(reflect_planes, bmin, bmax);
+        in_shad    := aabb_in_frustum(shadow_planes,  bmin, bmax);
+        if !in_cam && !in_reflect && !in_shad  continue;
 
         for group: chunk.groups {
             for inst: group.instances {
@@ -80,14 +98,24 @@ create_world_rendering_tasks :: (world: *World, camera: Camera) {
                 imin := Vector3.{cast(float)wx, cast(float)wy, cast(float)wz};
                 imax := imin + .{1, 1, 1};
 
-                inst_cam  := in_cam  && aabb_in_frustum(cam_planes,    imin, imax);
-                inst_shad := in_shad && aabb_in_frustum(shadow_planes, imin, imax);
-                if !inst_cam && !inst_shad  continue;
+                inst_cam     := in_cam     && aabb_in_frustum(cam_planes,     imin, imax);
+                inst_reflect := in_reflect && aabb_in_frustum(reflect_planes, imin, imax);
+                inst_shad    := in_shad    && aabb_in_frustum(shadow_planes,  imin, imax);
+                if !inst_cam && !inst_reflect && !inst_shad  continue;
 
                 pos := Vector4.{cast(float)wx, cast(float)wy, cast(float)wz, cast(float)inst.orientation};
-                if inst_cam {
-                    target := find_or_create(*gathered, group.trile_name, chunk.coord);
-                    array_add(*target.positions, pos);
+                is_rdm := is_rdm_instance_enabled(world, wx, wy, wz);
+                if inst_cam || inst_reflect {
+                    if is_rdm {
+                        target := find_or_create(*rdm_extra, group.trile_name, chunk.coord);
+                        array_add(*target.positions, pos);
+                        if inst_cam {
+                            array_add(*rdm_main, .{name = group.trile_name, position = pos});
+                        }
+                    } else {
+                        target := find_or_create(*gathered, group.trile_name, chunk.coord);
+                        array_add(*target.positions, pos);
+                    }
                 } else {
                     target := find_or_create(*shad_gathered, group.trile_name, chunk.coord);
                     array_add(*target.positions, pos);
@@ -114,6 +142,26 @@ create_world_rendering_tasks :: (world: *World, camera: Camera) {
         triletask.worldConf   = *world.conf;
         triletask.shadow_only = true;
         add_rendering_task(triletask);
+    }
+    for g: rdm_extra {
+        if g.positions.count < 1  continue;
+        triletask : Rendering_Task_Trile;
+        triletask.trile     = g.name;
+        triletask.chunk_key = g.chunk_key;
+        triletask.positions = g.positions;
+        triletask.worldConf = *world.conf;
+        triletask.skip_main = true;
+        add_rendering_task(triletask);
+    }
+    for r: rdm_main {
+        rect, found := rdm_get_atlas_rect(world, cast(s32) r.position.x, cast(s32) r.position.y, cast(s32) r.position.z);
+        if !found then continue;
+        rdmtask : Rendering_Task_Trile_RDM;
+        rdmtask.trile      = r.name;
+        rdmtask.position   = r.position;
+        rdmtask.atlas_rect = rect;
+        rdmtask.worldConf  = *world.conf;
+        add_rendering_task(rdmtask);
     }
 
     create_ground_rendering_task(world);

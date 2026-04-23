@@ -1,63 +1,58 @@
 // RDM streaming helpers.
 // The unified fetch queue lives in asset_manager.jai; these functions
-// add and remove RDM entries from that shared queue.
+// enqueue and cancel the world-level global RDM atlas + manifest.
 
 #scope_export
 
 rdm_loader_enqueue_world :: (world: *World) {
-    for *chunk: world.chunks {
-        if chunk.rdm_valid then continue;
+    already_atlas    := false;
+    already_manifest := false;
 
-        // Skip if this chunk is already in-flight on the RDM channel.
-        af_rdm := *g_asset_manager.active[CHANNEL_RDM];
-        if af_rdm.occupied {
-            cf := af_rdm.req;
-            if (cf.type == .RDM_ATLAS || cf.type == .RDM_LOOKUP) &&
-               cf.world_name == world.name && cf.chunk_key == chunk.coord then continue;
-        }
+    for g_asset_manager.slots {
+        if !it.occupied continue;
+        if it.req.world_name != world.name continue;
+        if it.req.type == .RDM_ATLAS     then already_atlas    = true;
+        if it.req.type == .RDM_MANIFEST  then already_manifest = true;
+    }
+    for g_asset_manager.queue {
+        if it.world_name != world.name continue;
+        if it.type == .RDM_ATLAS     then already_atlas    = true;
+        if it.type == .RDM_MANIFEST  then already_manifest = true;
+    }
 
-        // Skip if already queued (either as atlas or its follow-up lookup).
-        already_queued := false;
-        for g_asset_manager.rdm_queue {
-            if (it.type == .RDM_ATLAS || it.type == .RDM_LOOKUP) &&
-               it.world_name == world.name && it.chunk_key == chunk.coord {
-                already_queued = true;
-                break;
-            }
-        }
-        if already_queued then continue;
-
+    if !already_atlas {
         req : Fetch_Request;
         req.type       = .RDM_ATLAS;
+        req.priority   = .LOADING_SCREEN;
         req.world_name = world.name;
-        req.chunk_key  = chunk.coord;
-        if chunk.rdm_atlas_path.count > 0 {
-            req.path = sprint("%/worlds/%/%", GAME_RESOURCES_DIR, world.name, chunk.rdm_atlas_path);
-        } else {
-            req.path = rdm_chunk_filename(world.name, chunk.coord, "rdm_atlas");
-        }
-        array_add(*g_asset_manager.rdm_queue, req);
+        req.path       = rdm_global_atlas_filename(world.name);
+        array_add(*g_asset_manager.queue, req);
+    }
+    if !already_manifest {
+        req : Fetch_Request;
+        req.type       = .RDM_MANIFEST;
+        req.priority   = .LOADING_SCREEN;
+        req.world_name = world.name;
+        req.path       = rdm_global_manifest_filename(world.name);
+        array_add(*g_asset_manager.queue, req);
     }
 }
 
-// Remove all pending RDM fetches from the queue and invalidate any in-flight
-// RDM fetch so its callback discards the result.
+// Drain all pending RDM work.
 rdm_loader_cancel_all :: () {
-    // Destroy any atlas images stored in queued RDM_LOOKUP requests, then drain.
-    for i: 0..g_asset_manager.rdm_queue.count - 1 {
-        item := g_asset_manager.rdm_queue[i];
-        if item.rdm_pending_atlas.id != 0 then sg_destroy_image(item.rdm_pending_atlas);
-    }
-    array_reset(*g_asset_manager.rdm_queue);
-
-    // Blank the world name on the in-flight RDM request so its callback discards.
-    af := *g_asset_manager.active[CHANNEL_RDM];
-    if af.occupied &&
-       (af.req.type == .RDM_ATLAS || af.req.type == .RDM_LOOKUP) {
-        if af.req.rdm_pending_atlas.id != 0 {
-            sg_destroy_image(af.req.rdm_pending_atlas);
-            af.req.rdm_pending_atlas = .{};
+    new_count := 0;
+    for i: 0..g_asset_manager.queue.count - 1 {
+        item := g_asset_manager.queue[i];
+        if item.type != .RDM_ATLAS && item.type != .RDM_MANIFEST {
+            g_asset_manager.queue[new_count] = item;
+            new_count += 1;
         }
-        af.req.world_name = "";
+    }
+    g_asset_manager.queue.count = new_count;
+
+    for *slot: g_asset_manager.slots {
+        if !slot.occupied then continue;
+        if slot.req.type != .RDM_ATLAS && slot.req.type != .RDM_MANIFEST then continue;
+        slot.req.world_name = "";
     }
 }

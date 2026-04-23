@@ -47,6 +47,46 @@ build_options_from_args :: (args: []string) -> Trueno_Build_Options {
     return opts;
 }
 
+// Scans `dir` recursively and returns the size of the largest file whose
+// short name ends with `ext`.  Returns `floor` when no matching file exists.
+max_asset_file_size :: (dir: string, ext: string, floor: s64 = 0) -> s64 {
+    Ctx :: struct { ext: string; max: s64; }
+    ctx: Ctx;
+    ctx.ext = ext;
+    visit_files(dir, true, *ctx, (info: *File_Visit_Info, c: *Ctx) {
+        if info.is_directory return;
+        if !ends_with(info.short_name, c.ext) return;
+        f, ok := file_open(info.full_name);
+        defer if ok file_close(*f);
+        if !ok return;
+        size, ok2 := file_length(f);
+        if ok2 && size > c.max then c.max = size;
+    });
+    return max(floor, ctx.max);
+}
+
+add_asset_buffer_sizes_to_compiler_strings :: (trueno_opts: Trueno_Build_Options, w: Workspace) {
+    pack_dir           := ifx trueno_opts.test_exe_engine || trueno_opts.test_exe_game then "./test_packs" else "./packs";
+    game_resources_dir := ifx trueno_opts.test_exe_engine || trueno_opts.test_exe_game then "./test_game/resources" else "./game/resources";
+
+    sizes: [6]s64;
+    sizes[0] = max_asset_file_size(pack_dir,           ".pack",       1 * 1024 * 1024);
+    sizes[1] = max(
+        max_asset_file_size(game_resources_dir, "world.json",  64 * 1024),
+        max_asset_file_size(game_resources_dir, "index.world", 64 * 1024)
+    );
+    sizes[2] = max_asset_file_size(game_resources_dir, "chunks.bin",       1 * 1024 * 1024);
+    sizes[3] = max_asset_file_size(game_resources_dir, ".shgrid",          1 * 1024 * 1024);
+    sizes[4] = max_asset_file_size(game_resources_dir, "rdm_atlas.rdm",    16 * 1024 * 1024);
+    sizes[5] = max_asset_file_size(game_resources_dir, "rdm_manifest.json", 256 * 1024);
+
+    names :: string.["MAX_PACK_SIZE", "MAX_WORLD_SIZE", "MAX_CHUNKS_SIZE",
+                      "MAX_SHGRID_SIZE", "MAX_RDM_ATLAS_SIZE", "MAX_RDM_MANIFEST_SIZE"];
+    for i: 0..5 {
+        add_build_string(tprint("% :: %;\n", names[i], sizes[i]), w);
+    }
+}
+
 add_trueno_opts_to_compiler_strings :: (trueno_opts : Trueno_Build_Options, w: Workspace) {
     #import "String";
     bool_to_string :: (b: bool) -> string {
@@ -127,6 +167,7 @@ native_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
 
     compiler_begin_intercept(w);
     add_trueno_opts_to_compiler_strings(trueno_opts, w);
+    add_asset_buffer_sizes_to_compiler_strings(trueno_opts, w);
     add_build_file("src/platform_specific/main_native.jai", w);
     add_shaders_to_workspace(w);
 
@@ -178,7 +219,8 @@ wasm_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
     compiler_begin_intercept(w);
 
     add_trueno_opts_to_compiler_strings(trueno_opts, w);
-    add_build_file("src/platform_specific/main_web.jai", w);      
+    add_asset_buffer_sizes_to_compiler_strings(trueno_opts, w);
+    add_build_file("src/platform_specific/main_web.jai", w);
     add_shaders_to_workspace(w);
 
     metaprogramming_loop(trueno_opts, *w);
@@ -225,4 +267,6 @@ wasm_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
 #import "Compiler";
 #import "Process";
 #import "File";
+#import "String";
+#import "File_Utilities";
 

@@ -1,4 +1,4 @@
-SHADOWMAP_SIZE :: 1000;
+SHADOWMAP_SIZE :: 1500;
 
 Pipeline_Binding :: struct {
     pipeline    : sg_pipeline;
@@ -10,6 +10,7 @@ Pipeline_Binding :: struct {
 g_specular_lut  : sg_image;
 g_brdf_lut      : sg_image;
 g_rdm_fallback  : sg_image; // 1x1 black image used when a chunk has no baked RDM data
+g_rdm_atlas     : sg_image; // global RGBA16F atlas holding RDM hemispheres for flagged instances (populated in Steps 5-6)
 g_sh_fallback   : sg_image; // 1x1 black 2D image used when a chunk has no SH probe grid
 
 g_shadowmap             : sg_image;
@@ -23,6 +24,7 @@ g_rendertex_attachments : sg_attachments;
 
 g_gbuf_position         : sg_image;
 g_gbuf_normal           : sg_image;
+g_gbuf_worldpos         : sg_image;
 g_gbuf_depth            : sg_image;
 g_gbuf_attachments      : sg_attachments;
 
@@ -30,6 +32,9 @@ g_ssaobuf               : sg_image;
 g_ssao_noise_buf        : sg_image;
 g_ssaobuf_depth         : sg_image;
 g_ssao_attachments      : sg_attachments;
+
+g_sh_irradiance         : sg_image;
+g_sh_irradiance_attach  : sg_attachments;
 
 g_postprocess_a         : sg_image;
 g_postprocess_b         : sg_image;
@@ -63,6 +68,9 @@ gPipelines : struct {
     // Renders sets of triles
     trile  : Pipeline_Binding;
 
+    // Per-instance variant for triles flagged with sharp-specular RDM lookup
+    trile_rdm : Pipeline_Binding;
+
     // Depth-only shadow pass for triles (no lighting/RDM)
     trile_shadow : Pipeline_Binding;
 
@@ -88,6 +96,8 @@ gPipelines : struct {
 
     ssao: Pipeline_Binding;
 
+    sh_irradiance: Pipeline_Binding;
+
     debugline : Pipeline_Binding;
 }
 
@@ -102,7 +112,7 @@ create_final_image :: () {
     img_desc := sg_image_desc.{
         width = w,
         height = h,
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         render_target = true,
     };
     depth_desc := sg_image_desc.{
@@ -137,7 +147,7 @@ create_shadowmap_image :: () {
     img_desc := sg_image_desc.{
         width = w,
         height = h,
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         render_target = true,
     };
     g_shadowmap = sg_make_image(*depth_desc);
@@ -157,6 +167,7 @@ create_pipelines :: () {
     create_arbtri_pipeline();
     create_trixel_pipeline();
     create_trile_pipeline();
+    create_trile_rdm_pipeline();
     create_trile_shadow_pipeline();
     create_sky_pipeline();
     create_plane_pipeline();
@@ -174,6 +185,8 @@ create_pipelines :: () {
     create_shadowmap_image();
     create_final_image();
     create_ssao_images();
+    create_sh_irradiance_pipeline();
+    create_sh_irradiance_image();
     create_gbuffer_impostors();
 }
 
@@ -182,6 +195,7 @@ create_gbuffer_images :: () {
 
     if g_gbuf_position.id != INVALID_ID then sg_destroy_image(g_gbuf_position);
     if g_gbuf_normal.id != INVALID_ID then sg_destroy_image(g_gbuf_normal);
+    if g_gbuf_worldpos.id != INVALID_ID then sg_destroy_image(g_gbuf_worldpos);
     if g_gbuf_depth.id != INVALID_ID then sg_destroy_image(g_gbuf_depth);
 
     img_desc := sg_image_desc.{
@@ -198,15 +212,17 @@ create_gbuffer_images :: () {
     };
 
     g_gbuf_position = sg_make_image(*img_desc);
-    g_gbuf_normal = sg_make_image(*img_desc);
-    g_gbuf_depth = sg_make_image(*depth_desc);
+    g_gbuf_normal   = sg_make_image(*img_desc);
+    g_gbuf_worldpos = sg_make_image(*img_desc);
+    g_gbuf_depth    = sg_make_image(*depth_desc);
 
     attachmentsDesc : sg_attachments_desc;
-	attachmentsDesc = .{
-	    colors[0].image = g_gbuf_position,
-	    colors[1].image = g_gbuf_normal,
-	   	depth_stencil.image = g_gbuf_depth,
-	};
+    attachmentsDesc = .{
+        colors[0].image     = g_gbuf_position,
+        colors[1].image     = g_gbuf_normal,
+        colors[2].image     = g_gbuf_worldpos,
+        depth_stencil.image = g_gbuf_depth,
+    };
     sg_destroy_attachments(g_gbuf_attachments);
     g_gbuf_attachments = sg_make_attachments(*attachmentsDesc);
 }
@@ -241,7 +257,7 @@ create_trixel_pipeline :: () {
     };
 
     color_state := sg_color_target_state.{
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         blend = .{
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
@@ -369,9 +385,10 @@ create_gbuffer_pipeline :: () {
     };
 
 
-    pipeline.color_count = 2;
+    pipeline.color_count = 3;
     pipeline.colors[0]   = color_state_pos;
     pipeline.colors[1]   = color_state_normal;
+    pipeline.colors[2]   = .{ pixel_format = .RGBA16F };
 
     gPipelines.gbuffer.pipeline = sg_make_pipeline(*pipeline);
     gPipelines.gbuffer.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
@@ -405,7 +422,7 @@ create_trile_pipeline :: () {
     };
 
     color_state := sg_color_target_state.{
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         blend = .{
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
@@ -433,6 +450,52 @@ create_trile_pipeline :: () {
     }));
 }
 
+create_trile_rdm_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := trile_rdm_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.buffers[0].stride = 4*3;
+    pipeline.layout.buffers[1].stride = 4*3;
+    pipeline.layout.buffers[3].step_func = .PER_INSTANCE;
+
+    instance_buffer := sg_buffer_desc.{ usage = .STREAM, size = 16 * 64 };
+
+    pipeline.layout.attrs[ATTR_trile_rdm_position] = .{ format = .FLOAT3, buffer_index = 0 };
+    pipeline.layout.attrs[ATTR_trile_rdm_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
+    pipeline.layout.attrs[ATTR_trile_rdm_centre]   = .{ format = .FLOAT3, buffer_index = 2 };
+    pipeline.layout.attrs[ATTR_trile_rdm_instance] = .{ format = .FLOAT4, buffer_index = 3 };
+    pipeline.depth = .{
+        write_enabled = true,
+        compare       = .LESS_EQUAL,
+        pixel_format  = .DEPTH,
+    };
+
+    pipeline.color_count = 1;
+    pipeline.colors[0]   = sg_color_target_state.{
+        pixel_format = .RGBA16F,
+        blend = .{
+            enabled        = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE_MINUS_SRC_ALPHA,
+        },
+    };
+
+    gPipelines.trile_rdm.pipeline = sg_make_pipeline(*pipeline);
+    gPipelines.trile_rdm.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+    gPipelines.trile_rdm.bind.vertex_buffers[3] = sg_make_buffer(*instance_buffer);
+    gPipelines.trile_rdm.bind.samplers[3] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
+    }));
+}
+
 create_trile_shadow_pipeline :: () {
     pipeline: sg_pipeline_desc;
     shader_desc := trile_shadow_shader_desc(sg_query_backend());
@@ -451,7 +514,7 @@ create_trile_shadow_pipeline :: () {
         pixel_format  = .DEPTH,
     };
     pipeline.color_count = 1;
-    pipeline.colors[0].pixel_format = .RGBA32F;
+    pipeline.colors[0].pixel_format = .RGBA16F;
     gPipelines.trile_shadow.pipeline = sg_make_pipeline(*pipeline);
 }
 
@@ -470,7 +533,7 @@ create_sky_pipeline :: () {
     };
 
     color_state := sg_color_target_state.{
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         blend = .{
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
@@ -545,7 +608,7 @@ create_plane_pipeline_reflection_images :: () {
     img_desc := sg_image_desc.{
         width = w/3,
         height = h/3,
-        pixel_format = .RGBA8,
+        pixel_format = .RGBA16F,
         render_target = true,
     };
     depth_desc := sg_image_desc.{
@@ -585,7 +648,7 @@ create_plane_pipeline :: () {
     };
 
     color_state := sg_color_target_state.{
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         blend = .{
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
@@ -785,7 +848,7 @@ create_op_pipeline :: () {
             src_factor_rgb = .SRC_ALPHA,
             dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
         },
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
     };
     pipeline.depth = .{
             write_enabled = true,
@@ -845,7 +908,7 @@ create_billboard_pipeline :: () {
     };
 
     color_state := sg_color_target_state.{
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         blend = .{
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
@@ -907,9 +970,10 @@ create_gbuffer_billboard_pipeline :: () {
     };
 
 
-    pipeline.color_count = 2;
+    pipeline.color_count = 3;
     pipeline.colors[0]   = color_state_pos;
     pipeline.colors[1]   = color_state_normal;
+    pipeline.colors[2]   = .{ pixel_format = .RGBA16F };
 
     vertices: [4]Vector3 = .[
         .{ 0.0,  0.0, 0.0},
@@ -922,10 +986,6 @@ create_gbuffer_billboard_pipeline :: () {
         0, 1, 2,
         0, 2, 3,
     ];
-
-    pipeline.color_count = 2;
-    pipeline.colors[0]   = color_state_pos;
-    pipeline.colors[1]   = color_state_normal;
 
     gPipelines.gbuffer_billboard.pipeline = sg_make_pipeline(*pipeline);
 
@@ -960,7 +1020,7 @@ create_mix_pipeline :: () {
             src_factor_rgb = .SRC_ALPHA,
             dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
         },
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
     };
     pipeline.depth = .{
             write_enabled = true,
@@ -1014,9 +1074,10 @@ create_bloom_pipeline :: () {
     pipeline.layout.attrs[ATTR_bloom_position] = .{ format = .FLOAT2 };
     pipeline.layout.attrs[ATTR_bloom_uv]       = .{ format = .FLOAT2 };
     pipeline.index_type = .UINT16;
+    pipeline.depth.pixel_format = .NONE;
 
     pipeline.color_count = 1;
-    pipeline.colors[0] = .{ pixel_format = .RGBA32F };
+    pipeline.colors[0] = .{ pixel_format = .RGBA16F };
 
     gPipelines.bloom.pipeline = sg_make_pipeline(*pipeline);
 
@@ -1060,9 +1121,10 @@ create_dof_pipeline :: () {
     pipeline.layout.attrs[ATTR_dof_position] = .{ format = .FLOAT2 };
     pipeline.layout.attrs[ATTR_dof_uv]       = .{ format = .FLOAT2 };
     pipeline.index_type = .UINT16;
+    pipeline.depth.pixel_format = .NONE;
 
     pipeline.color_count = 1;
-    pipeline.colors[0] = .{ pixel_format = .RGBA32F };
+    pipeline.colors[0] = .{ pixel_format = .RGBA16F };
 
     gPipelines.dof.pipeline = sg_make_pipeline(*pipeline);
 
@@ -1097,6 +1159,53 @@ create_dof_pipeline :: () {
     }));
 }
 
+create_sh_irradiance_image :: () {
+    w, h := get_render_size();
+    if g_sh_irradiance.id != INVALID_ID then sg_destroy_image(g_sh_irradiance);
+    g_sh_irradiance = sg_make_image(*(sg_image_desc.{
+        width         = w / 2,
+        height        = h / 2,
+        pixel_format  = .RGBA16F,
+        render_target = true,
+        sample_count  = 1,
+    }));
+    sg_destroy_attachments(g_sh_irradiance_attach);
+    g_sh_irradiance_attach = sg_make_attachments(*(sg_attachments_desc.{
+        colors[0].image = g_sh_irradiance,
+    }));
+}
+
+create_sh_irradiance_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := sh_deferred_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.attrs[ATTR_sh_deferred_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_sh_deferred_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+    pipeline.depth.pixel_format = .NONE;
+    pipeline.color_count = 1;
+    pipeline.colors[0] = .{ pixel_format = .RGBA16F };
+    gPipelines.sh_irradiance.pipeline = sg_make_pipeline(*pipeline);
+
+    quad_vertices : [16]float = .[
+        -1.0,  1.0, 0.0, flip_if_plat(1.0),
+        -1.0, -1.0, 0.0, flip_if_plat(0.0),
+         1.0, -1.0, 1.0, flip_if_plat(0.0),
+         1.0,  1.0, 1.0, flip_if_plat(1.0),
+    ];
+    quad_indices : [6]u16 = .[ 0, 1, 2, 0, 2, 3 ];
+    vbuffer := sg_buffer_desc.{ size = size_of(float) * 16, data = .{ ptr = quad_vertices.data, size = 16 * 4 }};
+    ibuffer := sg_buffer_desc.{ size = size_of(u16) * 6, data = .{ ptr = quad_indices.data, size = 6 * 2 }, type = .INDEXBUFFER };
+    gPipelines.sh_irradiance.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    gPipelines.sh_irradiance.bind.index_buffer = sg_make_buffer(*ibuffer);
+    gPipelines.sh_irradiance.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+}
+
 create_ssao_images :: () {
     if g_ssaobuf.id != INVALID_ID then sg_destroy_image(g_ssaobuf);
     if g_ssaobuf_depth.id != INVALID_ID then sg_destroy_image(g_ssaobuf_depth);
@@ -1109,7 +1218,7 @@ create_ssao_images :: () {
         width = w/2,
         height = h/2,
         render_target = true,
-        pixel_format = .RGBA8
+        pixel_format = .RGBA16F
     };
     img_desc.sample_count = 1;
     g_ssaobuf = sg_make_image(*img_desc);
@@ -1152,7 +1261,7 @@ create_ssao_images :: () {
     bloom_img_desc := sg_image_desc.{
         width = w/8,
         height = h/8,
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         render_target = true,
         sample_count = 1,
     };
@@ -1167,7 +1276,7 @@ create_ssao_images :: () {
     dof_img_desc := sg_image_desc.{
         width = cast(s32)((cast(float)w)/1.5),
         height = cast(s32)((cast(float)h)/1.5),
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         render_target = true,
         sample_count = 1,
     };
@@ -1196,7 +1305,7 @@ create_ssao_pipeline :: () {
             src_factor_rgb = .SRC_ALPHA,
             dst_factor_rgb = .ONE_MINUS_SRC_ALPHA
         },
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
     };
 
     pipeline.color_count = 1;
@@ -1273,9 +1382,6 @@ init_brdf_lut :: () {
         g_brdf_lut = sg_make_image(*desc);
     }
 
-    // 1x1 black image for RDM slots when no baked data is present.
-    // The lookup texture returning all zeros makes atlas_rect.z == 0,
-    // so the shader's fallback ambient path is taken.
     {
         pixels : [4]u8 = .[0, 0, 0, 0];
         imgdata : sg_image_data;
@@ -1288,7 +1394,6 @@ init_brdf_lut :: () {
         };
         g_rdm_fallback = sg_make_image(*desc);
 
-        // 1x1 RGBA16F 2D texture — fallback when a chunk has no SH probe grid.
         zero_sh : [4]u16 = .[0, 0, 0, 0];
         sh_imgdata : sg_image_data;
         sh_imgdata.subimage[0][0] = .{ zero_sh.data, size_of(type_of(zero_sh)) };
@@ -1299,6 +1404,17 @@ init_brdf_lut :: () {
             data         = sh_imgdata,
         };
         g_sh_fallback = sg_make_image(*sh_desc);
+
+        zero_atlas : [4]u16 = .[0, 0, 0, 0];
+        atlas_imgdata : sg_image_data;
+        atlas_imgdata.subimage[0][0] = .{ zero_atlas.data, size_of(type_of(zero_atlas)) };
+        atlas_desc := sg_image_desc.{
+            width        = 1,
+            height       = 1,
+            pixel_format = .RGBA16F,
+            data         = atlas_imgdata,
+        };
+        g_rdm_atlas = sg_make_image(*atlas_desc);
     }
 }
 
@@ -1383,7 +1499,7 @@ create_particle_pipeline :: () {
     pipeline.color_count = 1;
 
     pipeline.colors[0] = .{
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
         blend = .{
             enabled = true,
             src_factor_rgb = .SRC_ALPHA,
@@ -1460,7 +1576,7 @@ create_debugline_pipeline :: () {
         pixel_format  = .DEPTH,
     };
     color_state := sg_color_target_state.{
-        pixel_format = .RGBA32F,
+        pixel_format = .RGBA16F,
     };
     pipeline.color_count = 1;
     pipeline.colors[0]   = color_state;

@@ -9,8 +9,12 @@ RDM_File_Header :: struct {
 
 RDM_FILE_MAGIC :: u32.[0x4D445254][0]; // "TRDM" as little-endian u32
 
-rdm_chunk_filename :: (world_name: string, chunk_key: Chunk_Key, suffix: string) -> string {
-    return sprint("%/worlds/%/%_%_%.%", GAME_RESOURCES_DIR, world_name, chunk_key.x, chunk_key.y, chunk_key.z, suffix);
+rdm_global_atlas_filename :: (world_name: string) -> string {
+    return sprint("%/worlds/%/rdm_atlas.rdm", GAME_RESOURCES_DIR, world_name);
+}
+
+rdm_global_manifest_filename :: (world_name: string) -> string {
+    return sprint("%/worlds/%/rdm_manifest.json", GAME_RESOURCES_DIR, world_name);
 }
 
 // SH probe grid (2 probes per trile per axis = 64x64x64 per 32x32x32 chunk)

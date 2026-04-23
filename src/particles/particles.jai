@@ -41,9 +41,9 @@ Particle :: struct {
     definition : *Particle_Emitter_Config;
 }
 
-MAX_PARTICLES : s32 : 2048;
+MAX_PARTICLES :: 16384;
 
-g_particles    : [2048] Particle;
+g_particles    : [MAX_PARTICLES] Particle;
 g_emitter_defs : [..] Particle_Emitter_Config;
 
 clear_particles :: () {
@@ -102,8 +102,11 @@ add_particle_render_tasks :: () {
         anim_name  : string;
         blend_mode : Particle_Blend_Mode;
         anim       : *Animation;
-        task       : *Rendering_Task_Particles;
+        sheet      : sg_image;
         count      : s32;
+        pos_size   : *[MAX_PARTICLES]Vector4;
+        uv_rects   : *[MAX_PARTICLES]Vector4;
+        colors     : *[MAX_PARTICLES]Vector4;
     }
 
     batches : [..] Batch;
@@ -111,7 +114,6 @@ add_particle_render_tasks :: () {
 
     for *p: g_particles {
         if !p.alive then continue;
-
         if p.definition == null then continue;
         def := p.definition;
         if def.animation_name.count == 0 then continue;
@@ -127,10 +129,17 @@ add_particle_render_tasks :: () {
         if batch == null {
             anim := get_animation_from_string(def.animation_name);
             if anim == null then continue;
-            array_add(*batches, .{ anim_name = def.animation_name, blend_mode = def.blend_mode, anim = anim, task = New(Rendering_Task_Particles,, temp) });
+            if anim.frames.count == 0 then continue;
+            array_add(*batches, .{
+                anim_name  = def.animation_name,
+                blend_mode = def.blend_mode,
+                anim       = anim,
+                sheet      = anim.sheet,
+                pos_size   = New([MAX_PARTICLES]Vector4,, temp),
+                uv_rects   = New([MAX_PARTICLES]Vector4,, temp),
+                colors     = New([MAX_PARTICLES]Vector4,, temp),
+            });
             batch = *batches[batches.count - 1];
-            batch.task.sheet = anim.sheet;
-            batch.task.blend_mode = def.blend_mode;
         }
 
         if batch.count >= MAX_PARTICLES then continue;
@@ -140,31 +149,48 @@ add_particle_render_tasks :: () {
         col := lerp_color(def.color_start, def.color_end, t);
 
         idx := batch.count;
-        batch.task.pos_size[idx] = .{p.position.x, p.position.y, p.position.z, size};
+        batch.pos_size.*[idx] = .{p.position.x, p.position.y, p.position.z, size};
 
         anim := batch.anim;
         frame_count := anim.frames.count;
-        if frame_count == 0 then continue;
         frame := cast(s32)(t * cast(float)frame_count);
         if frame < 0 then frame = 0;
         if frame >= frame_count then frame = cast(s32)(frame_count - 1);
         f := anim.frames[frame];
-        batch.task.uv_rects[idx] = .{
+        batch.uv_rects.*[idx] = .{
             cast(float)f.x / cast(float)anim.sheet_w,
             cast(float)f.y / cast(float)anim.sheet_h,
             cast(float)f.w / cast(float)anim.sheet_w,
             cast(float)f.h / cast(float)anim.sheet_h,
         };
 
-        batch.task.colors[idx] = col;
+        batch.colors.*[idx] = col;
         batch.count += 1;
     }
 
+    buf_task := New(Rendering_Task_Particles_Buffer,, temp);
+    total_count : s32 = 0;
+
     for *b: batches {
-        if b.count > 0 {
-            b.task.count = b.count;
-            add_rendering_task(b.task.*);
-        }
+        if b.count <= 0 then continue;
+
+        instance_offset := total_count;
+        memcpy(*buf_task.pos_size[instance_offset], cast(*void)b.pos_size, b.count * size_of(Vector4));
+        memcpy(*buf_task.uv_rects[instance_offset], cast(*void)b.uv_rects, b.count * size_of(Vector4));
+        memcpy(*buf_task.colors[instance_offset],   cast(*void)b.colors,   b.count * size_of(Vector4));
+        total_count += b.count;
+
+        draw_task : Rendering_Task_Particles;
+        draw_task.count           = b.count;
+        draw_task.instance_offset = instance_offset;
+        draw_task.blend_mode      = b.blend_mode;
+        draw_task.sheet           = b.sheet;
+        add_rendering_task(draw_task);
+    }
+
+    if total_count > 0 {
+        buf_task.total_count = total_count;
+        add_rendering_task(buf_task.*);
     }
 }
 

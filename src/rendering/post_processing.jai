@@ -1,7 +1,7 @@
 Post_Process :: struct {
     exposure          : float = 1.0; @Slider,0,3,0.1;
-    contrast          : float = 1.0; @Slider,0,6,0.1;
-    saturation        : float = 1.0; @Slider,0.0,2.0,0.1;
+    contrast          : float = 1.0; @Slider,0,3,0.1;
+    saturation        : float = 1.0; @Slider,0.0,5.0,0.1;
     gamma             : float = 1.0; @Slider,0.3,3.0,0.1;
     tonemap           : float = 0.0; @Slider,0,1,1;
     ssao              : float = 0.0; @Slider,0,5,0.1;
@@ -32,13 +32,12 @@ Post_Process :: struct {
 current_post_process : Post_Process;
 
 Lighting_Config :: struct {
-    rdm_enabled       : s32   = 1;              @Slider,0,1,1
-    ambient_intensity : float = 0.35;           @Slider,0,2,0.05
-    emissive_scale    : float = 5.0;            @Slider,0,20,0.5
-    rdm_diff_scale    : float = 1.0;            @Slider,0,3,0.1
-    rdm_spec_scale    : float = 1.0;            @Slider,0,3,0.1
-    ambient_color     : Vector3 = .{0.3,0.3,0.4}; @Color
-    rdm_tint          : Vector3 = .{1.05,1.0,0.9}; @Color
+    ambient_intensity   : float = 0.35;           @Slider,0,2,0.05
+    emissive_scale      : float = 5.0;            @Slider,0,20,0.5
+    indirect_diff_scale : float = 1.0;            @Slider,0,3,0.1
+    indirect_spec_scale : float = 1.0;            @Slider,0,3,0.1
+    ambient_color       : Vector3 = .{0.3,0.3,0.4}; @Color
+    indirect_tint       : Vector3 = .{1.05,1.0,0.9}; @Color
 }
 
 current_lighting_config : Lighting_Config;

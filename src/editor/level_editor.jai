@@ -79,9 +79,7 @@ set_dist :: (dist: float) {
 
 tacomaSamples    : s32   = 100;
 tacomaResolution : s32   = 500;
-tacomaExposure   : float = 1.0;
-tacomaContrast   : float = 1.0;
-tacomaSaturation : float = 1.0;
+tacoma_tab_scroll : float = 0;
 
 lastInputTime : float64;
 
@@ -237,31 +235,18 @@ tick_level_editor_camera :: () {
 
 draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	curworld := get_current_world();
-	r := total_r;
-	r.h = ui_h(3,0);
 	#if FLAG_TACOMA_ENABLED {
+		region, inside := GR.begin_scrollable_region(total_r, *theme.scrollable_region_theme);
+		r := inside;
+		r.y -= tacoma_tab_scroll;
+		r.h = ui_h(3,0);
 		if GR.button(r, "Render with Tacoma", *theme.button_theme) {
 			cam := get_level_editor_camera();
 			gen_reference(tacomaResolution, tacomaResolution, cam.position, cam.target, tacomaSamples, true, curworld.world);
 		}
 		r.y += r.h;
-		if GR.button(r, "Render a RDM", *theme.button_theme) {
-			gen_rdm(tacomaSamples, true, curworld.world);
-		}
-		r.y += r.h;
 		if GR.button(r, "Bake all chunk RDMs", *theme.button_theme) {
 			if curworld.valid then rdm_bake_all_chunks(curworld.world, tacomaSamples, true);
-		}
-		r.y += r.h;
-		dirty_count := 0;
-		if curworld.valid  for chunk: curworld.world.chunks  if chunk.rdm_dirty  dirty_count += 1;
-		if GR.button(r, tprint("Bake dirty chunks (%)", dirty_count), *t_button_selectable(theme, dirty_count > 0)) {
-			if curworld.valid && dirty_count > 0 {
-				dirty_keys : [..]Chunk_Key;
-				dirty_keys.allocator = temp;
-				for chunk, key: curworld.world.chunks  if chunk.rdm_dirty  array_add(*dirty_keys, key);
-				rdm_bake_chunks(dirty_keys, curworld.world, tacomaSamples, true);
-			}
 		}
 		r.y += r.h;
 		if GR.button(r, "Bake all chunk SH grids", *t_button_selectable(theme, !sh_bake.active)) {
@@ -303,18 +288,6 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	    r.y += r.h;
 	    GR.slider(r, *tacomaResolution, 10, 5000, 10, *theme.slider_theme);
 		r.y += r.h;
-	    GR.label(r, "Exposure", *t_label_left(theme));
-	    r.y += r.h;
-	    GR.slider(r, *tacomaExposure, 0.5, 3.0, 0.1, *theme.slider_theme);
-		r.y += r.h;
-	    GR.label(r, "Contrast", *t_label_left(theme));
-	    r.y += r.h;
-	    GR.slider(r, *tacomaContrast, 0.5, 3.0, 0.1, *theme.slider_theme);
-		r.y += r.h;
-	    GR.label(r, "Saturation", *t_label_left(theme));
-	    r.y += r.h;
-	    GR.slider(r, *tacomaSaturation, 0.5, 3.0, 0.1, *theme.slider_theme);
-		r.y += r.h;
 		GR.label(r, tprint("Sky Scale (bake): %", formatFloat(bake_sky_scale, trailing_width=2)), *t_label_left(theme));
 		r.y += r.h;
 		GR.slider(r, *bake_sky_scale, 0.0, 5.0, 0.05, *theme.slider_theme);
@@ -324,8 +297,10 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 		GR.slider(r, *bake_sky_desaturation, 0.0, 1.0, 0.05, *theme.slider_theme);
 		r.y += r.h;
 
-		
+		GR.end_scrollable_region(region, r.x + r.w, r.y, *tacoma_tab_scroll);
 	} else {
+		r := total_r;
+		r.h = ui_h(3,0);
 		GR.label(r, "Tacoma is not enabled in this build.", *theme.label_theme);
 	}
 }
@@ -500,7 +475,6 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 	group.trile_name = sprint("%", name);
 	array_add(*group.instances, inst);
 	array_add(*chunk.groups, group);
-	chunk.rdm_dirty = true;
 } @Command
 
 remove_trile :: (x: s32, y: s32, z: s32) {
@@ -516,7 +490,6 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 		for inst, idx: group.instances {
 			if inst.x == lx && inst.y == ly && inst.z == lz {
 				array_unordered_remove_by_index(*group.instances, idx);
-				chunk.rdm_dirty = true;
 				return;
 			}
 		}
@@ -540,14 +513,6 @@ tick_level_editor :: () {
 	tick_level_editor_camera();
 	tick_particles(cast(float)delta_time);
 
-	if is_action_start(Editor_Action.SAVE) then sworld();
-
-	if is_action_start(Editor_Action.LEVEL_TOOL_POINT) then current_tool_mode = .POINT;
-	if is_action_start(Editor_Action.LEVEL_TOOL_BRUSH) then current_tool_mode = .BRUSH;
-	if is_action_start(Editor_Action.LEVEL_TOOL_AREA)    { current_tool_mode = .AREA;  area_active = false; }
-	if is_action_start(Editor_Action.LEVEL_TOOL_LINE)    { current_tool_mode = .LINE;  line_active = false; }
-	if is_action_start(Editor_Action.LEVEL_TOOL_INSPECTOR) then current_tool_mode = .INSPECTOR;
-	if is_action_start(Editor_Action.LEVEL_TOOL_VIEWER)  then current_tool_mode = .VIEWER;
 	if is_action_start(Editor_Action.LEVEL_TWIST_CCW) {
 		lastInputTime = get_time();
 		current_orientation_twist = (current_orientation_twist + 1) % 4;
@@ -795,21 +760,35 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 	if has_trile {
 		GR.label(r.*, tprint("Trile: %  orient: %", trile_name, orientation), *t_label_left(theme));
 		r.y += r.h;
-		#if FLAG_TACOMA_ENABLED {
-			r.h = ui_h(3, 2);
-			GR.label(r.*, "-- Bake Config --", *t_label_left(theme));
+		r.h = ui_h(3, 2);
+		GR.label(r.*, "-- RDM --", *t_label_left(theme));
+		r.y += r.h;
+		r.h = ui_h(4, 0);
+		rdm_on := is_rdm_instance_enabled(world, inspector_x, inspector_y, inspector_z);
+		label := ifx rdm_on then "RDM: ON  (sharp specular)" else "RDM: OFF (sky reflection)";
+		if GR.button(r.*, label, *theme.button_theme, 300) {
+			set_rdm_instance_enabled(world, inspector_x, inspector_y, inspector_z, !rdm_on);
+		}
+		r.y += r.h;
+
+		if rdm_on {
+			cur_size := get_rdm_instance_size(world, inspector_x, inspector_y, inspector_z);
+			tile_w := 2 * cur_size;
+			tile_h := 3 * cur_size;
+			size_label := tprint("Size: % (% x % px)", cur_size, tile_w, tile_h);
+			GR.label(r.*, size_label, *t_label_left(theme));
 			r.y += r.h;
-			r.h = ui_h(4, 0);
-			size_ov, qual_ov := get_rdm_instance_override(world, inspector_x, inspector_y, inspector_z);
-			GR.label(r.*, tprint("Size override (0=default): %", size_ov), *t_label_left(theme));
+
+			r2 := r.*;
+			r2.w = r.w / 2;
+			if GR.button(r2, "- size", *theme.button_theme, 304) {
+				set_rdm_instance_size(world, inspector_x, inspector_y, inspector_z, rdm_cycle_size(cur_size, -1));
+			}
+			r2.x += r2.w;
+			if GR.button(r2, "+ size", *theme.button_theme, 305) {
+				set_rdm_instance_size(world, inspector_x, inspector_y, inspector_z, rdm_cycle_size(cur_size, +1));
+			}
 			r.y += r.h;
-			GR.slider(r.*, *size_ov, 0, 512, 1, *theme.slider_theme);
-			r.y += r.h;
-			GR.label(r.*, tprint("Samples override (0=global): %", qual_ov), *t_label_left(theme));
-			r.y += r.h;
-			GR.slider(r.*, *qual_ov, 0, 10000, 10, *theme.slider_theme);
-			r.y += r.h;
-			set_rdm_instance_override(world, inspector_x, inspector_y, inspector_z, size_ov, qual_ov);
 		}
 	} else {
 		GR.label(r.*, "Trile: (empty)", *t_label_left(theme));
@@ -884,8 +863,9 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 	if has_note {
 		note := *world.notes[note_idx];
 		r.h = ui_h(4, 0);
-		a, new_text, _ := GR.text_input(r.*, note.text, *theme.text_input_theme, 500, input_action = note_input_action);
-		if (a & .TEXT_MODIFIED) || (a & .ENTERED)  note.text = copy_string(new_text);
+		note_id := cast(s64)inspector_x * 1000003 + cast(s64)inspector_y * 1009 + cast(s64)inspector_z;
+		a, _, note_state := GR.text_input(r.*, note.text, *theme.text_input_theme, note_id, input_action = note_input_action);
+		if (a & .TEXT_MODIFIED) || (a & .ENTERED)  note.text = copy_string(note_state.text);
 		r.y += r.h;
 		if GR.button(r.*, "Remove Note", *theme.button_theme, 302) {
 			array_ordered_remove_by_index(*world.notes, note_idx);
@@ -908,77 +888,16 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 	GR.label(r.*, "-- RDM --", *t_label_left(theme));
 	r.y += r.h;
 
-	chunk_key := world_to_chunk_coord(inspector_x, inspector_y, inspector_z);
-	chunk := table_find_pointer(*world.chunks, chunk_key);
-	if chunk != null && chunk.rdm_valid {
-		GR.label(r.*, "RDM: baked", *t_label_left(theme));
-		r.y += r.h;
-		GR.label(r.*, tprint("Chunk: (%, %, %)", chunk_key.x, chunk_key.y, chunk_key.z), *t_label_left(theme));
+	rdm_flagged := is_rdm_instance_enabled(world, inspector_x, inspector_y, inspector_z);
+	if rdm_flagged {
+		GR.label(r.*, "RDM: flagged", *t_label_left(theme));
 		r.y += r.h;
 
-		roughness_mask : u8 = 0;
-		if has_trile {
-			roughness_mask = get_trile_roughness_set(trile_name);
-		}
-
-		r.h = ui_h(4, 0);
-		GR.slider(r.*, *inspector_rdm_roughness, 0, 7, 1, *theme.slider_theme);
-		r.y += r.h;
-		r.h = ui_h(3, 2);
-
-		has_roughness := (roughness_mask & (1 << cast(u8)inspector_rdm_roughness)) != 0;
-		if has_roughness {
-			GR.label(r.*, tprint("Roughness %: present", inspector_rdm_roughness), *t_label_left(theme));
-		} else {
-			GR.label(r.*, tprint("Roughness %: not baked", inspector_rdm_roughness), *t_label_left(theme));
-		}
-		r.y += r.h;
-
-		available: String_Builder;
-		available.allocator = temp;
-		append(*available, "Available: ");
-		for i: 0..7 {
-			if roughness_mask & (1 << cast(u8)i) then print_to_builder(*available, "% ", i);
-		}
-		GR.label(r.*, builder_to_string(*available,, temp), *t_label_left(theme));
-		r.y += r.h;
-
-		lx, ly, lz := world_to_local(inspector_x, inspector_y, inspector_z);
-		lookup_idx := cast(s32)lx + cast(s32)ly * 32 + cast(s32)lz * 1024 + cast(s32)inspector_rdm_roughness * 32768;
-
-		uv0 := Vector2.{0, 0};
-		uv1 := Vector2.{1, 0};
-		uv2 := Vector2.{1, 1};
-		uv3 := Vector2.{0, 1};
-		has_rect := false;
-
-		if chunk.rdm_lookup_cpu.data != null {
-			tx := lookup_idx % chunk.rdm_lookup_w;
-			ty := lookup_idx / chunk.rdm_lookup_w;
-			if tx >= 0 && ty >= 0 && tx < chunk.rdm_lookup_w && ty < chunk.rdm_lookup_h {
-				pixel_offset := (ty * chunk.rdm_lookup_w + tx) * 4;
-				rect_x := chunk.rdm_lookup_cpu[pixel_offset + 0];
-				rect_y := chunk.rdm_lookup_cpu[pixel_offset + 1];
-				rect_w := chunk.rdm_lookup_cpu[pixel_offset + 2];
-				rect_h := chunk.rdm_lookup_cpu[pixel_offset + 3];
-				if rect_w > 0 && rect_h > 0 {
-					has_rect = true;
-					fy0 := 1.0 - rect_y;
-					fy1 := 1.0 - (rect_y + rect_h);
-					uv0 = .{rect_x, fy0};
-					uv1 = .{rect_x + rect_w, fy0};
-					uv2 = .{rect_x + rect_w, fy1};
-					uv3 = .{rect_x, fy1};
-					GR.label(r.*, tprint("Rect: %.2,%.2  %.2x%.2", rect_x, rect_y, rect_w, rect_h), *t_label_left(theme));
-					r.y += r.h;
-				}
-			}
-		}
-
-		if !has_rect {
-			GR.label(r.*, "No RDM entry for this slot/roughness", *t_label_left(theme));
+		rect, has_rect := rdm_get_atlas_rect(world, inspector_x, inspector_y, inspector_z);
+		if has_rect {
+			GR.label(r.*, tprint("Rect: %.2,%.2  %.2x%.2", rect.x, rect.y, rect.z, rect.w), *t_label_left(theme));
 			r.y += r.h;
-		} else {
+
 			r.y += r.h * 0.5;
 			tex_size := r.w * 0.9;
 			tex_r : GR.Rect;
@@ -987,8 +906,15 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 			tex_r.w = tex_size;
 			tex_r.h = tex_size * 1.5;
 
+			fy0 := 1.0 - rect.y;
+			fy1 := 1.0 - (rect.y + rect.w);
+			uv0 := Vector2.{rect.x, fy0};
+			uv1 := Vector2.{rect.x + rect.z, fy0};
+			uv2 := Vector2.{rect.x + rect.z, fy1};
+			uv3 := Vector2.{rect.x, fy1};
+
 			uiTex := New(Ui_Texture,, temp);
-			uiTex.tex = chunk.rdm_atlas;
+			uiTex.tex = g_rdm_atlas;
 			if uiTex.tex.id != INVALID_ID {
 				set_shader_for_images(uiTex);
 				immediate_quad(
@@ -1003,9 +929,12 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 				immediate_flush();
 			}
 			r.y += tex_r.h + r.h * 0.5;
+		} else {
+			GR.label(r.*, "RDM: not yet baked", *t_label_left(theme));
+			r.y += r.h;
 		}
 	} else {
-		GR.label(r.*, "RDM: not baked", *t_label_left(theme));
+		GR.label(r.*, "RDM: not flagged", *t_label_left(theme));
 		r.y += r.h;
 	}
 }
@@ -1039,8 +968,9 @@ draw_level_editor :: () {
 	curworld := get_current_world();
 	if !curworld.valid then return;
 	cam := get_level_editor_camera();
-	create_set_cam_rendering_task(cam, effective_plane_height(*curworld.world.conf));
-	create_world_rendering_tasks(*curworld.world, cam);
+	ph := effective_plane_height(*curworld.world.conf);
+	create_set_cam_rendering_task(cam, ph);
+	create_world_rendering_tasks(*curworld.world, cam, ph);
 	if show_trile_preview && !trile_preview_disabled {
 		create_level_editor_preview_tasks();
 	}

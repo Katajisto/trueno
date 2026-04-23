@@ -52,21 +52,9 @@ Chunk :: struct {
     coord:  Chunk_Key;
     groups: [..]Chunk_Trile_Group;
 
-    rdm_atlas:      sg_image;
-    rdm_lookup:     sg_image;
-    rdm_valid:      bool;
-    rdm_dirty:      bool;
-    rdm_atlas_path:  string;
-    rdm_lookup_path: string;
-
     sh_probe_grid:  sg_image;  // 192x4096 RGBA16F 2D texture (2 probes/trile/axis)
     sh_valid:       bool;
     sh_dirty:       bool;
-    #if !FLAG_RELEASE_BUILD {
-        rdm_lookup_cpu: []float;
-        rdm_lookup_w:   s32;
-        rdm_lookup_h:   s32;
-    }
 }
 
 Editor_Note :: struct {
@@ -74,12 +62,20 @@ Editor_Note :: struct {
     text     : string;
 }
 
+RDM_DEFAULT_SIZE :: 128;
+
 Rdm_Instance_Override :: struct {
-    x                : s32;
-    y                : s32;
-    z                : s32;
-    size_override    : s32;
-    quality_override : s32;
+    x           : s32;
+    y           : s32;
+    z           : s32;
+    rdm_enabled : bool;
+    rdm_size    : s32; // side in px; 0 means legacy — treat as RDM_DEFAULT_SIZE.
+}
+
+// Per-world entry of the global RDM atlas. atlas_rect is normalized UV (x, y, w, h).
+Rdm_Atlas_Entry :: struct {
+    x, y, z    : s32;
+    atlas_rect : Vector4;
 }
 
 World :: struct {
@@ -89,30 +85,70 @@ World :: struct {
     emitter_instances : [..]Particle_Emitter_Instance;
     notes             : [..]Editor_Note;
     rdm_overrides     : [..]Rdm_Instance_Override;
+    rdm_lookup        : [..]Rdm_Atlas_Entry;   // populated by bake (Step 5) and by loader (Step 6)
 }
 
-get_rdm_instance_override :: (world: *World, x: s32, y: s32, z: s32) -> (size_override: s32, quality_override: s32) {
-    for world.rdm_overrides {
-        if it.x == x && it.y == y && it.z == z then return it.size_override, it.quality_override;
+rdm_get_atlas_rect :: (world: *World, x: s32, y: s32, z: s32) -> (Vector4, bool) {
+    for world.rdm_lookup {
+        if it.x == x && it.y == y && it.z == z then return it.atlas_rect, true;
     }
-    return 0, 0;
+    return .{}, false;
 }
 
-set_rdm_instance_override :: (world: *World, x: s32, y: s32, z: s32, size_override: s32, quality_override: s32) {
+is_rdm_instance_enabled :: (world: *World, x: s32, y: s32, z: s32) -> bool {
+    for world.rdm_overrides {
+        if it.x == x && it.y == y && it.z == z then return it.rdm_enabled;
+    }
+    return false;
+}
+
+set_rdm_instance_enabled :: (world: *World, x: s32, y: s32, z: s32, enabled: bool) {
     for *world.rdm_overrides {
         if it.x == x && it.y == y && it.z == z {
-            if size_override == 0 && quality_override == 0 {
+            if !enabled {
                 array_ordered_remove_by_index(*world.rdm_overrides, it_index);
             } else {
-                it.size_override    = size_override;
-                it.quality_override = quality_override;
+                it.rdm_enabled = true;
+                if it.rdm_size == 0 then it.rdm_size = RDM_DEFAULT_SIZE;
             }
             return;
         }
     }
-    if size_override != 0 || quality_override != 0 {
-        array_add(*world.rdm_overrides, .{x=x, y=y, z=z, size_override=size_override, quality_override=quality_override});
+    if enabled {
+        array_add(*world.rdm_overrides, .{x=x, y=y, z=z, rdm_enabled=true, rdm_size=RDM_DEFAULT_SIZE});
     }
+}
+
+get_rdm_instance_size :: (world: *World, x: s32, y: s32, z: s32) -> s32 {
+    for world.rdm_overrides {
+        if it.x == x && it.y == y && it.z == z {
+            if !it.rdm_enabled then return 0;
+            return ifx it.rdm_size > 0 then it.rdm_size else RDM_DEFAULT_SIZE;
+        }
+    }
+    return 0;
+}
+
+set_rdm_instance_size :: (world: *World, x: s32, y: s32, z: s32, size: s32) {
+    for *world.rdm_overrides {
+        if it.x == x && it.y == y && it.z == z {
+            it.rdm_size = size;
+            return;
+        }
+    }
+}
+
+RDM_SIZE_LADDER :: s32.[32, 64, 128, 256, 512, 1024, 2048, 4096];
+
+rdm_cycle_size :: (cur: s32, dir: s32) -> s32 {
+    idx : s32 = 2;
+    for RDM_SIZE_LADDER {
+        if it == cur { idx = cast(s32) it_index; break; }
+    }
+    idx += dir;
+    if idx < 0 then idx = 0;
+    if idx >= cast(s32) RDM_SIZE_LADDER.count then idx = cast(s32) RDM_SIZE_LADDER.count - 1;
+    return RDM_SIZE_LADDER[idx];
 }
 
 // Convert a world-space integer position to chunk coordinate.
@@ -172,23 +208,13 @@ unload_current_world :: () {
     if !current_world.valid then return;
     rdm_loader_cancel_all();
     for *chunk: current_world.world.chunks {
-        if chunk.rdm_valid {
-            sg_destroy_image(chunk.rdm_atlas);
-            sg_destroy_image(chunk.rdm_lookup);
-            #if !FLAG_RELEASE_BUILD {
-                if chunk.rdm_lookup_cpu.data then free(chunk.rdm_lookup_cpu.data);
-                chunk.rdm_lookup_cpu = .{};
-            }
-            chunk.rdm_atlas  = .{};
-            chunk.rdm_lookup = .{};
-            chunk.rdm_valid  = false;
-        }
         for *group: chunk.groups {
             array_free(group.instances);
         }
         array_free(chunk.groups);
     }
     deinit(*current_world.world.chunks);
+    array_free(current_world.world.rdm_lookup);
     Pool.reset(*current_world.pool);
     current_world.valid = false;
 }
@@ -253,7 +279,6 @@ World_Json_Config :: struct {
     waterColor           : [3]float;
     deepColor            : [3]float;
     waterShininess       : float;
-    rdmDiffSaturation    : float;
 }
 
 World_Json_Chunk :: struct {
@@ -262,8 +287,6 @@ World_Json_Chunk :: struct {
     z          : s32;
     offset     : s32;
     size       : s32;
-    rdm_atlas  : string;
-    rdm_lookup : string;
 }
 
 World_Json_Emitter :: struct {
@@ -278,11 +301,11 @@ World_Json_Note :: struct {
 }
 
 World_Json_Rdm_Override :: struct {
-    x                : s32;
-    y                : s32;
-    z                : s32;
-    size_override    : s32;
-    quality_override : s32;
+    x           : s32;
+    y           : s32;
+    z           : s32;
+    rdm_enabled : bool;
+    rdm_size    : s32;
 }
 
 // World_Config serialized as a fixed-size binary blob.
@@ -303,7 +326,6 @@ World_Config_Binary :: struct {
     water_color:         [3]float;
     deep_color:          [3]float;
     water_shininess:     float;
-    rdm_diff_saturation: float;
 }
 
 world_config_to_binary :: (conf: *World_Config) -> World_Config_Binary {
@@ -323,7 +345,6 @@ world_config_to_binary :: (conf: *World_Config) -> World_Config_Binary {
     b.water_color         = conf.waterColor.component;
     b.deep_color          = conf.deepColor.component;
     b.water_shininess     = conf.waterShininess;
-    b.rdm_diff_saturation = conf.rdmDiffSaturation;
     return b;
 }
 
@@ -344,7 +365,6 @@ world_config_from_binary :: (b: *World_Config_Binary) -> World_Config {
     conf.waterColor.component    = b.water_color;
     conf.deepColor.component     = b.deep_color;
     conf.waterShininess          = b.water_shininess;
-    conf.rdmDiffSaturation       = b.rdm_diff_saturation;
     return conf;
 }
 
@@ -409,7 +429,6 @@ world_config_to_json :: (conf: *World_Config) -> World_Json_Config {
     jc.waterColor         = conf.waterColor.component;
     jc.deepColor          = conf.deepColor.component;
     jc.waterShininess     = conf.waterShininess;
-    jc.rdmDiffSaturation  = conf.rdmDiffSaturation;
     return jc;
 }
 
@@ -430,7 +449,6 @@ world_config_from_json :: (jc: *World_Json_Config) -> World_Config {
     conf.waterColor.component    = jc.waterColor;
     conf.deepColor.component     = jc.deepColor;
     conf.waterShininess          = ifx jc.waterShininess > 0 then jc.waterShininess else 64.0;
-    conf.rdmDiffSaturation       = ifx jc.rdmDiffSaturation > 0 then jc.rdmDiffSaturation else 1.0;
     return conf;
 }
 
@@ -441,8 +459,6 @@ save_world :: (world: *World) -> (json: string, chunks_bin: string) {
         coord: Chunk_Key;
         offset: s32;
         size: s32;
-        rdm_atlas_path: string;
-        rdm_lookup_path: string;
     }
     chunk_entries: [..]Chunk_Save_Entry;
     chunk_entries.allocator = temp;
@@ -469,19 +485,10 @@ save_world :: (world: *World) -> (json: string, chunks_bin: string) {
         chunk_data := builder_to_string(*chunk_builder,, temp);
         data_size := cast(s32) chunk_data.count;
 
-        atlas_path := chunk.rdm_atlas_path;
-        lookup_path := chunk.rdm_lookup_path;
-        if !atlas_path.count {
-            atlas_path  = tprint("%_%_%.rdm_atlas",  chunk.coord.x, chunk.coord.y, chunk.coord.z);
-            lookup_path = tprint("%_%_%.rdm_lookup", chunk.coord.x, chunk.coord.y, chunk.coord.z);
-        }
-
         array_add(*chunk_entries, .{
             coord = chunk.coord,
             offset = running_offset,
             size = data_size,
-            rdm_atlas_path = atlas_path,
-            rdm_lookup_path = lookup_path,
         });
         append(*bin_builder, chunk_data);
         running_offset += data_size;
@@ -499,8 +506,6 @@ save_world :: (world: *World) -> (json: string, chunks_bin: string) {
         jc.z = entry.coord.z;
         jc.offset = entry.offset;
         jc.size = entry.size;
-        jc.rdm_atlas = entry.rdm_atlas_path;
-        jc.rdm_lookup = entry.rdm_lookup_path;
         array_add(*wj.chunks, jc);
     }
 
@@ -520,7 +525,8 @@ save_world :: (world: *World) -> (json: string, chunks_bin: string) {
     }
 
     for ov: world.rdm_overrides {
-        array_add(*wj.rdm_overrides, .{x=ov.x, y=ov.y, z=ov.z, size_override=ov.size_override, quality_override=ov.quality_override});
+        size := ifx ov.rdm_size > 0 then ov.rdm_size else RDM_DEFAULT_SIZE;
+        array_add(*wj.rdm_overrides, .{x=ov.x, y=ov.y, z=ov.z, rdm_enabled=ov.rdm_enabled, rdm_size=size});
     }
 
     json_str := Jaison.json_write_string(wj, " ");
@@ -542,8 +548,6 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
     for jc: wj.chunks {
         chunk: Chunk;
         chunk.coord = .{x = jc.x, y = jc.y, z = jc.z};
-        chunk.rdm_atlas_path = sprint("%", jc.rdm_atlas);
-        chunk.rdm_lookup_path = sprint("%", jc.rdm_lookup);
 
         offset := cast(s64) jc.offset;
         size   := cast(s64) jc.size;
@@ -589,7 +593,8 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
     }
 
     for jov: wj.rdm_overrides {
-        array_add(*world.rdm_overrides, .{x=jov.x, y=jov.y, z=jov.z, size_override=jov.size_override, quality_override=jov.quality_override});
+        size := ifx jov.rdm_size > 0 then jov.rdm_size else RDM_DEFAULT_SIZE;
+        array_add(*world.rdm_overrides, .{x=jov.x, y=jov.y, z=jov.z, rdm_enabled=jov.rdm_enabled, rdm_size=size});
     }
 
     return world, true;
@@ -721,7 +726,6 @@ World_Config :: struct {
     waterColor    : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
     deepColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
     waterShininess      : float = 64.0; @Slider,1,512,8
-    rdmDiffSaturation   : float = 1.0;  @Slider,0,2,0.05
     hsv_lighting        : s32   = 1;    @Slider,0,1,1
 
     // ambientColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color

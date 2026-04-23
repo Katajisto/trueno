@@ -7,9 +7,11 @@ Rendering_Task_Type :: enum {
     SET_CAMERA;
     SET_LIGHT;
     TRILE;     // We need to add an ability to invalidate buffer instead of updating it constantly. Also probably have a buffer for static world triles and one for moving ones.
+    TRILE_RDM;
     TRIXELS;
-    BILLBOARD; 
+    BILLBOARD;
     PARTICLES;
+    PARTICLES_BUFFER;
 };
 
 Rendering_Task :: struct {
@@ -59,6 +61,16 @@ Rendering_Task_Trile :: struct {
     worldConf   : *World_Config;
     preview_mode : s32  = 0;    // 0=normal, 1=add preview (blue), 2=delete preview (red)
     shadow_only  : bool = false; // only submit to shadow bucket (frustum-culled from camera)
+    skip_main    : bool = false; // RDM-flagged instances still cast shadows / write gbuffer / reflect, but main pass uses the RDM pipeline
+}
+
+Rendering_Task_Trile_RDM :: struct {
+    #as using t : Rendering_Task;
+    t.type      = .TRILE_RDM;
+    trile       : string;
+    position    : Vector4;       // xyz=world position, w=orientation
+    atlas_rect  : Vector4;       // global atlas UV rect (zeros until Step 6 wires the manifest)
+    worldConf   : *World_Config;
 }
 
 Rendering_Task_Trixels :: struct {
@@ -73,14 +85,21 @@ Rendering_Task_Trixels :: struct {
 }
 
 Rendering_Task_Particles :: struct {
+    #as using t     : Rendering_Task;
+    t.type          = .PARTICLES;
+    count           : s32;
+    instance_offset : s32;
+    blend_mode      : Particle_Blend_Mode;
+    sheet           : sg_image;
+}
+
+Rendering_Task_Particles_Buffer :: struct {
     #as using t : Rendering_Task;
-    t.type      = .PARTICLES;
-    count       : s32;
-    blend_mode  : Particle_Blend_Mode;
-    sheet       : sg_image;
-    pos_size    : [2048]Vector4;
-    uv_rects    : [2048]Vector4;
-    colors      : [2048]Vector4;
+    t.type      = .PARTICLES_BUFFER;
+    total_count : s32;
+    pos_size    : [MAX_PARTICLES]Vector4;
+    uv_rects    : [MAX_PARTICLES]Vector4;
+    colors      : [MAX_PARTICLES]Vector4;
 }
 
 Rendering_Task_Set_Camera :: struct {
@@ -103,6 +122,7 @@ rendering_tasklist : [..]*Rendering_Task;
 
 tasks_to_commands :: () {
     trile_add_counter: s32 = 0;
+    trile_rdm_add_counter: s32 = 0;
     for rendering_tasklist {
         if it.type == {
             case .SET_LIGHT;
@@ -144,12 +164,28 @@ tasks_to_commands :: () {
                     array_add(*render_command_buckets.shadow, drawPositionsCmd);
                 } else if trileTask.preview_mode != 0 {
                     array_add(*render_command_buckets.main, drawPositionsCmd);
+                } else if trileTask.skip_main {
+                    array_add(*render_command_buckets.reflection, drawPositionsCmd);
+                    array_add(*render_command_buckets.gbuffer, drawPositionsCmd);
+                    array_add(*render_command_buckets.shadow, drawPositionsCmd);
                 } else {
                     array_add(*render_command_buckets.reflection, drawPositionsCmd);
                     array_add(*render_command_buckets.main, drawPositionsCmd);
                     array_add(*render_command_buckets.gbuffer, drawPositionsCmd);
                     array_add(*render_command_buckets.shadow, drawPositionsCmd);
                 }
+            case .TRILE_RDM;
+                rdmTask := (cast(*Rendering_Task_Trile_RDM)it);
+                addCmd := New(Render_Command_Add_Trile_RDM_Position,, temp);
+                addCmd.position = rdmTask.position;
+                array_add(*render_command_buckets.setup, addCmd);
+                drawCmd := New(Render_Command_Draw_Trile_RDM,, temp);
+                drawCmd.trile        = rdmTask.trile;
+                drawCmd.conf         = rdmTask.worldConf;
+                drawCmd.atlas_rect   = rdmTask.atlas_rect;
+                drawCmd.offset_index = trile_rdm_add_counter;
+                trile_rdm_add_counter += 1;
+                array_add(*render_command_buckets.main, drawCmd);
             case .SKY;
                 command := New(Render_Command_Sky,, temp);
                 command.worldConfig = (cast(*Rendering_Task_Sky)it).worldConfig;
@@ -173,15 +209,21 @@ tasks_to_commands :: () {
                 array_add(*render_command_buckets.main, commandDrawBillboard);
                 array_add(*render_command_buckets.shadow, commandDrawBillboard);
                 array_add(*render_command_buckets.reflection, commandDrawBillboard);
+            case .PARTICLES_BUFFER;
+                bufTask := cast(*Rendering_Task_Particles_Buffer)it;
+                uploadCmd := New(Render_Command_Update_Particles,, temp);
+                uploadCmd.total_count = bufTask.total_count;
+                memcpy(uploadCmd.pos_size.data, bufTask.pos_size.data, bufTask.total_count * size_of(Vector4));
+                memcpy(uploadCmd.uv_rects.data, bufTask.uv_rects.data, bufTask.total_count * size_of(Vector4));
+                memcpy(uploadCmd.colors.data, bufTask.colors.data, bufTask.total_count * size_of(Vector4));
+                array_add(*render_command_buckets.setup, uploadCmd);
             case .PARTICLES;
-                particleTask := (cast(*Rendering_Task_Particles)it);
+                particleTask := cast(*Rendering_Task_Particles)it;
                 drawCmd := New(Render_Command_Draw_Particles,, temp);
-                drawCmd.count = particleTask.count;
-                drawCmd.blend_mode = particleTask.blend_mode;
-                drawCmd.sheet = particleTask.sheet;
-                memcpy(drawCmd.pos_size.data, particleTask.pos_size.data, particleTask.count * size_of(Vector4));
-                memcpy(drawCmd.uv_rects.data, particleTask.uv_rects.data, particleTask.count * size_of(Vector4));
-                memcpy(drawCmd.colors.data, particleTask.colors.data, particleTask.count * size_of(Vector4));
+                drawCmd.count           = particleTask.count;
+                drawCmd.instance_offset = particleTask.instance_offset;
+                drawCmd.blend_mode      = particleTask.blend_mode;
+                drawCmd.sheet           = particleTask.sheet;
                 array_add(*render_command_buckets.main, drawCmd);
                 array_add(*render_command_buckets.reflection, drawCmd);
             case .SET_CAMERA;

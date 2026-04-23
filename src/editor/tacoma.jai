@@ -14,51 +14,39 @@ Tacoma_Screenshot :: struct {
 
 current_screenshot : Tacoma_Screenshot;
 
-RDM_Atlas_Entry :: struct {
+// Single global atlas entry: stored on the World once baked.
+RDM_Atlas_Entry_Bake :: struct {
     world_pos:  Vector3;
-    roughness:  s32;
-    x, y:       s32;      // position in atlas (pixels)
-    w, h:       s32;      // size of this RDM
+    x, y:       s32;      // top-left in atlas pixels
+    w, h:       s32;      // pixel size of this RDM (= 2*size, 3*size)
 }
 
-// Per-chunk atlas bake state (CPU-side, used during baking only).
-RDM_Chunk_Bake :: struct {
-    data:        *float;              // CPU atlas buffer (RGBA32F)
-    width:       s32;
-    height:      s32;
-    cursor_x:    s32;
-    cursor_y:    s32;
-    row_height:  s32;
-    entries:     [..]RDM_Atlas_Entry;
-}
-
-RDM_ATLAS_SIZE :: 4096 * 2;
-RDM_LOOKUP_SIZE :: 512; // 512x512 = 32*32*32*8 = 262144 texels
-
-rdm_chunk_bakes : Table(Chunk_Key, RDM_Chunk_Bake, chunk_key_hash, chunk_key_compare);
+RDM_ATLAS_MAX_SIZE :: 16384;  // GPU 2D texture ceiling.
 
 ctx : *Tacoma.Tacoma_Context;
 
-// --- Chunk RDM bake queue ---
-
-// Default RDM sizes per roughness level (0=sharpest, 7=diffuse).
-// w = 2*size, h = 3*size. Tacoma accepts size directly.
-g_rdm_default_sizes : [8]s32 = .[256, 128, 64, 32, 16, 8, 4, 2];
-
-// A single RDM render job: one world_trile at one roughness level.
 RDM_Bake_Job :: struct {
     world_trile_index: s32;
-    roughness:         s32;
     world_pos:         Vector3;
-    size_override:     s32;  // 0 = use g_rdm_default_sizes[roughness]
-    quality_override:  s32;  // 0 = use rdm_bake.quality
+    size:              s32;  // per-instance RDM side in px (tile = 2*size x 3*size).
+}
+
+RDM_Global_Bake :: struct {
+    data        : *float;         // CPU atlas buffer (RGBA32F during bake)
+    width       : s32;
+    height      : s32;
+    cursor_x    : s32;
+    cursor_y    : s32;
+    row_height  : s32;
+    entries     : [..]RDM_Atlas_Entry_Bake;
 }
 
 RDM_Bake_State :: struct {
-    active           : bool = false;
-    quality          : s32 = 100;
-    jobs             : [..]RDM_Bake_Job;
-    current_job      : s32 = 0;
+    active      : bool = false;
+    quality     : s32  = 100;
+    jobs        : [..]RDM_Bake_Job;
+    current_job : s32  = 0;
+    atlas       : RDM_Global_Bake;
 }
 
 rdm_bake : RDM_Bake_State;
@@ -73,72 +61,62 @@ SH_Bake_State :: struct {
 
 sh_bake : SH_Bake_State;
 
-rdm_job_size :: (job: RDM_Bake_Job) -> s32 {
-    if job.size_override > 0 then return job.size_override;
-    return g_rdm_default_sizes[job.roughness];
-}
-
 rdm_job_quality :: (job: RDM_Bake_Job) -> s32 {
-    if job.quality_override > 0 then return job.quality_override;
     return rdm_bake.quality;
 }
 
-// Pixel dimensions of a single RDM entry. w = 2*size, h = 3*size.
-rdm_entry_predicted_size :: (roughness: s32) -> (w: s32, h: s32) {
-    size := g_rdm_default_sizes[roughness];
-    return 2 * size, 3 * size;
+rdm_sort_jobs_by_height_desc :: (jobs: *[..]RDM_Bake_Job) {
+    n := jobs.count;
+    for i: 1..n-1 {
+        key := jobs.data[i];
+        j := i - 1;
+        while j >= 0 && jobs.data[j].size < key.size {
+            jobs.data[j + 1] = jobs.data[j];
+            j -= 1;
+        }
+        jobs.data[j + 1] = key;
+    }
 }
 
-// Simulate shelf-pack of jobs into a canvas of given width; return total height used.
-rdm_simulate_pack_height :: (jobs: []RDM_Bake_Job, canvas_w: s32) -> s32 {
-    cx : s32 = 0;
-    cy : s32 = 0;
-    rh : s32 = 0;
+// Simulate shelf pack of the current jobs array into a square atlas of `atlas_size`.
+// Returns true if all fit. Assumes jobs are already sorted by tile height descending.
+rdm_simulate_shelf_pack :: (jobs: []RDM_Bake_Job, atlas_size: s32) -> bool {
+    cursor_x : s32 = 0;
+    cursor_y : s32 = 0;
+    row_h    : s32 = 0;
     for job: jobs {
-        s := rdm_job_size(job);
-        w := 2 * s;
-        h := 3 * s;
-        if cx + w > canvas_w { cy += rh; cx = 0; rh = 0; }
-        cx += w;
-        if h > rh  rh = h;
+        w := 2 * job.size;
+        h := 3 * job.size;
+        if w > atlas_size || h > atlas_size return false;
+        if cursor_x + w > atlas_size {
+            cursor_y += row_h;
+            cursor_x = 0;
+            row_h    = 0;
+        }
+        if cursor_y + h > atlas_size return false;
+        cursor_x += w;
+        if h > row_h then row_h = h;
     }
-    cy += rh;
-    return cy;
+    return true;
 }
 
-// Simulate shelf-packing for a chunk's sorted job list and return minimum
-// power-of-2 atlas dimensions, capped at RDM_ATLAS_SIZE.
-rdm_calc_chunk_atlas_size :: (jobs: []RDM_Bake_Job) -> (s32, s32) {
-    if jobs.count == 0  return 16, 16;
-
-    // Estimate canvas width from sqrt(total pixel area).
-    total_area : s64 = 0;
-    for job: jobs {
-        s := rdm_job_size(job);
-        total_area += cast(s64)(2 * s) * cast(s64)(3 * s);
+// Choose min pow2 square atlas fitting all jobs (variable tile sizes). Caps at RDM_ATLAS_MAX_SIZE.
+rdm_calc_global_atlas_size :: (jobs: []RDM_Bake_Job) -> (s32, s32) {
+    if jobs.count == 0 return 16, 16;
+    target : s32 = 16;
+    while target < RDM_ATLAS_MAX_SIZE {
+        if rdm_simulate_shelf_pack(jobs, target) return target, target;
+        target *= 2;
     }
-    target_w : s32 = 16;
-    sqrt_area := cast(s32) sqrt(cast(float) total_area) + 1;
-    while target_w < sqrt_area  target_w *= 2;
-
-    // Widen until the packed height fits within the width (roughly square).
-    while target_w < RDM_ATLAS_SIZE {
-        if rdm_simulate_pack_height(jobs, target_w) <= target_w  break;
-        target_w *= 2;
+    if !rdm_simulate_shelf_pack(jobs, RDM_ATLAS_MAX_SIZE) {
+        log_warn("RDM atlas cap reached (%); some instances may not fit.", RDM_ATLAS_MAX_SIZE);
     }
-
-    // Round height up to next power of 2.
-    final_height := rdm_simulate_pack_height(jobs, target_w);
-    target_h : s32 = 16;
-    while target_h < final_height  target_h *= 2;
-
-    if target_w > RDM_ATLAS_SIZE  target_w = RDM_ATLAS_SIZE;
-    if target_h > RDM_ATLAS_SIZE  target_h = RDM_ATLAS_SIZE;
-    return target_w, target_h;
+    return RDM_ATLAS_MAX_SIZE, RDM_ATLAS_MAX_SIZE;
 }
 
-// Build the Tacoma scene from the world, and emit bake jobs for selected chunks.
-// If chunk_keys is null, all chunks are queued.
+// Build the Tacoma scene from the world and emit one bake job per RDM-flagged instance.
+// chunk_keys is accepted for API compatibility but ignored — bakes always cover every flagged
+// instance because the global atlas + manifest is rewritten as a whole.
 rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: []Chunk_Key = .[]) {
     if rdm_bake.active then return;
 
@@ -150,27 +128,7 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
     trile_name_to_index: Table(string, s32);
     trile_name_to_index.allocator = temp;
 
-    // Per world_trile: which roughnesses to bake.
-    world_trile_roughnesses : [..]u8;
-    world_trile_roughnesses.allocator = temp;
-
-    // Cache roughness sets per trile type.
-    roughness_cache: Table(string, u8);
-    roughness_cache.allocator = temp;
-
-    bake_all := chunk_keys.count == 0;
-
-    // Build a set of chunk keys to bake if specific ones were requested.
-    chunk_key_set: Table(Chunk_Key, bool, chunk_key_hash, chunk_key_compare);
-    chunk_key_set.allocator = temp;
-    if !bake_all {
-        for key: chunk_keys {
-            table_set(*chunk_key_set, key, true);
-        }
-    }
-
     for chunk: world.chunks {
-        should_bake := bake_all || table_contains(*chunk_key_set, chunk.coord);
         for group: chunk.groups {
             success, idx := table_find(*trile_name_to_index, group.trile_name);
             if !success {
@@ -196,36 +154,19 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
                 table_set(*trile_name_to_index, group.trile_name, idx);
             }
 
-            // Get roughness set for this trile type (cached).
-            roughness_mask : u8;
-            found_r, cached_mask := table_find(*roughness_cache, group.trile_name);
-            if found_r {
-                roughness_mask = cached_mask;
-            } else {
-                roughness_mask = get_trile_roughness_set(group.trile_name);
-                table_set(*roughness_cache, group.trile_name, roughness_mask);
-            }
-
             for inst: group.instances {
                 world_trile_idx := cast(s32) world_triles.count;
                 wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
                 wpos := Vector3.{cast(float) wx, cast(float) wy, cast(float) wz};
                 array_add(*world_triles, Tacoma.World_Trile.{idx, wpos, cast(s32) inst.orientation});
-                array_add(*world_trile_roughnesses, roughness_mask);
 
-                if should_bake {
-                    size_ov, qual_ov := get_rdm_instance_override(*world, wx, wy, wz);
-                    for r: 0..7 {
-                        if roughness_mask & cast(u8)(1 << r) {
-                            array_add(*rdm_bake.jobs, .{
-                                world_trile_index = world_trile_idx,
-                                roughness         = cast(s32) r,
-                                world_pos         = wpos,
-                                size_override     = size_ov,
-                                quality_override  = qual_ov,
-                            });
-                        }
-                    }
+                inst_size := get_rdm_instance_size(*world, wx, wy, wz);
+                if inst_size > 0 {
+                    array_add(*rdm_bake.jobs, .{
+                        world_trile_index = world_trile_idx,
+                        world_pos         = wpos,
+                        size              = inst_size,
+                    });
                 }
             }
         }
@@ -237,69 +178,18 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
     ctx = Tacoma.tacoma_init("./modules/Tacoma/");
     Tacoma.tacoma_load_scene(ctx, sky, blases, tlas, cast(s32) include_water);
 
-    // Sort jobs by roughness ascending (lowest roughness = biggest images first).
-    // Simple insertion sort, N is small.
-    if rdm_bake.jobs.count > 1 {
-        for i: 1..cast(s32)(rdm_bake.jobs.count - 1) {
-            key := rdm_bake.jobs[i];
-            j := i - 1;
-            while j >= 0 && rdm_bake.jobs[j].roughness > key.roughness {
-                rdm_bake.jobs[j + 1] = rdm_bake.jobs[j];
-                j -= 1;
-            }
-            rdm_bake.jobs[j + 1] = key;
-        }
-    }
+    // Sort jobs tallest-first for a tighter shelf pack.
+    rdm_sort_jobs_by_height_desc(*rdm_bake.jobs);
 
-    // Clean up any previous per-chunk bake data.
-    rdm_cleanup_chunk_bakes();
-
-    // Clear RDM results only for chunks that are being re-baked.
-    curworld := get_current_world();
-    for *chunk: curworld.world.chunks {
-        if chunk.rdm_valid && (bake_all || table_contains(*chunk_key_set, chunk.coord)) {
-            sg_destroy_image(chunk.rdm_atlas);
-            sg_destroy_image(chunk.rdm_lookup);
-            chunk.rdm_valid = false;
-        }
-    }
-
-    // Pre-allocate per-chunk atlas CPU buffers with optimal (minimum) sizes.
-    {
-        // Collect unique chunk keys.
-        unique_chunk_keys : [..]Chunk_Key;
-        unique_chunk_keys.allocator = temp;
-        for job: rdm_bake.jobs {
-            ck := world_to_chunk_coord(cast(s32) job.world_pos.x, cast(s32) job.world_pos.y, cast(s32) job.world_pos.z);
-            already := false;
-            for unique_chunk_keys { if it == ck { already = true; break; } }
-            if !already  array_add(*unique_chunk_keys, ck);
-        }
-
-        for chunk_key: unique_chunk_keys {
-            // Collect this chunk's jobs (already sorted by roughness ascending).
-            this_jobs : [..]RDM_Bake_Job;
-            this_jobs.allocator = temp;
-            for job: rdm_bake.jobs {
-                ck := world_to_chunk_coord(cast(s32) job.world_pos.x, cast(s32) job.world_pos.y, cast(s32) job.world_pos.z);
-                if ck == chunk_key  array_add(*this_jobs, job);
-            }
-
-            atlas_w, atlas_h := rdm_calc_chunk_atlas_size(this_jobs);
-            log_info("RDM atlas for chunk %: %x% (%.1f MB, was % MB)",
-                chunk_key, atlas_w, atlas_h,
-                cast(float)(cast(s64) atlas_w * atlas_h * 4 * size_of(float)) / (1024.0 * 1024.0),
-                RDM_ATLAS_SIZE * RDM_ATLAS_SIZE * 4 * size_of(float) / (1024 * 1024));
-
-            atlas_bytes := cast(s64) atlas_w * cast(s64) atlas_h * 4 * size_of(float);
-            bake : RDM_Chunk_Bake;
-            bake.width  = atlas_w;
-            bake.height = atlas_h;
-            bake.data   = cast(*float) alloc(atlas_bytes);
-            memset(bake.data, 0, atlas_bytes);
-            table_set(*rdm_chunk_bakes, chunk_key, bake);
-        }
-    }
+    // Allocate global CPU atlas large enough for all jobs.
+    aw, ah := rdm_calc_global_atlas_size(rdm_bake.jobs);
+    atlas_bytes := cast(s64) aw * cast(s64) ah * 4 * size_of(float);
+    rdm_bake.atlas.width  = aw;
+    rdm_bake.atlas.height = ah;
+    rdm_bake.atlas.data   = cast(*float) alloc(atlas_bytes);
+    memset(rdm_bake.atlas.data, 0, atlas_bytes);
+    log_info("RDM global atlas: %x% (% MB) for % jobs",
+        aw, ah, cast(float)atlas_bytes / (1024.0 * 1024.0), rdm_bake.jobs.count);
 
     rdm_bake.active = true;
     rdm_bake.quality = quality;
@@ -309,17 +199,16 @@ rdm_bake_start :: (world: World, quality: s32, include_water: bool, chunk_keys: 
     }
 }
 
-// Queue all chunks for RDM baking.
+// Queue all RDM-flagged instances. (chunk_keys parameter is ignored — see rdm_bake_start.)
 rdm_bake_all_chunks :: (world: World, quality: s32, include_water: bool) {
     rdm_bake_start(world, quality, include_water);
 }
 
-// Queue specific chunks for RDM baking.
 rdm_bake_chunks :: (chunk_keys: []Chunk_Key, world: World, quality: s32, include_water: bool) {
     rdm_bake_start(world, quality, include_water, chunk_keys);
 }
 
-// Called once per frame to process at most one RDM.
+// Process at most one RDM per frame.
 rdm_bake_tick :: () {
     if !rdm_bake.active then return;
     if rdm_bake.current_job >= cast(s32) rdm_bake.jobs.count {
@@ -329,55 +218,46 @@ rdm_bake_tick :: () {
 
     job := rdm_bake.jobs[rdm_bake.current_job];
 
-    size := rdm_job_size(job);
+    size : s32 = job.size;
     w    := 2 * size;
     h    := 3 * size;
-    ptr  := Tacoma.tacoma_render_rdm(ctx, job.world_trile_index, job.roughness, rdm_job_quality(job), size);
+    ptr  := Tacoma.tacoma_render_rdm(ctx, job.world_trile_index, 0, rdm_job_quality(job), size);
 
-    // Find this job's per-chunk bake state.
-    chunk_key := world_to_chunk_coord(cast(s32) job.world_pos.x, cast(s32) job.world_pos.y, cast(s32) job.world_pos.z);
-    bake := table_find_pointer(*rdm_chunk_bakes, chunk_key);
+    bake := *rdm_bake.atlas;
 
-    if bake != null {
-        // Shelf-pack this RDM into the chunk's atlas.
-        if bake.cursor_x + w > bake.width {
-            bake.cursor_y += bake.row_height;
-            bake.cursor_x = 0;
-            bake.row_height = 0;
-        }
-
-        ax := bake.cursor_x;
-        ay := bake.cursor_y;
-
-        if ay + h <= bake.height {
-            // Copy pixels row-by-row into the chunk's atlas CPU buffer.
-            src := cast(*u8) ptr;
-            row_bytes := cast(s64) w * 4 * size_of(float);
-            for row: 0..h-1 {
-                dst_offset := (cast(s64)(ay + row) * cast(s64) bake.width + cast(s64) ax) * 4 * size_of(float);
-                src_offset := cast(s64) row * row_bytes;
-                memcpy(cast(*u8) bake.data + dst_offset, src + src_offset, row_bytes);
-            }
-
-            entry : RDM_Atlas_Entry;
-            entry.world_pos = job.world_pos;
-            entry.roughness = job.roughness;
-            entry.x = ax;
-            entry.y = ay;
-            entry.w = w;
-            entry.h = h;
-            array_add(*bake.entries, entry);
-        } else {
-            log_warn("RDM atlas overflow for chunk %, skipping (pos=%, roughness=%)", chunk_key, job.world_pos, job.roughness);
-        }
-
-        bake.cursor_x += w;
-        if h > bake.row_height then bake.row_height = h;
+    if bake.cursor_x + w > bake.width {
+        bake.cursor_y += bake.row_height;
+        bake.cursor_x = 0;
+        bake.row_height = 0;
     }
 
-    // Still update the preview screenshot.
-    tacoma_handle_result(ptr, w, h);
+    ax := bake.cursor_x;
+    ay := bake.cursor_y;
 
+    if ay + h <= bake.height {
+        src := cast(*u8) ptr;
+        row_bytes := cast(s64) w * 4 * size_of(float);
+        for row: 0..h-1 {
+            dst_offset := (cast(s64)(ay + row) * cast(s64) bake.width + cast(s64) ax) * 4 * size_of(float);
+            src_offset := cast(s64) row * row_bytes;
+            memcpy(cast(*u8) bake.data + dst_offset, src + src_offset, row_bytes);
+        }
+
+        entry : RDM_Atlas_Entry_Bake;
+        entry.world_pos = job.world_pos;
+        entry.x = ax;
+        entry.y = ay;
+        entry.w = w;
+        entry.h = h;
+        array_add(*bake.entries, entry);
+    } else {
+        log_warn("RDM global atlas overflow, skipping (pos=%)", job.world_pos);
+    }
+
+    bake.cursor_x += w;
+    if h > bake.row_height then bake.row_height = h;
+
+    tacoma_handle_result(ptr, w, h);
     rdm_bake.current_job += 1;
 }
 
@@ -385,115 +265,68 @@ rdm_bake_finish :: () {
     if ctx != null then tacoma_stop();
 
     curworld := get_current_world();
-    total_entries : s64 = 0;
-    chunk_count : s64 = 0;
+    bake := *rdm_bake.atlas;
 
-    // Collect unique chunk keys from jobs.
-    bake_chunk_keys : [..]Chunk_Key;
-    bake_chunk_keys.allocator = temp;
-    for job: rdm_bake.jobs {
-        ck := world_to_chunk_coord(cast(s32) job.world_pos.x, cast(s32) job.world_pos.y, cast(s32) job.world_pos.z);
-        already := false;
-        for bake_chunk_keys { if it == ck { already = true; break; } }
-        if !already then array_add(*bake_chunk_keys, ck);
-    }
+    if bake.entries.count > 0 {
+        // a) Pack atlas into RGBA16F half-floats and upload to g_rdm_atlas.
+        upload_global_atlas_image(bake);
 
-    lookup_texels :: RDM_LOOKUP_SIZE * RDM_LOOKUP_SIZE;
-    lookup_bytes  :: lookup_texels * 4 * size_of(float);
-
-    for chunk_key: bake_chunk_keys {
-        print("Handling chunk key: %\n", chunk_key);
-        bake := table_find_pointer(*rdm_chunk_bakes, chunk_key);
-        if bake == null || bake.entries.count == 0 then continue;
-
-        // a) Upload per-chunk atlas to GPU.
-        atlas_imgdata : sg_image_data;
-        atlas_byte_size := cast(u64) bake.width * cast(u64) bake.height * 4 * size_of(float);
-        atlas_imgdata.subimage[0][0] = .{bake.data, atlas_byte_size};
-
-        atlas_desc : sg_image_desc = .{
-            render_target = false,
-            width         = bake.width,
-            height        = bake.height,
-            pixel_format  = sg_pixel_format.RGBA32F,
-            sample_count  = 1,
-            data          = atlas_imgdata
-        };
-        atlas_image := sg_make_image(*atlas_desc);
-
-        // b) Generate lookup texture (512x512 RGBA32F).
-        lookup_data := cast(*float) alloc(lookup_bytes);
-        memset(lookup_data, 0, lookup_bytes);
-
-        atlas_w := cast(float) bake.width;
-        atlas_h := cast(float) bake.height;
-
-        for entry: bake.entries {
-            lx, ly, lz := world_to_local(cast(s32) entry.world_pos.x, cast(s32) entry.world_pos.y, cast(s32) entry.world_pos.z);
-            index := cast(s32) lx + cast(s32) ly * 32 + cast(s32) lz * 32 * 32 + entry.roughness * 32 * 32 * 32;
-            tx := index % RDM_LOOKUP_SIZE;
-            ty := index / RDM_LOOKUP_SIZE;
-            pixel_offset := (ty * RDM_LOOKUP_SIZE + tx) * 4;
-            lookup_data[pixel_offset + 0] = cast(float) entry.x / atlas_w;
-            lookup_data[pixel_offset + 1] = cast(float) entry.y / atlas_h;
-            lookup_data[pixel_offset + 2] = cast(float) entry.w / atlas_w;
-            lookup_data[pixel_offset + 3] = cast(float) entry.h / atlas_h;
-        }
-
-        lookup_imgdata : sg_image_data;
-        lookup_imgdata.subimage[0][0] = .{lookup_data, lookup_bytes};
-
-        lookup_desc : sg_image_desc = .{
-            render_target = false,
-            width         = RDM_LOOKUP_SIZE,
-            height        = RDM_LOOKUP_SIZE,
-            pixel_format  = sg_pixel_format.RGBA32F,
-            sample_count  = 1,
-            data          = lookup_imgdata
-        };
-        lookup_image := sg_make_image(*lookup_desc);
-        free(lookup_data);
-
-        // c) Store in Chunk.
-        chunk := table_find_pointer(*curworld.world.chunks, chunk_key);
-        if chunk != null {
-            if chunk.rdm_valid {
-                sg_destroy_image(chunk.rdm_atlas);
-                sg_destroy_image(chunk.rdm_lookup);
+        // b) Populate world.rdm_lookup with normalized UV rects.
+        if curworld.valid {
+            array_reset_keeping_memory(*curworld.world.rdm_lookup);
+            atlas_w := cast(float) bake.width;
+            atlas_h := cast(float) bake.height;
+            for entry: bake.entries {
+                e : Rdm_Atlas_Entry;
+                e.x = cast(s32) entry.world_pos.x;
+                e.y = cast(s32) entry.world_pos.y;
+                e.z = cast(s32) entry.world_pos.z;
+                e.atlas_rect = .{
+                    cast(float) entry.x / atlas_w,
+                    cast(float) entry.y / atlas_h,
+                    cast(float) entry.w / atlas_w,
+                    cast(float) entry.h / atlas_h,
+                };
+                array_add(*curworld.world.rdm_lookup, e);
             }
-            chunk.rdm_atlas = atlas_image;
-            chunk.rdm_lookup = lookup_image;
-            chunk.rdm_valid = true;
-            chunk.rdm_dirty = false;
         }
 
-        total_entries += cast(s64) bake.entries.count;
-        chunk_count += 1;
+        // c) Save atlas + manifest to disk.
+        rdm_save_global_atlas_to_disk(bake);
+        if curworld.valid then rdm_save_global_manifest_to_disk(curworld.world.name, curworld.world.rdm_lookup);
     }
 
-    log_info("RDM bake complete: % chunks, % total entries", chunk_count, total_entries);
+    log_info("RDM bake complete: % entries", bake.entries.count);
 
-    // Save baked RDM data to disk.
-    rdm_save_all_chunks_to_disk();
-
-    // Clean up CPU bake data.
-    rdm_cleanup_chunk_bakes();
-
+    if bake.data != null then free(bake.data);
+    array_free(bake.entries);
     array_free(rdm_bake.jobs);
     rdm_bake = .{};
 }
 
-rdm_cleanup_chunk_bakes :: () {
-    for *bake: rdm_chunk_bakes {
-        if bake.data != null then free(bake.data);
-        array_free(bake.entries);
-    }
-    deinit(*rdm_chunk_bakes);
-    rdm_chunk_bakes = .{};
+// Convert RGBA32F CPU atlas to RGBA16F and upload to g_rdm_atlas.
+upload_global_atlas_image :: (bake: *RDM_Global_Bake) {
+    pixel_count := cast(s64) bake.width * cast(s64) bake.height * 4;
+    halves := cast(*u16) alloc(pixel_count * size_of(u16));
+    defer free(halves);
+    for i: 0..pixel_count - 1  halves[i] = f32_to_f16(bake.data[i]);
+
+    imgdata : sg_image_data;
+    imgdata.subimage[0][0] = .{halves, cast(u64)(pixel_count * size_of(u16))};
+    desc : sg_image_desc = .{
+        render_target = false,
+        width         = bake.width,
+        height        = bake.height,
+        pixel_format  = sg_pixel_format.RGBA16F,
+        sample_count  = 1,
+        data          = imgdata,
+    };
+    if g_rdm_atlas.id != 0 then sg_destroy_image(g_rdm_atlas);
+    g_rdm_atlas = sg_make_image(*desc);
 }
 
 bake_sky_scale       : float = 1.0;
-bake_sky_desaturation : float = 0.0;
+bake_sky_desaturation : float = 1.0;
 
 world_to_sky_config :: (world: World) -> Tacoma.Sky_Config {
     sky : Tacoma.Sky_Config;
@@ -604,14 +437,6 @@ gen_reference :: (w: s32, h: s32, eye: Vector3, target: Vector3, quality: s32, i
     tacoma_stop();
 }
 
-gen_rdm :: (quality: s32, include_water: bool, world: World) {
-    tacoma_init_scene(world, include_water);
-    size := g_rdm_default_sizes[0];
-    ptr  := Tacoma.tacoma_render_rdm(ctx, 0, 0, quality, size);
-    tacoma_handle_result(ptr, 2 * size, 3 * size);
-    tacoma_stop();
-}
-
 sh_bake_start :: (quality: s32 = 50, include_water: bool = false) {
     if sh_bake.active then return;
     curworld := get_current_world();
@@ -648,9 +473,11 @@ sh_bake_tick :: () {
     if chunk == null then return;
 
     ox, oy, oz := chunk_local_to_world(chunk_key, 0, 0, 0);
+    SH_PAD     :: 2.0;
+    SH_SPACING :: (32.0 + 2.0 * SH_PAD) / n;
     ptr := Tacoma.tacoma_render_sh_chunk(ctx,
-        cast(float) ox, cast(float) oy, cast(float) oz,
-        n, 0.5, sh_bake.quality);
+        cast(float) ox - SH_PAD, cast(float) oy - SH_PAD, cast(float) oz - SH_PAD,
+        n, SH_SPACING, sh_bake.quality);
 
     tex_halfs :: tex_w * n * n * 4;
     packed : *u16 = cast(*u16) alloc(tex_halfs * size_of(u16));
@@ -708,75 +535,49 @@ shgrid_save_to_disk :: (world_name: string, chunk_key: Chunk_Key, data: *float, 
         builder : String_Builder;
         header := SH_Grid_File_Header.{
             magic   = SH_FILE_MAGIC,
-            version = 1,
+            version = 2,
             probe_n = probe_n,
         };
         write_bytes(*builder, *header, size_of(SH_Grid_File_Header));
-        total_floats := cast(s64) probe_n * probe_n * probe_n * 12;
-        write_bytes(*builder, data, total_floats * size_of(float));
+        total_values := cast(s64) probe_n * probe_n * probe_n * 12;
+        halves := NewArray(total_values, u16,, temp);
+        for i: 0..total_values-1  halves[i] = f32_to_f16(data[i]);
+        write_bytes(*builder, halves.data, total_values * size_of(u16));
         file.write_entire_file(path, builder_to_string(*builder));
     }
 }
 
-// --- RDM disk persistence ---
-// (RDM_File_Header, RDM_FILE_MAGIC, rdm_chunk_filename, rdm_load_from_disk
-//  are defined in rdm_disk.jai which is always loaded on non-WASM builds.)
-
-rdm_save_image_to_file :: (path: string, data: *float, width: s32, height: s32) {
+rdm_save_global_atlas_to_disk :: (bake: *RDM_Global_Bake) {
     #if OS != .WASM {
         file :: #import "File";
-        builder: String_Builder;
+        curworld := get_current_world();
+        if !curworld.valid then return;
+        path := rdm_global_atlas_filename(curworld.world.name);
+
+        builder : String_Builder;
         header := RDM_File_Header.{
-            magic = RDM_FILE_MAGIC,
-            width = width,
-            height = height,
+            magic  = RDM_FILE_MAGIC,
+            width  = bake.width,
+            height = bake.height,
         };
         write_bytes(*builder, *header, size_of(RDM_File_Header));
-        pixel_bytes := cast(s64) width * cast(s64) height * 4 * size_of(float);
-        write_bytes(*builder, data, pixel_bytes);
+        // Convert RGBA32F → RGBA16F for the on-disk atlas.
+        pixel_count := cast(s64) bake.width * cast(s64) bake.height * 4;
+        halves := NewArray(pixel_count, u16,, temp);
+        for i: 0..pixel_count - 1  halves[i] = f32_to_f16(bake.data[i]);
+        write_bytes(*builder, halves.data, pixel_count * size_of(u16));
         file.write_entire_file(path, builder_to_string(*builder));
+        log_info("Saved RDM global atlas: %", path);
     }
 }
 
-rdm_save_all_chunks_to_disk :: () {
+rdm_save_global_manifest_to_disk :: (world_name: string, entries: []Rdm_Atlas_Entry) {
     #if OS != .WASM {
-        curworld := get_current_world();
-        if !curworld.valid then return;
-        world_name := curworld.world.name;
-
-        for *bake, chunk_key: rdm_chunk_bakes {
-            print("Processing chunk....\n");
-            if bake.entries.count == 0 then continue;
-
-            // Save atlas.
-            atlas_path := rdm_chunk_filename(world_name, chunk_key, "rdm_atlas");
-            rdm_save_image_to_file(atlas_path, bake.data, bake.width, bake.height);
-
-            // Regenerate and save lookup.
-            lookup_texels :: RDM_LOOKUP_SIZE * RDM_LOOKUP_SIZE;
-            lookup_floats :: lookup_texels * 4;
-            lookup_data : [lookup_floats]float;
-            memset(lookup_data.data, 0, size_of(type_of(lookup_data)));
-
-            atlas_w := cast(float) bake.width;
-            atlas_h := cast(float) bake.height;
-            for entry: bake.entries {
-                lx, ly, lz := world_to_local(cast(s32) entry.world_pos.x, cast(s32) entry.world_pos.y, cast(s32) entry.world_pos.z);
-                index := cast(s32) lx + cast(s32) ly * 32 + cast(s32) lz * 32 * 32 + entry.roughness * 32 * 32 * 32;
-                tx := index % RDM_LOOKUP_SIZE;
-                ty := index / RDM_LOOKUP_SIZE;
-                pixel_offset := (ty * RDM_LOOKUP_SIZE + tx) * 4;
-                lookup_data[pixel_offset + 0] = cast(float) entry.x / atlas_w;
-                lookup_data[pixel_offset + 1] = cast(float) entry.y / atlas_h;
-                lookup_data[pixel_offset + 2] = cast(float) entry.w / atlas_w;
-                lookup_data[pixel_offset + 3] = cast(float) entry.h / atlas_h;
-            }
-
-            lookup_path := rdm_chunk_filename(world_name, chunk_key, "rdm_lookup");
-            rdm_save_image_to_file(lookup_path, lookup_data.data, RDM_LOOKUP_SIZE, RDM_LOOKUP_SIZE);
-
-            log_info("Saved RDM data for chunk % to disk", chunk_key);
-        }
+        file :: #import "File";
+        path := rdm_global_manifest_filename(world_name);
+        s := Jaison.json_write_string(entries);
+        file.write_entire_file(path, s);
+        log_info("Saved RDM manifest: % (% entries)", path, entries.count);
     }
 }
 

@@ -140,7 +140,7 @@ draw_particle_editor_ui :: (theme: *GR.Overall_Theme) {
     }
     er.y += er.h;
 
-    pe_float(*er, tprint("Emission Rate: %", def.emission_rate), *def.emission_rate, 0, 200, 1, theme);
+    pe_float(*er, tprint("Emission Rate: %", def.emission_rate), *def.emission_rate, 0, 2000, 1, theme);
     pe_float(*er, tprint("Lifetime Min: %", def.lifetime_min), *def.lifetime_min, 0, 10, 0.1, theme);
     pe_float(*er, tprint("Lifetime Max: %", def.lifetime_max), *def.lifetime_max, 0, 10, 0.1, theme);
     pe_vec3(*er, "Velocity", *def.velocity, -50, 50, theme);

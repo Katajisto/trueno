@@ -23,6 +23,8 @@ Mixer_Play_Task :: struct {
     startTime           : float64 = 0;
     delay               : float64 = 0;
     silenceBeforeRepeat : float64 = 0;
+
+    queued_next : *Mixer_Play_Task;  // if set, starts when this ONESHOT task finishes
 }
 
 Mixer_Config :: struct {
@@ -71,6 +73,22 @@ mixer_add_task :: (audio: *Audio_Data, bus: Mixer_Bus, mode: Play_Mode) {
     });
 }
 
+// Queue `next_task` to start as soon as the task currently playing `current_audio` finishes.
+// If `current_audio` isn't playing, `next_task` starts immediately.
+mixer_queue_next :: (current_audio: *Audio_Data, next_task: Mixer_Play_Task) {
+    mixer_lock(*g_mixer);
+    defer mixer_unlock(*g_mixer);
+    for *g_mixer.tasks {
+        if it.audio == current_audio {
+            if it.queued_next then free(it.queued_next);
+            it.queued_next = New(Mixer_Play_Task);
+            it.queued_next.* = next_task;
+            return;
+        }
+    }
+    array_add(*g_mixer.tasks, next_task);
+}
+
 mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
     mixer_lock(*g_mixer);
     defer mixer_unlock(*g_mixer);
@@ -101,7 +119,7 @@ mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
         source_data     := task.audio.data;
         source_channels := cast(s64) task.audio.channels;
         src_rate        := cast(s64) task.audio.sample_rate;
-        out_rate        := cast(s64) saudio_sample_rate();
+        out_rate        := cast(s64) g_audio_sample_rate;
         num_src_frames  := source_data.count / source_channels;
 
         task_finished := false;
@@ -145,7 +163,13 @@ mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
         }
 
         if task_finished {
-            array_unordered_remove_by_index(*g_mixer.tasks, i);
+            if task.queued_next {
+                next := task.queued_next.*;
+                free(task.queued_next);
+                g_mixer.tasks[i] = next;
+            } else {
+                array_unordered_remove_by_index(*g_mixer.tasks, i);
+            }
         }
     }
 }

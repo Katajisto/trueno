@@ -32,6 +32,7 @@ on_window_resize :: () {
     create_plane_pipeline_reflection_images();
     create_final_image();
     create_ssao_images();
+    create_sh_irradiance_image();
     // Reset glyph cache so stale sizes from resizing don't fill the atlas.
     w, h : s32;
     fonsGetAtlasSize(state.fons, *w, *h);

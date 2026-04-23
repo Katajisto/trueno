@@ -18,10 +18,13 @@ Render_Command_Type :: enum {
     DRAW_GROUND;
     ADD_TRILE_POSITIONS;
     DRAW_TRILE_POSITIONS;
+    ADD_TRILE_RDM_POSITION;
+    DRAW_TRILE_RDM;
     UPDATE_TRIXELS;
     DRAW_TRIXELS;
     SET_LIGHT;
     DRAW_BILLBOARD;
+    UPDATE_PARTICLES;
     DRAW_PARTICLES;
 }
 
@@ -58,6 +61,21 @@ Render_Command_Draw_Trile_Positions :: struct {
     offset_index : s32 = 0;  // index into trile_offsets, assigned at task-conversion time
 }
 
+Render_Command_Add_Trile_RDM_Position :: struct {
+    #as using c : Render_Command;
+    c.type      = .ADD_TRILE_RDM_POSITION;
+    position    : Vector4;
+}
+
+Render_Command_Draw_Trile_RDM :: struct {
+    #as using c  : Render_Command;
+    c.type       = .DRAW_TRILE_RDM;
+    trile        : string;
+    conf         : *World_Config;
+    atlas_rect   : Vector4;
+    offset_index : s32 = 0;
+}
+
 Render_Command_Update_Trixels :: struct {
     #as using c    : Render_Command;
     c.type         = .UPDATE_TRIXELS;
@@ -86,15 +104,22 @@ Render_Command_Draw_Trixels :: struct {
     is_secondary  : bool;
 }
 
+Render_Command_Update_Particles :: struct {
+    #as using c  : Render_Command;
+    c.type       = .UPDATE_PARTICLES;
+    total_count  : s32;
+    pos_size     : [MAX_PARTICLES]Vector4;
+    uv_rects     : [MAX_PARTICLES]Vector4;
+    colors       : [MAX_PARTICLES]Vector4;
+}
+
 Render_Command_Draw_Particles :: struct {
-    #as using c    : Render_Command;
-    c.type         = .DRAW_PARTICLES;
-    count          : s32;
-    blend_mode     : Particle_Blend_Mode;
-    sheet          : sg_image;
-    pos_size       : [2048]Vector4;
-    uv_rects       : [2048]Vector4;
-    colors         : [2048]Vector4;
+    #as using c       : Render_Command;
+    c.type            = .DRAW_PARTICLES;
+    count             : s32;
+    instance_offset   : s32;
+    blend_mode        : Particle_Blend_Mode;
+    sheet             : sg_image;
 }
 
 Render_Command_Draw_Ground :: struct {

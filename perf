@@ -1,0 +1,20 @@
+FRAME PRE OPTIMIZATION!
+
+
+| Pass | Targets | Duration (µs) | What it does |
+|--------------|---------|---------------|--------------|
+| Colour Pass #1  | 1T+D | 257.64   |  Draws all triles and billboards with the shadowmap shader into a shadowmap|
+| Colour Pass #2  | 1T+D | 2226.80  |  Draws triles and billboard for planar reflection, does viewport culling, uses mostly same shaders as main pass |
+| Colour Pass #3  | 2T+D | 886.92   |  Gbuffer pass. All triles and billboards. Special gbuffer shader.  |
+| Colour Pass #4  | 1T+D | 727.08   |  SSAO texture draw pass. Output 4k            |
+| Colour Pass #5  | 1T+D | 500.60   |  SSAO blur, output 1920x1066            |
+| Colour Pass #6  | 1T+D | 4201.48  |  Main pass, draws water (284us) draws billboards, samples previous buffers, draws particles (don't seem to be heavy, max 21us) draws triles draws billboards      |
+| Colour Pass #7  | 1T+D | 842.84   |  Extracts bright parts and blurs? For bloom  |
+| Colour Pass #8  | 1T+D | 1069.52  |  Applies bloom            |
+| Colour Pass #9  | 1T+D | 1648.36  |  Blurs whole image for DOF purposes            |
+| Colour Pass #10 | 1T+D | 888.84   |  I think this is dilution for the blurred image but not totally sure. |
+| Colour Pass #11 | 1T+D | 1105.04  |  Mixes blurred and original for DOF effect  |
+| Colour Pass #12 | 1T+D | 288.28   |  Final pass, does color correction and some effects |
+| **Total**       |      | **14643.40** |          |
+
+

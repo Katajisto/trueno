@@ -545,20 +545,6 @@ draw_trile_editor :: () {
 }
 
 trile_editor_shortcuts :: () {
-    // Tool/mode buttons are only rendered in the Toolset tab — handle shortcuts here so they work from any tab.
-    if is_action_start(Editor_Action.TRIXEL_TOOL_PAINT)  then current_tool = .PAINT;
-    if is_action_start(Editor_Action.TRIXEL_TOOL_ADD)    then current_tool = .ADD;
-    if is_action_start(Editor_Action.TRIXEL_TOOL_REMOVE) then current_tool = .REMOVE;
-    if is_action_start(Editor_Action.TRIXEL_MODE_POINT)  then current_mode = .POINT;
-    if is_action_start(Editor_Action.TRIXEL_MODE_AREA)   then current_mode = .AREA;
-    if is_action_start(Editor_Action.TRIXEL_MODE_BRUSH)  then current_mode = .BRUSH;
-    // Save is in the Toolset tab only.
-    if is_action_start(Editor_Action.SAVE) {
-        set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
-        striles();
-        update_trile_thumbnail(editor_current_trile.name);
-    }
-    if is_action_start(Editor_Action.TRIXEL_VIEW_TILE) then tiling_preview_active = !tiling_preview_active;
     if is_action_start(Editor_Action.TRIXEL_UNDO) then do_undo();
     if is_action_start(Editor_Action.TRIXEL_REDO) then do_redo();
 }
