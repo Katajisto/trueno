@@ -7,6 +7,13 @@ trile_table     : Table(string, Trile);
 
 editor_current_trile : *Trile = null;
 
+Trile_GFX_LOD :: struct {
+    vertex_buffer : sg_buffer;
+    normal_buffer : sg_buffer;
+    color_buffer  : sg_buffer;
+    vertex_count  : s64;
+}
+
 Trile_GFX :: struct {
     trixel_colors : sg_image;
     vertex_buffer : sg_buffer;
@@ -14,6 +21,9 @@ Trile_GFX :: struct {
     centre_buffer : sg_buffer;
     vertices      : []float;
     vertex_count  : s64;
+
+    lod_4 : Trile_GFX_LOD;   // 4^3 cube grid
+    lod_2 : Trile_GFX_LOD;   // 2^3 cube grid
 };
 
 get_trile_table_ptr :: () -> *Table(string, Trile) {
@@ -49,6 +59,8 @@ set_trile_gfx :: (name: string, gfx: Trile_GFX, skip_preexist_check: bool = fals
             sg_destroy_buffer(old_gfx.normal_buffer);
             sg_destroy_buffer(old_gfx.centre_buffer);
             sg_destroy_image(old_gfx.trixel_colors);
+            destroy_trile_gfx_lod(*old_gfx.lod_4);
+            destroy_trile_gfx_lod(*old_gfx.lod_2);
             array_reset(*old_gfx.vertices);
             log_debug("Destroyed old GFX buffers for trile: %", name);
         }
@@ -65,6 +77,8 @@ set_trile :: (name: string, trile: Trile) {
         sg_destroy_buffer(old_gfx.normal_buffer);
         sg_destroy_buffer(old_gfx.centre_buffer);
         sg_destroy_image(old_gfx.trixel_colors);
+        destroy_trile_gfx_lod(*old_gfx.lod_4);
+        destroy_trile_gfx_lod(*old_gfx.lod_2);
         array_reset(*old_gfx.vertices);
         table_remove(*trile_gfx_table, name);
     }
@@ -95,6 +109,8 @@ rename_trile :: (old_name: string, new_name: string) {
         sg_destroy_buffer(old_gfx.normal_buffer);
         sg_destroy_buffer(old_gfx.centre_buffer);
         sg_destroy_image(old_gfx.trixel_colors);
+        destroy_trile_gfx_lod(*old_gfx.lod_4);
+        destroy_trile_gfx_lod(*old_gfx.lod_2);
         array_reset(*old_gfx.vertices);
         table_remove(*trile_gfx_table, old_name);
     }
@@ -112,6 +128,8 @@ delete_trile :: (name: string) {
         sg_destroy_buffer(old_gfx.normal_buffer);
         sg_destroy_buffer(old_gfx.centre_buffer);
         sg_destroy_image(old_gfx.trixel_colors);
+        destroy_trile_gfx_lod(*old_gfx.lod_4);
+        destroy_trile_gfx_lod(*old_gfx.lod_2);
         array_reset(*old_gfx.vertices);
         table_remove(*trile_gfx_table, name);
     }
@@ -185,22 +203,25 @@ Trixel :: struct {
 };
 
 Trile :: struct {
-    name    : string = "test";
-    trixels : [16][16][16] Trixel;  
+    name      : string = "test";
+    is_opaque : bool   = true;
+    trixels   : [16][16][16] Trixel;
 };
 
 TrixelSerialize :: [5]u8;
 
 TrileSerialize :: struct {
-    name    : string = "test";
-    version : int    = 0;
-    trixels : [16][16][16] TrixelSerialize;
+    name      : string = "test";
+    version   : int    = 0;
+    is_opaque : u8     = 1;
+    trixels   : [16][16][16] TrixelSerialize;
 };
 
 trile_to_serialize_form :: (t: Trile) -> TrileSerialize {
     ts := TrileSerialize.{
-        name    = t.name,
-        version = 1,
+        name      = t.name,
+        version   = 2,
+        is_opaque = ifx t.is_opaque then cast(u8)1 else cast(u8)0,
     };
     for i: 0..15 {
         for j: 0..15 {
@@ -215,6 +236,8 @@ trile_to_serialize_form :: (t: Trile) -> TrileSerialize {
 
 trile_from_serialize_form :: (ts: TrileSerialize) -> Trile {
     t := Trile.{ name = sprint("%", ts.name) };
+    if ts.version >= 2  t.is_opaque = ts.is_opaque != 0;
+    else                t.is_opaque = true;
     for i: 0..15 {
         for j: 0..15 {
             for k: 0..15 {

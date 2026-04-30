@@ -23,12 +23,16 @@ Profiler_Mode :: enum {
 profiler_mode : Profiler_Mode = .CLOSED;
 
 draw_text :: (x: float, y: float, text: string, color: Vector4) {
+	_, h := get_window_size();
+	half_height := cast(float) iprof_font.character_height * 0.5;
 	prepare_text(*iprof_font, text);
-	draw_prepared_text(*iprof_font, xx x, xx y, color);
+	draw_prepared_text(*iprof_font, xx x, xx (cast(float) h - y - half_height), color);
 }
 
 draw_line :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, color: Vector4) {
-	immediate_quad(p0, p1, p2, p3, color);
+	_, h := get_window_size();
+	hf := cast(float) h;
+	immediate_quad(.{p0.x, hf - p0.y}, .{p1.x, hf - p1.y}, .{p2.x, hf - p2.y}, .{p3.x, hf - p3.y}, color);
 }
 
 text_width :: (text: string) -> float {
@@ -43,7 +47,9 @@ text_width :: (text: string) -> float {
 }
 
 draw_rectangle_prof :: (x0: float, y0: float, x1: float, y1: float, color: Vector4) {
-	r := GR.Rect.{x0,y0,x1-x0,y1-y0};
+	_, h := get_window_size();
+	hf := cast(float) h;
+	r := GR.Rect.{x0, hf - y0, x1 - x0, (hf - y1) - (hf - y0)};
 	draw_rectangle(r, color);
 }
 
@@ -85,11 +91,17 @@ init_profiler :: () {
 
 draw_profiler :: () {
 	if profiler_mode == .CLOSED then return;
+	
+	// Prevent recursive profiler calls during drawing
+	old_value := context.already_inside_profiler_runtime;
+	context.already_inside_profiler_runtime = true;
+	defer context.already_inside_profiler_runtime = old_value;
+	
     w,h :=  get_window_size();
 	draw_rectangle(.{xx(w-700), 0, 700, xx(h) }, .{0,0,0,1});
-    __Iprof.draw(xx (w - 700), 20,699,xx h, *iprof_conf);
+    __Iprof.draw(xx (w - 700), 20, 699, xx h, *iprof_conf);
     if profiler_mode == .FULL {
-		__Iprof.draw_graph(0,xx h,xx(w-700),200, *iprof_conf);
+		__Iprof.draw_graph(0, 100, xx(w-700), 100, *iprof_conf);
 	}
 }
 
@@ -127,6 +139,7 @@ tick_profiler :: () {
 		__Iprof.graph_select_sample();
 	}
 
-    __Iprof.set_cursor_screen_coordinates(xx input_mouse_x, xx input_mouse_y);
+    _, h := get_window_size();
+    __Iprof.set_cursor_screen_coordinates(xx input_mouse_x, xx (cast(float) h - input_mouse_y));
 }
 }

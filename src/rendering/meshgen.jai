@@ -498,6 +498,12 @@ generate_trile_gfx_matias :: (trileptr : *Trile) -> Trile_GFX {
         context.allocator = old_alloc;
         vecsCopy := array_copy(triangleVecs);
         Pool.reset(*meshgenpool);
-        return .{ img, trile_vert_buffer, trile_normal_buffer, trile_centre_buffer, vecsCopy, triangleVecs.count / 3 };
+
+        lod4_voxels := downsample_trile(trileptr, 4);
+        lod_4       := bake_lod_cube_mesh(lod4_voxels, 4);
+        lod2_voxels := downsample_trile(trileptr, 2);
+        lod_2       := bake_lod_cube_mesh(lod2_voxels, 2);
+
+        return .{ img, trile_vert_buffer, trile_normal_buffer, trile_centre_buffer, vecsCopy, triangleVecs.count / 3, lod_4, lod_2 };
     }
 }

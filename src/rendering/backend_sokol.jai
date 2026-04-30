@@ -24,7 +24,7 @@ backend_handle_command :: (cmd: *Render_Command) {
             backend_add_trile_positions(add_command.positions);
         case .DRAW_TRILE_POSITIONS;
             draw_command := cast(*Render_Command_Draw_Trile_Positions)cmd;
-            backend_draw_trile_positions(draw_command.trile, draw_command.amount, draw_command.conf, draw_command.chunk_key, draw_command.preview_mode, draw_command.offset_index);
+            backend_draw_trile_positions(draw_command.trile, draw_command.amount, draw_command.conf, draw_command.chunk_key, draw_command.preview_mode, draw_command.offset_index, draw_command.lod_index);
         case .ADD_TRILE_RDM_POSITION;
             add_command := cast(*Render_Command_Add_Trile_RDM_Position)cmd;
             backend_add_trile_rdm_position(add_command.position);
@@ -141,15 +141,15 @@ backend_add_trile_positions :: (positions : []Vector4) {
     array_add(*trile_offsets, offset);
 }
 
-backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, preview_mode: s32 = 0, offset_index: s32 = 0) {
+backend_draw_trile_positions :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, preview_mode: s32 = 0, offset_index: s32 = 0, lod_index: s32 = 0) {
     if in_gbuffer_pass {
-        backend_draw_trile_positions_gbuffer(trile, amount, worldConf, offset_index);
+        backend_draw_trile_positions_gbuffer(trile, amount, worldConf, offset_index, lod_index);
     } else {
-        backend_draw_trile_positions_main(trile, amount, worldConf, chunk_key, preview_mode, offset_index);
+        backend_draw_trile_positions_main(trile, amount, worldConf, chunk_key, preview_mode, offset_index, lod_index);
     }
 }
 
-backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf: *World_Config, offset_index: s32) {
+backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf: *World_Config, offset_index: s32, lod_index: s32 = 0) {
     if offset_index >= trile_offsets.count then return;
     mvp := create_viewproj(*camera);
     view := create_lookat(*camera);
@@ -163,10 +163,27 @@ backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf
     offset := trile_offsets[offset_index];
 
     trilegfx := get_trile_gfx(trile);
+
+    vbuf, nbuf, cbuf : sg_buffer;
+    vcount : s64;
+    if lod_index == 0 {
+        vbuf = trilegfx.vertex_buffer;
+        nbuf = trilegfx.normal_buffer;
+        cbuf = trilegfx.centre_buffer;
+        vcount = trilegfx.vertex_count;
+    } else {
+        lod := ifx lod_index == 1 then *trilegfx.lod_4 else *trilegfx.lod_2;
+        if lod.vertex_count == 0  return;
+        vbuf = lod.vertex_buffer;
+        nbuf = lod.normal_buffer;
+        cbuf = lod.color_buffer;  // unused by gbuffer shader; bound to satisfy pipeline layout
+        vcount = lod.vertex_count;
+    }
+
     bindings : sg_bindings;
-    bindings.vertex_buffers[0]         = trilegfx.vertex_buffer;
-    bindings.vertex_buffers[1]         = trilegfx.normal_buffer;
-    bindings.vertex_buffers[2]         = trilegfx.centre_buffer;
+    bindings.vertex_buffers[0]         = vbuf;
+    bindings.vertex_buffers[1]         = nbuf;
+    bindings.vertex_buffers[2]         = cbuf;
     bindings.vertex_buffers[3]         = gPipelines.trile.bind.vertex_buffers[3];
     bindings.vertex_buffer_offsets[3]  = offset;
     bindings.samplers[0]               = gPipelines.trile.bind.samplers[0];
@@ -174,10 +191,10 @@ backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf
 
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_gbuffer_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
-    sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
+    sg_draw(0, cast(s32) vcount, amount);
 }
 
-backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, preview_mode: s32 = 0, offset_index: s32 = 0) {
+backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *World_Config, chunk_key: Chunk_Key, preview_mode: s32 = 0, offset_index: s32 = 0, lod_index: s32 = 0) {
     start_frame_profiling_group("Draw trile positions");
     if offset_index >= trile_offsets.count {
         end_frame_profiling_group("Draw trile positions");
@@ -187,24 +204,84 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     trilegfx := get_trile_gfx(trile);
     offset := trile_offsets[offset_index];
 
+    // Pick mesh source based on LOD level. For shadow + gbuffer we keep the original pipeline
+    // and just swap which buffers feed it; the shader's centre attribute is unused so we bind
+    // the LOD color buffer as a placeholder to satisfy the pipeline layout.
+    vbuf, nbuf, cbuf : sg_buffer;
+    vcount : s64;
+    if lod_index == 0 {
+        vbuf = trilegfx.vertex_buffer;
+        nbuf = trilegfx.normal_buffer;
+        cbuf = trilegfx.centre_buffer;
+        vcount = trilegfx.vertex_count;
+    } else {
+        lod := ifx lod_index == 1 then *trilegfx.lod_4 else *trilegfx.lod_2;
+        if lod.vertex_count == 0 {
+            end_frame_profiling_group("Draw trile positions");
+            return;
+        }
+        vbuf = lod.vertex_buffer;
+        nbuf = lod.normal_buffer;
+        cbuf = lod.color_buffer;
+        vcount = lod.vertex_count;
+    }
+
     if in_shadowmap_pass {
         vs_params : Trile_Shadow_Vs_Params;
         vs_params.mvp = shadow_mvp.floats;
         bindings : sg_bindings;
-        bindings.vertex_buffers[0]        = trilegfx.vertex_buffer;
-        bindings.vertex_buffers[1]        = trilegfx.normal_buffer;
-        bindings.vertex_buffers[2]        = trilegfx.centre_buffer;
+        bindings.vertex_buffers[0]        = vbuf;
+        bindings.vertex_buffers[1]        = nbuf;
+        bindings.vertex_buffers[2]        = cbuf;
         bindings.vertex_buffers[3]        = gPipelines.trile.bind.vertex_buffers[3];
         bindings.vertex_buffer_offsets[3] = offset;
         sg_apply_pipeline(gPipelines.trile_shadow.pipeline);
         sg_apply_bindings(*bindings);
         sg_apply_uniforms(UB_trile_shadow_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params)) }));
-        sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
+        sg_draw(0, cast(s32) vcount, amount);
         end_frame_profiling_group("Draw trile positions");
         return;
     }
 
     mvp := create_viewproj(*camera);
+
+    if lod_index >= 1 {
+        // LOD path: dedicated shader, vertex color, no ray-march/SSAO/shadow/SH/BRDF.
+        sg_apply_pipeline(gPipelines.trile_lod.pipeline);
+
+        lod_vs : Trile_Lod_Vs_Params;
+        lod_vs.mvp    = mvp.floats;
+        lod_vs.camera = camera.position.component;
+
+        lod_fs : Trile_Lod_Fs_Params;
+        lod_fs.skyBase           = worldConf.skyBase.component;
+        lod_fs.sunPosition       = worldConf.sunPosition.component;
+        lod_fs.sunLightColor     = worldConf.sunLightColor.component;
+        lod_fs.sunIntensity      = worldConf.sunIntensity;
+        lc := *current_lighting_config;
+        lod_fs.ambient_color     = lc.ambient_color.component;
+        lod_fs.ambient_intensity = lc.ambient_intensity;
+        lod_fs.planeHeight       = effective_plane_height(worldConf);
+        lod_fs.deepColor         = worldConf.deepColor.component;
+        lod_fs.is_reflection     = ifx in_reflection_pass then cast(s32)1 else cast(s32)0;
+        lod_fs.fog_start         = FOG_START;
+        lod_fs.fog_end           = FOG_END;
+
+        bindings : sg_bindings;
+        bindings.vertex_buffers[0]        = vbuf;
+        bindings.vertex_buffers[1]        = nbuf;
+        bindings.vertex_buffers[2]        = cbuf;
+        bindings.vertex_buffers[3]        = gPipelines.trile.bind.vertex_buffers[3];
+        bindings.vertex_buffer_offsets[3] = offset;
+
+        sg_apply_bindings(*bindings);
+        sg_apply_uniforms(UB_trile_lod_vs_params, *(sg_range.{ ptr = *lod_vs, size = size_of(type_of(lod_vs)) }));
+        sg_apply_uniforms(UB_trile_lod_fs_params, *(sg_range.{ ptr = *lod_fs, size = size_of(type_of(lod_fs)) }));
+        sg_draw(0, cast(s32) vcount, amount);
+        end_frame_profiling_group("Draw trile positions");
+        return;
+    }
+
 	vs_params : Trile_Vs_Params;
 	vs_params.mvp = mvp.floats;
 	vs_params.mvp_shadow = shadow_mvp.floats;
@@ -215,9 +292,9 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     world_conf.planeHeight = effective_plane_height(worldConf);
 
     bindings : sg_bindings;
-    bindings.vertex_buffers[0]         = trilegfx.vertex_buffer;
-    bindings.vertex_buffers[1]         = trilegfx.normal_buffer;
-    bindings.vertex_buffers[2]         = trilegfx.centre_buffer;
+    bindings.vertex_buffers[0]         = vbuf;
+    bindings.vertex_buffers[1]         = nbuf;
+    bindings.vertex_buffers[2]         = cbuf;
     bindings.vertex_buffers[3]         = gPipelines.trile.bind.vertex_buffers[3];
     bindings.vertex_buffer_offsets[3]  = offset;
     bindings.samplers[0]               = gPipelines.trile.bind.samplers[0];
@@ -247,13 +324,15 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
     fs_params.is_preview          = preview_mode;
     fs_params.indirect_tint       = lc.indirect_tint.component;
     fs_params.sh_enabled          = ifx (chunk != null && chunk.sh_valid && !in_reflection_pass) then cast(s32)1 else cast(s32)0;
+    fs_params.fog_start           = FOG_START;
+    fs_params.fog_end             = FOG_END;
 
     sg_apply_bindings(*bindings);
     sg_apply_uniforms(UB_trile_fs_params, *(sg_range.{ ptr = *fs_params, size = size_of(type_of(fs_params)) }));
     sg_apply_uniforms(UB_trile_vs_params, *(sg_range.{ ptr = *vs_params, size = size_of(type_of(vs_params))}));
     sg_apply_uniforms(UB_trile_world_config, *(sg_range.{ptr = *world_conf, size = size_of(type_of(world_conf))}));
     add_frame_profiling_point("After drawing setup");
-    sg_draw(0, cast(s32) trilegfx.vertex_count, amount);
+    sg_draw(0, cast(s32) vcount, amount);
     end_frame_profiling_group("Draw trile positions");
 }
 backend_add_trile_rdm_position :: (position: Vector4) {
@@ -600,7 +679,8 @@ backend_process_command_buckets :: () {
     start_frame_profiling_group("Postprocess pass");
     if !bypass_postprocess {
         bloom_process();
-        dof_process();
+        dof_downsample_process();
+        dof_bokeh_process();
     }
     
     end_frame_profiling_group("Postprocess pass");
@@ -613,29 +693,23 @@ backend_process_command_buckets :: () {
     sg_apply_pipeline(gPipelines.postprocess.pipeline);
     gPipelines.postprocess.bind.images[0] = g_rendertex;
     gPipelines.postprocess.bind.images[1] = LUT_list[g_current_lut_texture_index].image;
-    gPipelines.postprocess.bind.images[2] = g_bloom_tex;
+    gPipelines.postprocess.bind.images[2] = g_bloom_up_1;
     gPipelines.postprocess.bind.images[3] = g_dof_tex;
     gPipelines.postprocess.bind.images[4] = g_gbuf_position;
     sg_apply_bindings(*gPipelines.postprocess.bind);
     post_process_config_uniform : Post_Process_Config;
-    post_process_dof_config_uniform : Dof_Config;
     if bypass_postprocess {
         neutral : Post_Process;
         neutral.tonemap = current_post_process.tonemap;
         fill_uniform_with_engine_data(*post_process_config_uniform, *neutral);
     } else {
         fill_uniform_with_engine_data(*post_process_config_uniform, *current_post_process);
-        w,h := get_render_size();
-
-        post_process_dof_config_uniform.dof_tex_width = cast(float)w/2;
-        post_process_dof_config_uniform.dof_tex_height = cast(float)h/2;
-        post_process_dof_config_uniform.dof_point = current_post_process.dof_point;
-        post_process_dof_config_uniform.dof_min = current_post_process.dof_min;
-        post_process_dof_config_uniform.dof_max = current_post_process.dof_max;
-        
     }
     sg_apply_uniforms(UB_post_process_config, *(sg_range.{ ptr = *post_process_config_uniform, size = size_of(type_of(post_process_config_uniform)) }));
-    sg_apply_uniforms(UB_dof_config, *(sg_range.{ ptr = *post_process_dof_config_uniform, size = size_of(type_of(post_process_dof_config_uniform)) }));
+    dof_config_uniform : Dof_Config;
+    dof_config_uniform.dof_max   = current_post_process.dof_max;
+    dof_config_uniform.dof_point = current_post_process.dof_point;
+    sg_apply_uniforms(UB_dof_config, *(sg_range.{ ptr = *dof_config_uniform, size = size_of(type_of(dof_config_uniform)) }));
     sg_draw(0, 6, 1);    
 
     sgl_defaults();

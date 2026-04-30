@@ -465,16 +465,21 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 	inst := Trile_Instance.{x = lx, y = ly, z = lz, orientation = orientation};
 
 	// Find existing group for this trile type, or create one.
+	added := false;
 	for *group: chunk.groups {
 		if group.trile_name == name {
 			array_add(*group.instances, inst);
-			return;
+			added = true;
+			break;
 		}
 	}
-	group: Chunk_Trile_Group;
-	group.trile_name = sprint("%", name);
-	array_add(*group.instances, inst);
-	array_add(*chunk.groups, group);
+	if !added {
+		group: Chunk_Trile_Group;
+		group.trile_name = sprint("%", name);
+		array_add(*group.instances, inst);
+		array_add(*chunk.groups, group);
+	}
+	invalidate_buried_around(*curworld.world, x, y, z);
 } @Command
 
 remove_trile :: (x: s32, y: s32, z: s32) {
@@ -486,14 +491,21 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 
 	lx, ly, lz := world_to_local(x, y, z);
 
+	removed := false;
 	for *group: chunk.groups {
 		for inst, idx: group.instances {
 			if inst.x == lx && inst.y == ly && inst.z == lz {
 				array_unordered_remove_by_index(*group.instances, idx);
-				return;
+				if group.is_buried.count > idx {
+					array_unordered_remove_by_index(*group.is_buried, idx);
+				}
+				removed = true;
+				break;
 			}
 		}
+		if removed  break;
 	}
+	if removed  invalidate_buried_around(*curworld.world, x, y, z);
 } @Command
 
 

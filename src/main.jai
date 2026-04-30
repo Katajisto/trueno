@@ -90,8 +90,10 @@ debug_font : *Font;
 
 init :: () {
     sg_setup(*(sg_desc.{
-        environment = cast,force(sg_environment) sglue_environment(),
-        logger = .{ func = slog_func },
+        environment      = cast,force(sg_environment) sglue_environment(),
+        logger           = .{ func = slog_func },
+        attachments_pool_size = 64,
+        buffer_pool_size      = 1024,
     }));
     sgl_setup(*(sgl_desc_t.{
         logger = .{ func = slog_func },
@@ -257,7 +259,6 @@ frame :: () {
     tick_ui();
     add_frame_profiling_point("After UI tick");
 
-    // This populates our render task queue.
     if should_tick_game then game_draw();
     add_frame_profiling_point("After game draw");
 
@@ -270,7 +271,7 @@ frame :: () {
         draw_prepared_text(debug_font, 10, 10, .{0.0, 1.0, 0.0, 1.0});
         draw_editor();
     }
-   
+
     add_particle_render_tasks();
     add_frame_profiling_point("After editor draw");
     render();

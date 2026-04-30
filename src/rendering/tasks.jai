@@ -62,6 +62,7 @@ Rendering_Task_Trile :: struct {
     preview_mode : s32  = 0;    // 0=normal, 1=add preview (blue), 2=delete preview (red)
     shadow_only  : bool = false; // only submit to shadow bucket (frustum-culled from camera)
     skip_main    : bool = false; // RDM-flagged instances still cast shadows / write gbuffer / reflect, but main pass uses the RDM pipeline
+    lod_index    : s32  = 0;     // 0 = full detail, 1 = 4^3 LOD, 2 = 2^3 LOD
 }
 
 Rendering_Task_Trile_RDM :: struct {
@@ -159,6 +160,7 @@ tasks_to_commands :: () {
                 drawPositionsCmd.conf         = trileTask.worldConf;
                 drawPositionsCmd.preview_mode = trileTask.preview_mode;
                 drawPositionsCmd.offset_index = trile_add_counter;
+                drawPositionsCmd.lod_index    = trileTask.lod_index;
                 trile_add_counter += 1;
                 if trileTask.shadow_only {
                     array_add(*render_command_buckets.shadow, drawPositionsCmd);

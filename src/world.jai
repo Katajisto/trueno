@@ -46,6 +46,7 @@ Trile_Instance :: struct {
 Chunk_Trile_Group :: struct {
     trile_name: string;
     instances:  [..]Trile_Instance;
+    is_buried:  [..]bool;  // Runtime-only, parallel to instances. Not serialized.
 }
 
 Chunk :: struct {
@@ -210,6 +211,7 @@ unload_current_world :: () {
     for *chunk: current_world.world.chunks {
         for *group: chunk.groups {
             array_free(group.instances);
+            array_free(group.is_buried);
         }
         array_free(chunk.groups);
     }
@@ -224,6 +226,108 @@ set_loaded_world :: (world: World) {
     current_world.world = world;
     current_world.valid = true;
     resolve_emitter_definitions(*current_world.world);
+    for *chunk: current_world.world.chunks {
+        recompute_buried_for_chunk(*current_world.world, chunk);
+    }
+}
+
+is_cell_opaque :: (name: string) -> bool {
+    if name.count == 0  return false;
+    t, ok := get_trile(name);
+    if !ok  return false;
+    return t.is_opaque;
+}
+
+trile_at_world :: (world: *World, wx: s32, wy: s32, wz: s32) -> string {
+    key := world_to_chunk_coord(wx, wy, wz);
+    chunk := table_find_pointer(*world.chunks, key);
+    if !chunk  return "";
+    lx, ly, lz := world_to_local(wx, wy, wz);
+    for *group: chunk.groups {
+        for inst: group.instances {
+            if inst.x == lx && inst.y == ly && inst.z == lz {
+                return group.trile_name;
+            }
+        }
+    }
+    return "";
+}
+
+BURIED_DIRS :: s32.[ 1,0,0,  -1,0,0,  0,1,0,  0,-1,0,  0,0,1,  0,0,-1 ];
+
+compute_buried_at_world :: (world: *World, wx: s32, wy: s32, wz: s32) -> bool {
+    for axis: 0..5 {
+        nwx := wx + BURIED_DIRS[axis*3+0];
+        nwy := wy + BURIED_DIRS[axis*3+1];
+        nwz := wz + BURIED_DIRS[axis*3+2];
+        if !is_cell_opaque(trile_at_world(world, nwx, nwy, nwz))  return false;
+    }
+    return true;
+}
+
+recompute_buried_for_chunk :: (world: *World, chunk: *Chunk) {
+    // Build an O(1) local lookup grid (32^3 trile names) for this chunk so the
+    // common in-chunk neighbor case is a single index lookup. Cross-chunk
+    // neighbors fall back to trile_at_world.
+    GRID :: CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+    grid: [GRID] string;
+    grid_data := grid;
+    for *group: chunk.groups {
+        for inst: group.instances {
+            idx := cast(int)inst.x + CHUNK_SIZE * (cast(int)inst.y + CHUNK_SIZE * cast(int)inst.z);
+            grid_data[idx] = group.trile_name;
+        }
+    }
+
+    for *group: chunk.groups {
+        array_resize(*group.is_buried, group.instances.count);
+        for inst, i: group.instances {
+            wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
+            buried := true;
+            for axis: 0..5 {
+                nwx := wx + BURIED_DIRS[axis*3+0];
+                nwy := wy + BURIED_DIRS[axis*3+1];
+                nwz := wz + BURIED_DIRS[axis*3+2];
+                neighbor_name: string;
+                nkey := world_to_chunk_coord(nwx, nwy, nwz);
+                if nkey == chunk.coord {
+                    nlx, nly, nlz := world_to_local(nwx, nwy, nwz);
+                    nidx := cast(int)nlx + CHUNK_SIZE * (cast(int)nly + CHUNK_SIZE * cast(int)nlz);
+                    neighbor_name = grid_data[nidx];
+                } else {
+                    neighbor_name = trile_at_world(world, nwx, nwy, nwz);
+                }
+                if !is_cell_opaque(neighbor_name) {
+                    buried = false;
+                    break;
+                }
+            }
+            group.is_buried[i] = buried;
+        }
+    }
+}
+
+recompute_buried_at_cell :: (world: *World, wx: s32, wy: s32, wz: s32) {
+    key := world_to_chunk_coord(wx, wy, wz);
+    chunk := table_find_pointer(*world.chunks, key);
+    if !chunk  return;
+    lx, ly, lz := world_to_local(wx, wy, wz);
+    for *group: chunk.groups {
+        for inst, i: group.instances {
+            if inst.x == lx && inst.y == ly && inst.z == lz {
+                if group.is_buried.count != group.instances.count  array_resize(*group.is_buried, group.instances.count);
+                group.is_buried[i] = compute_buried_at_world(world, wx, wy, wz);
+                return;
+            }
+        }
+    }
+}
+
+invalidate_buried_around :: (world: *World, wx: s32, wy: s32, wz: s32) {
+    recompute_buried_at_cell(world, wx, wy, wz);
+    for axis: 0..5 {
+        recompute_buried_at_cell(world, wx + BURIED_DIRS[axis*3+0], wy + BURIED_DIRS[axis*3+1], wz + BURIED_DIRS[axis*3+2]);
+    }
 }
 
 resolve_emitter_definitions :: (world: *World) {
@@ -237,6 +341,7 @@ clear_world :: () {
     for *chunk: current_world.world.chunks {
         for *group: chunk.groups {
             array_free(group.instances);
+            array_free(group.is_buried);
         }
         array_free(chunk.groups);
     }

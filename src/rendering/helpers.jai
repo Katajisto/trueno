@@ -45,6 +45,18 @@ aabb_in_frustum :: (planes: [6]Vector4, bmin: Vector3, bmax: Vector3) -> bool {
     return true;
 }
 
+LOD_NEAR_DIST :: 40.0;
+LOD_FAR_DIST  :: 80.0;
+
+// 3-band LOD selection: instances closer than LOD_DISTANCES[i] use LOD level i.
+//   i = 0 → full detail
+//   i = 1 → 4^3 cube grid
+//   i = 2 → 2^3 cube grid
+//   beyond LOD_DISTANCES[2] → culled.
+LOD_DISTANCES :: float.[50.0, 100.0, 200.0];
+FOG_START     :: 60.0;
+FOG_END       :: 195.0;
+
 create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: float = 0) {
     create_sky_rendering_task(*world.conf);
     create_set_light_rendering_task(*world.conf);
@@ -64,8 +76,8 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
 
     // Gather positions for camera-visible instances (all passes) and
     // shadow-only instances (chunks visible from sun but not camera).
-    gathered      : [..]Gathered_Positions;
-    gathered.allocator = temp;
+    gathered_per_lod : [3][..]Gathered_Positions;
+    for i: 0..2  gathered_per_lod[i].allocator = temp;
     shad_gathered : [..]Gathered_Positions;
     shad_gathered.allocator = temp;
     rdm_extra     : [..]Gathered_Positions;   // RDM-flagged instances visible to camera; shadow/gbuffer/reflection use base pipeline
@@ -93,7 +105,8 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
         if !in_cam && !in_reflect && !in_shad  continue;
 
         for group: chunk.groups {
-            for inst: group.instances {
+            for inst, idx: group.instances {
+                if idx < group.is_buried.count && group.is_buried[idx]  continue;
                 wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
                 imin := Vector3.{cast(float)wx, cast(float)wy, cast(float)wz};
                 imax := imin + .{1, 1, 1};
@@ -102,6 +115,17 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
                 inst_reflect := in_reflect && aabb_in_frustum(reflect_planes, imin, imax);
                 inst_shad    := in_shad    && aabb_in_frustum(shadow_planes,  imin, imax);
                 if !inst_cam && !inst_reflect && !inst_shad  continue;
+
+                dist := length(imin + .{0.5, 0.5, 0.5} - camera.position);
+
+                lod_idx : s32 = -1;
+                for i: 0..2 {
+                    if dist < LOD_DISTANCES[i] {
+                        lod_idx = cast(s32) i;
+                        break;
+                    }
+                }
+                if lod_idx < 0  continue; // beyond cull distance
 
                 pos := Vector4.{cast(float)wx, cast(float)wy, cast(float)wz, cast(float)inst.orientation};
                 is_rdm := is_rdm_instance_enabled(world, wx, wy, wz);
@@ -113,7 +137,7 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
                             array_add(*rdm_main, .{name = group.trile_name, position = pos});
                         }
                     } else {
-                        target := find_or_create(*gathered, group.trile_name, chunk.coord);
+                        target := find_or_create(*gathered_per_lod[lod_idx], group.trile_name, chunk.coord);
                         array_add(*target.positions, pos);
                     }
                 } else {
@@ -124,14 +148,17 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
         }
     }
 
-    for g: gathered {
-        if g.positions.count < 1  continue;
-        triletask : Rendering_Task_Trile;
-        triletask.trile     = g.name;
-        triletask.chunk_key = g.chunk_key;
-        triletask.positions = g.positions;
-        triletask.worldConf = *world.conf;
-        add_rendering_task(triletask);
+    for lod_idx: 0..2 {
+        for g: gathered_per_lod[lod_idx] {
+            if g.positions.count < 1  continue;
+            triletask : Rendering_Task_Trile;
+            triletask.trile     = g.name;
+            triletask.chunk_key = g.chunk_key;
+            triletask.positions = g.positions;
+            triletask.worldConf = *world.conf;
+            triletask.lod_index = cast(s32) lod_idx;
+            add_rendering_task(triletask);
+        }
     }
     for g: shad_gathered {
         if g.positions.count < 1  continue;

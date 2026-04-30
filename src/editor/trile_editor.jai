@@ -575,6 +575,11 @@ draw_meta_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r.y += row_h * 2;
 
     r.h = row_h;
+    changed := GR.base_checkbox(r, "Opaque (occludes neighbors)", editor_current_trile.is_opaque, *theme.checkbox_theme);
+    if changed  editor_current_trile.is_opaque = !editor_current_trile.is_opaque;
+    r.y += row_h * 2;
+
+    r.h = row_h;
     if GR.button(r, "Delete trile", *theme.button_theme) {
         name_copy := copy_string(editor_current_trile.name,, temp);
         delete_trile(name_copy);

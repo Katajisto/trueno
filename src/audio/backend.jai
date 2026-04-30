@@ -7,10 +7,13 @@ audio_thread_context           : #Context;
 audio_init_thread_context :: () {
     audio_thread_context = default_context;
     audio_thread_context.temporary_storage = *audio_thread_temp_storage;
-    audio_thread_temp_storage.data          = audio_thread_temp_storage_data.data;
-    audio_thread_temp_storage.size          = audio_thread_temp_storage_data.count;
-    audio_thread_temp_storage.original_data = audio_thread_temp_storage_data.data;
-    audio_thread_temp_storage.original_size = audio_thread_temp_storage_data.count;
+    audio_thread_temp_storage.data = audio_thread_temp_storage_data.data;
+    audio_thread_temp_storage.size = audio_thread_temp_storage_data.count;
+    // Iprof's zone stack/hash are global. The audio callback runs on a separate
+    // thread, so any instrumented call from inside it races with the main thread
+    // and corrupts those globals. Mark this context as "inside profiler runtime"
+    // so Automatic_Zone_Guarded skips the begin/end on this thread.
+    audio_thread_context.already_inside_profiler_runtime = true;
     audio_thread_context_ready = true;
 }
 

@@ -57,6 +57,10 @@ sh_loader_handle_completed :: (req: *Fetch_Request, data: []u8) {
         return;
     }
     n := sh_header.probe_n;
+    if n != SH_PROBE_N {
+        log_error("SH: probe_n mismatch for chunk % (file=%, expected=%) — re-bake required", req.chunk_key, n, SH_PROBE_N);
+        return;
+    }
     total_values  := cast(s64) n * n * n * 12;
     bytes_per_val := ifx sh_header.version >= 2 then size_of(u16) else size_of(float);
     if data.count < header_size + total_values * bytes_per_val {

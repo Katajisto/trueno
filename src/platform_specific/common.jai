@@ -22,8 +22,6 @@ sapp_init :: () {
     default_context.temporary_storage = *temporary_storage;
     temporary_storage.data = temporary_storage_data.data;
     temporary_storage.size = temporary_storage_data.count;
-    temporary_storage.original_data = temporary_storage_data.data;
-    temporary_storage.original_size = temporary_storage_data.count;    
     default_allocator = default_context.allocator;
 
     push_context default_context {

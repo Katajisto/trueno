@@ -28,7 +28,7 @@ const float PI = 3.14159265359;
 
 vec3 sh_eval(ivec3 probe, vec3 N) {
     int base = probe.x * 3;
-    int row  = probe.z * 64 + probe.y;
+    int row  = probe.z * 32 + probe.y;
     vec4 t0 = texelFetch(sampler2D(sh_chunk, sh_smp), ivec2(base,   row), 0);
     vec4 t1 = texelFetch(sampler2D(sh_chunk, sh_smp), ivec2(base+1, row), 0);
     vec4 t2 = texelFetch(sampler2D(sh_chunk, sh_smp), ivec2(base+2, row), 0);
@@ -41,7 +41,7 @@ vec3 sh_eval(ivec3 probe, vec3 N) {
 
 float sh_probe_energy(ivec3 probe) {
     int base = probe.x * 3;
-    int row  = probe.z * 64 + probe.y;
+    int row  = probe.z * 32 + probe.y;
     vec4 t0 = texelFetch(sampler2D(sh_chunk, sh_smp), ivec2(base,   row), 0);
     vec4 t1 = texelFetch(sampler2D(sh_chunk, sh_smp), ivec2(base+1, row), 0);
     vec4 t2 = texelFetch(sampler2D(sh_chunk, sh_smp), ivec2(base+2, row), 0);
@@ -90,10 +90,10 @@ void main() {
     vec3 world_norm = normalize(mat3(inv_view) * view_norm);
 
     const float SH_PAD     = 2.0;
-    const float SH_SPACING = (32.0 + 2.0 * SH_PAD) / 64.0;
-    vec3 probe_f = clamp((world_pos - (cmin - vec3(SH_PAD))) / SH_SPACING, vec3(0.0), vec3(63.0));
+    const float SH_SPACING = (32.0 + 2.0 * SH_PAD) / 32.0;
+    vec3 probe_f = clamp((world_pos - (cmin - vec3(SH_PAD))) / SH_SPACING, vec3(0.0), vec3(31.0));
     ivec3 p0 = ivec3(floor(probe_f));
-    ivec3 p1 = min(p0 + ivec3(1), ivec3(63));
+    ivec3 p1 = min(p0 + ivec3(1), ivec3(31));
 
     frag_color = vec4(sh_eval_trilinear(p0, p1, fract(probe_f), world_norm), 1.0);
 }

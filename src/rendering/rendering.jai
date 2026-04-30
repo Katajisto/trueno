@@ -15,6 +15,7 @@
 #load "arbtri.jai";
 #load "debug_draw.jai";
 #load "meshgen.jai";
+#load "lodgen.jai";
 #load "helpers.jai";
 #load "animation.jai";
 #load "pipelines.jai";

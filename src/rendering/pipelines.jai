@@ -43,11 +43,18 @@ g_postprocess_b_depth   : sg_image;
 g_postprocess_attach_a  : sg_attachments;
 g_postprocess_attach_b  : sg_attachments;
 
-g_bloom_tex    : sg_image;
-g_bloom_attach : sg_attachments;
+g_bloom_down_1        : sg_image; g_bloom_down_1_attach : sg_attachments;
+g_bloom_down_2        : sg_image; g_bloom_down_2_attach : sg_attachments;
+g_bloom_down_3        : sg_image; g_bloom_down_3_attach : sg_attachments;
+g_bloom_down_4        : sg_image; g_bloom_down_4_attach : sg_attachments;
+g_bloom_up_3          : sg_image; g_bloom_up_3_attach   : sg_attachments;
+g_bloom_up_2          : sg_image; g_bloom_up_2_attach   : sg_attachments;
+g_bloom_up_1          : sg_image; g_bloom_up_1_attach   : sg_attachments;
 
-g_dof_tex    : sg_image;
-g_dof_attach : sg_attachments;
+g_dof_tex              : sg_image;
+g_dof_attach           : sg_attachments;
+g_dof_downsample_tex   : sg_image;
+g_dof_downsample_attach: sg_attachments;
   
 
 gPipelines : struct {
@@ -74,6 +81,9 @@ gPipelines : struct {
     // Depth-only shadow pass for triles (no lighting/RDM)
     trile_shadow : Pipeline_Binding;
 
+    // Cube-grid LOD pipeline for distant triles (vertex color, no ray-march)
+    trile_lod : Pipeline_Binding;
+
     // Renders the ground plane. (just water)
     plane  : Pipeline_Binding;
 
@@ -84,8 +94,12 @@ gPipelines : struct {
 
     mix : Pipeline_Binding;
 
-    bloom : Pipeline_Binding;
-    dof: Pipeline_Binding;
+    bloom_prefilter  : Pipeline_Binding;
+    bloom_downsample : Pipeline_Binding;
+    bloom_upsample   : Pipeline_Binding;
+
+    dof_downsample : Pipeline_Binding;
+    dof_blur       : Pipeline_Binding;
     
     billboard : Pipeline_Binding;
     
@@ -169,14 +183,18 @@ create_pipelines :: () {
     create_trile_pipeline();
     create_trile_rdm_pipeline();
     create_trile_shadow_pipeline();
+    create_trile_lod_pipeline();
     create_sky_pipeline();
     create_plane_pipeline();
     create_postprocess_pipeline();
     create_ssao_pipeline();
     create_op_pipeline();
     create_mix_pipeline();
-    create_bloom_pipeline();
-    create_dof_pipeline();
+    create_bloom_prefilter_pipeline();
+    create_bloom_downsample_pipeline();
+    create_bloom_upsample_pipeline();
+    create_dof_downsample_pipeline();
+    create_dof_blur_pipeline();
     create_billboard_pipeline();
     create_gbuffer_billboard_pipeline();
     create_particle_pipeline();
@@ -518,6 +536,39 @@ create_trile_shadow_pipeline :: () {
     gPipelines.trile_shadow.pipeline = sg_make_pipeline(*pipeline);
 }
 
+create_trile_lod_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    shader_desc := trile_lod_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+    pipeline.layout.buffers[0].stride = 4*3;
+    pipeline.layout.buffers[1].stride = 4*3;
+    pipeline.layout.buffers[2].stride = 4*3;
+    pipeline.layout.buffers[3].step_func = .PER_INSTANCE;
+
+    pipeline.layout.attrs[ATTR_trile_lod_position] = .{ format = .FLOAT3, buffer_index = 0 };
+    pipeline.layout.attrs[ATTR_trile_lod_normal]   = .{ format = .FLOAT3, buffer_index = 1 };
+    pipeline.layout.attrs[ATTR_trile_lod_color]    = .{ format = .FLOAT3, buffer_index = 2 };
+    pipeline.layout.attrs[ATTR_trile_lod_instance] = .{ format = .FLOAT4, buffer_index = 3 };
+
+    pipeline.depth = .{
+        write_enabled = true,
+        compare       = .LESS_EQUAL,
+        pixel_format  = .DEPTH,
+    };
+
+    pipeline.color_count = 1;
+    pipeline.colors[0]   = sg_color_target_state.{
+        pixel_format = .RGBA16F,
+        blend = .{
+            enabled        = true,
+            src_factor_rgb = .SRC_ALPHA,
+            dst_factor_rgb = .ONE_MINUS_SRC_ALPHA,
+        },
+    };
+
+    gPipelines.trile_lod.pipeline = sg_make_pipeline(*pipeline);
+}
+
 create_sky_pipeline :: () {
     pipeline: sg_pipeline_desc;
     shader_desc := sky_shader_desc(sg_query_backend());
@@ -829,6 +880,13 @@ create_postprocess_pipeline :: () {
         mag_filter = .LINEAR,
     }));
 
+    gPipelines.postprocess.bind.samplers[4] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+    }));
+
 }
 
 // Takes in a texture, manipulates it and outputs it.
@@ -1065,68 +1123,92 @@ create_mix_pipeline :: () {
 
 }
 
-create_bloom_pipeline :: () {
-    platconf := get_plat_conf();
-    pipeline: sg_pipeline_desc;
-    shader_desc := bloom_shader_desc(sg_query_backend());
-    pipeline.shader = sg_make_shader(*shader_desc);
+bloom_quad_vbuffer : sg_buffer;
+bloom_quad_ibuffer : sg_buffer;
 
-    pipeline.layout.attrs[ATTR_bloom_position] = .{ format = .FLOAT2 };
-    pipeline.layout.attrs[ATTR_bloom_uv]       = .{ format = .FLOAT2 };
-    pipeline.index_type = .UINT16;
-    pipeline.depth.pixel_format = .NONE;
-
-    pipeline.color_count = 1;
-    pipeline.colors[0] = .{ pixel_format = .RGBA16F };
-
-    gPipelines.bloom.pipeline = sg_make_pipeline(*pipeline);
-
+create_bloom_quad_buffers :: () {
     quad_vertices : [16]float = .[
         -1.0,  1.0, 0.0, flip_if_plat(1.0),
         -1.0, -1.0, 0.0, flip_if_plat(0.0),
          1.0, -1.0, 1.0, flip_if_plat(0.0),
          1.0,  1.0, 1.0, flip_if_plat(1.0),
     ];
-    quad_indices : [6]u16 = .[
-        0, 1, 2, 0, 2, 3
-    ];
+    quad_indices : [6]u16 = .[ 0, 1, 2, 0, 2, 3 ];
+    bloom_quad_vbuffer = sg_make_buffer(*(sg_buffer_desc.{ size = size_of(float) * 16, data = .{ ptr = quad_vertices.data, size = 16 * 4 }}));
+    bloom_quad_ibuffer = sg_make_buffer(*(sg_buffer_desc.{ size = size_of(u16) * 6, data = .{ ptr = quad_indices.data, size = 6 * 2 }, type = .INDEXBUFFER }));
+}
 
-    vbuffer := sg_buffer_desc.{ size = size_of(float) * 16, data = .{
-        ptr = quad_vertices.data,
-        size = 16 * 4
-    }};
-    ibuffer := sg_buffer_desc.{ size = size_of(u16) * 6, data = .{
-        ptr = quad_indices.data,
-        size = 6 * 2
-    },
-    type = .INDEXBUFFER,
-    };
-
-    gPipelines.bloom.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
-    gPipelines.bloom.bind.index_buffer = sg_make_buffer(*ibuffer);
-    gPipelines.bloom.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+linear_clamp_sampler :: () -> sg_sampler {
+    return sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .CLAMP_TO_EDGE,
         wrap_v = .CLAMP_TO_EDGE,
-        min_filter = .NEAREST,
-        mag_filter = .NEAREST,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
     }));
 }
 
-create_dof_pipeline :: () {
+create_bloom_prefilter_pipeline :: () {
+    create_bloom_quad_buffers();
+    pipeline: sg_pipeline_desc;
+    pipeline.shader = sg_make_shader(*bloom_prefilter_shader_desc(sg_query_backend()));
+    pipeline.layout.attrs[ATTR_bloom_prefilter_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_bloom_prefilter_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+    pipeline.depth.pixel_format = .NONE;
+    pipeline.color_count = 1;
+    pipeline.colors[0] = .{ pixel_format = .RGBA16F };
+    gPipelines.bloom_prefilter.pipeline = sg_make_pipeline(*pipeline);
+    gPipelines.bloom_prefilter.bind.vertex_buffers[0] = bloom_quad_vbuffer;
+    gPipelines.bloom_prefilter.bind.index_buffer      = bloom_quad_ibuffer;
+    gPipelines.bloom_prefilter.bind.samplers[SMP_bloom_prefilter_src_smp] = linear_clamp_sampler();
+}
+
+create_bloom_downsample_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    pipeline.shader = sg_make_shader(*bloom_downsample_shader_desc(sg_query_backend()));
+    pipeline.layout.attrs[ATTR_bloom_downsample_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_bloom_downsample_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+    pipeline.depth.pixel_format = .NONE;
+    pipeline.color_count = 1;
+    pipeline.colors[0] = .{ pixel_format = .RGBA16F };
+    gPipelines.bloom_downsample.pipeline = sg_make_pipeline(*pipeline);
+    gPipelines.bloom_downsample.bind.vertex_buffers[0] = bloom_quad_vbuffer;
+    gPipelines.bloom_downsample.bind.index_buffer      = bloom_quad_ibuffer;
+    gPipelines.bloom_downsample.bind.samplers[SMP_bloom_downsample_src_smp] = linear_clamp_sampler();
+}
+
+create_bloom_upsample_pipeline :: () {
+    pipeline: sg_pipeline_desc;
+    pipeline.shader = sg_make_shader(*bloom_upsample_shader_desc(sg_query_backend()));
+    pipeline.layout.attrs[ATTR_bloom_upsample_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_bloom_upsample_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+    pipeline.depth.pixel_format = .NONE;
+    pipeline.color_count = 1;
+    pipeline.colors[0] = .{ pixel_format = .RGBA16F };
+    gPipelines.bloom_upsample.pipeline = sg_make_pipeline(*pipeline);
+    gPipelines.bloom_upsample.bind.vertex_buffers[0] = bloom_quad_vbuffer;
+    gPipelines.bloom_upsample.bind.index_buffer      = bloom_quad_ibuffer;
+    gPipelines.bloom_upsample.bind.samplers[SMP_bloom_upsample_small_smp] = linear_clamp_sampler();
+    gPipelines.bloom_upsample.bind.samplers[SMP_bloom_upsample_large_smp] = linear_clamp_sampler();
+}
+
+create_dof_downsample_pipeline :: () {
     platconf := get_plat_conf();
     pipeline: sg_pipeline_desc;
-    shader_desc := dof_shader_desc(sg_query_backend());
+    shader_desc := dof_downsample_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
 
-    pipeline.layout.attrs[ATTR_dof_position] = .{ format = .FLOAT2 };
-    pipeline.layout.attrs[ATTR_dof_uv]       = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_dof_downsample_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_dof_downsample_uv]       = .{ format = .FLOAT2 };
     pipeline.index_type = .UINT16;
     pipeline.depth.pixel_format = .NONE;
 
     pipeline.color_count = 1;
     pipeline.colors[0] = .{ pixel_format = .RGBA16F };
 
-    gPipelines.dof.pipeline = sg_make_pipeline(*pipeline);
+    gPipelines.dof_downsample.pipeline = sg_make_pipeline(*pipeline);
 
     quad_vertices : [16]float = .[
         -1.0,  1.0, 0.0, flip_if_plat(1.0),
@@ -1149,13 +1231,60 @@ create_dof_pipeline :: () {
     type = .INDEXBUFFER,
     };
 
-    gPipelines.dof.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
-    gPipelines.dof.bind.index_buffer = sg_make_buffer(*ibuffer);
-    gPipelines.dof.bind.samplers[0] = sg_make_sampler(*(sg_sampler_desc.{
+    gPipelines.dof_downsample.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    gPipelines.dof_downsample.bind.index_buffer = sg_make_buffer(*ibuffer);
+    gPipelines.dof_downsample.bind.samplers[SMP_dof_downsample_src_smp] = sg_make_sampler(*(sg_sampler_desc.{
         wrap_u = .CLAMP_TO_EDGE,
         wrap_v = .CLAMP_TO_EDGE,
-        min_filter = .NEAREST,
-        mag_filter = .NEAREST,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
+    }));
+}
+
+create_dof_blur_pipeline :: () {
+    platconf := get_plat_conf();
+    pipeline: sg_pipeline_desc;
+    shader_desc := dof_blur_shader_desc(sg_query_backend());
+    pipeline.shader = sg_make_shader(*shader_desc);
+
+    pipeline.layout.attrs[ATTR_dof_blur_position] = .{ format = .FLOAT2 };
+    pipeline.layout.attrs[ATTR_dof_blur_uv]       = .{ format = .FLOAT2 };
+    pipeline.index_type = .UINT16;
+    pipeline.depth.pixel_format = .NONE;
+
+    pipeline.color_count = 1;
+    pipeline.colors[0] = .{ pixel_format = .RGBA16F };
+
+    gPipelines.dof_blur.pipeline = sg_make_pipeline(*pipeline);
+
+    quad_vertices : [16]float = .[
+        -1.0,  1.0, 0.0, flip_if_plat(1.0),
+        -1.0, -1.0, 0.0, flip_if_plat(0.0),
+         1.0, -1.0, 1.0, flip_if_plat(0.0),
+         1.0,  1.0, 1.0, flip_if_plat(1.0),
+    ];
+    quad_indices : [6]u16 = .[
+        0, 1, 2, 0, 2, 3
+    ];
+
+    vbuffer := sg_buffer_desc.{ size = size_of(float) * 16, data = .{
+        ptr = quad_vertices.data,
+        size = 16 * 4
+    }};
+    ibuffer := sg_buffer_desc.{ size = size_of(u16) * 6, data = .{
+        ptr = quad_indices.data,
+        size = 6 * 2
+    },
+    type = .INDEXBUFFER,
+    };
+
+    gPipelines.dof_blur.bind.vertex_buffers[0] = sg_make_buffer(*vbuffer);
+    gPipelines.dof_blur.bind.index_buffer = sg_make_buffer(*ibuffer);
+    gPipelines.dof_blur.bind.samplers[SMP_dof_blur_src_smp] = sg_make_sampler(*(sg_sampler_desc.{
+        wrap_u = .CLAMP_TO_EDGE,
+        wrap_v = .CLAMP_TO_EDGE,
+        min_filter = .LINEAR,
+        mag_filter = .LINEAR,
     }));
 }
 
@@ -1257,35 +1386,44 @@ create_ssao_images :: () {
     sg_destroy_attachments(g_postprocess_attach_b);
     g_postprocess_attach_b = sg_make_attachments(*attachmentsDescB);
 
-    if g_bloom_tex.id != INVALID_ID then sg_destroy_image(g_bloom_tex);
-    bloom_img_desc := sg_image_desc.{
-        width = w/8,
-        height = h/8,
-        pixel_format = .RGBA16F,
-        render_target = true,
-        sample_count = 1,
-    };
-    g_bloom_tex = sg_make_image(*bloom_img_desc);
-    bloom_attach_desc := sg_attachments_desc.{
-        colors[0].image = g_bloom_tex,
-    };
-    sg_destroy_attachments(g_bloom_attach);
-    g_bloom_attach = sg_make_attachments(*bloom_attach_desc);
+    bloom_levels := sg_image.[g_bloom_down_1, g_bloom_down_2, g_bloom_down_3, g_bloom_down_4, g_bloom_up_3, g_bloom_up_2, g_bloom_up_1];
+    for * bloom_levels { if it.id != INVALID_ID then sg_destroy_image(<<it); }
+
+    make_bloom_level :: (img: *sg_image, attach: *sg_attachments, width: s32, height: s32) {
+        <<img = sg_make_image(*(sg_image_desc.{ width=width, height=height, pixel_format=.RGBA16F, render_target=true, sample_count=1 }));
+        sg_destroy_attachments(<<attach);
+        <<attach = sg_make_attachments(*(sg_attachments_desc.{ colors[0].image = <<img }));
+    }
+
+    make_bloom_level(*g_bloom_down_1, *g_bloom_down_1_attach, w/2,  h/2);
+    make_bloom_level(*g_bloom_down_2, *g_bloom_down_2_attach, w/4,  h/4);
+    make_bloom_level(*g_bloom_down_3, *g_bloom_down_3_attach, w/8,  h/8);
+    make_bloom_level(*g_bloom_down_4, *g_bloom_down_4_attach, w/16, h/16);
+    make_bloom_level(*g_bloom_up_3,   *g_bloom_up_3_attach,   w/8,  h/8);
+    make_bloom_level(*g_bloom_up_2,   *g_bloom_up_2_attach,   w/4,  h/4);
+    make_bloom_level(*g_bloom_up_1,   *g_bloom_up_1_attach,   w/2,  h/2);
     
-    if g_dof_tex.id != INVALID_ID then sg_destroy_image(g_dof_tex);
+    if g_dof_tex.id != INVALID_ID             then sg_destroy_image(g_dof_tex);
+    if g_dof_downsample_tex.id != INVALID_ID  then sg_destroy_image(g_dof_downsample_tex);
+
     dof_img_desc := sg_image_desc.{
-        width = cast(s32)((cast(float)w)/1.5),
-        height = cast(s32)((cast(float)h)/1.5),
+        width = w/2,
+        height = h/2,
         pixel_format = .RGBA16F,
         render_target = true,
         sample_count = 1,
     };
-    g_dof_tex = sg_make_image(*dof_img_desc);
-    dof_attach_desc := sg_attachments_desc.{
-        colors[0].image = g_dof_tex,
-    };
+    g_dof_tex            = sg_make_image(*dof_img_desc);
+    g_dof_downsample_tex = sg_make_image(*dof_img_desc);
+
     sg_destroy_attachments(g_dof_attach);
-    g_dof_attach = sg_make_attachments(*dof_attach_desc);
+    g_dof_attach = sg_make_attachments(*(sg_attachments_desc.{
+        colors[0].image = g_dof_tex,
+    }));
+    sg_destroy_attachments(g_dof_downsample_attach);
+    g_dof_downsample_attach = sg_make_attachments(*(sg_attachments_desc.{
+        colors[0].image = g_dof_downsample_tex,
+    }));
 }
 
 create_ssao_pipeline :: () {

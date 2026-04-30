@@ -17,11 +17,11 @@ rdm_global_manifest_filename :: (world_name: string) -> string {
     return sprint("%/worlds/%/rdm_manifest.json", GAME_RESOURCES_DIR, world_name);
 }
 
-// SH probe grid (2 probes per trile per axis = 64x64x64 per 32x32x32 chunk)
+// SH probe grid (1 probe per trile per axis = 32x32x32 per 32x32x32 chunk)
 
 SH_FILE_MAGIC :: u32.[0x44475348][0]; // "SHGD" as little-endian u32
-SH_PROBE_N    :: 64;   // probes per axis (2 per trile in a 32-trile chunk)
-SH_TEX_W      :: SH_PROBE_N * 3; // 192 — 3 RGBA texels per probe along X
+SH_PROBE_N    :: 32;   // probes per axis (1 per trile in a 32-trile chunk)
+SH_TEX_W      :: SH_PROBE_N * 3; // 96 — 3 RGBA texels per probe along X
 
 SH_Grid_File_Header :: struct {
     magic:   u32;

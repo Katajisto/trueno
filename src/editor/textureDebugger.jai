@@ -36,7 +36,7 @@ draw_subwindow_texture_debug :: (state: *GR.Subwindow_State, r: GR.Rect, data: *
         case 3; image = g_gbuf_position;
         case 4; image = g_gbuf_normal;
         case 5; image = g_ssaobuf;
-        case 6; image = g_bloom_tex;
+        case 6; image = g_bloom_up_1;
         case 7; image = g_dof_tex;
         case 8; image = g_rdm_atlas;
     }

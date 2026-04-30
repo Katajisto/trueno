@@ -125,11 +125,11 @@ wasm_copy_assets :: () {
     }
 }
 
-metaprogramming_loop :: (trueno_opts: Trueno_Build_Options, w: *Workspace) {
+metaprogramming_loop :: (trueno_opts: Trueno_Build_Options, w: *Workspace, iprof_plugin: *Iprof.My_Plugin = null) {
    while true {
         message := compiler_wait_for_message();
-        // @ToDo: add iprof to this refactored metaprogram
-        // if trueno_opts.iprof_enabled then iprof_plugin.message(iprof_plugin, message)
+        // Fixed iprof integration
+        if iprof_plugin then iprof_plugin.message(iprof_plugin, message);
         custom_message_handler(message, w);
         if message.kind == .COMPLETE then break;
     }
@@ -152,26 +152,27 @@ native_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
 
     set_build_options(opts, w);
     iprof_plugin: *Iprof.My_Plugin;
+    intercept_flags: Intercept_Flags;
 
-    // profile := iprof;
+    if trueno_opts.iprof_enabled {
+        iprof_plugin = cast(*Iprof.My_Plugin) Iprof.get_plugin();
+        iprof_plugin.workspace = w;
+        // Instrumenting all modules creates >65536 unique (parent,zone) hash entries,
+        // which trips Iprof's MAX_HASH_SIZE assert. Limit to our own files.
+        iprof_plugin.instrument_modules = false;
+        iprof_plugin.before_intercept(iprof_plugin, *intercept_flags);
+    }
 
-    // if profile {
-    //     iprof_plugin = cast(*Iprof.My_Plugin) Iprof.get_plugin();
-    //     iprof_plugin.workspace = w;
-
-    //     // Set options        
-    //     iprof_plugin.instrument_modules = true;
-
-    //     iprof_plugin.before_intercept(iprof_plugin, null);
-    // }
-
-    compiler_begin_intercept(w);
+    compiler_begin_intercept(w, intercept_flags);
+    if trueno_opts.iprof_enabled {
+        iprof_plugin.add_source(iprof_plugin);
+    }
     add_trueno_opts_to_compiler_strings(trueno_opts, w);
     add_asset_buffer_sizes_to_compiler_strings(trueno_opts, w);
     add_build_file("src/platform_specific/main_native.jai", w);
     add_shaders_to_workspace(w);
 
-    metaprogramming_loop(trueno_opts, *w);
+    metaprogramming_loop(trueno_opts, *w, iprof_plugin);
 
     if trueno_opts.iprof_enabled {
         iprof_plugin.finish(iprof_plugin);

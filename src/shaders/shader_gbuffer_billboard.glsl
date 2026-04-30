@@ -22,7 +22,7 @@ void main() {
     vec3 look_dir = offset - cam;
     look_dir.y = 0.0;
     look_dir = normalize(look_dir);
-    if(faceDir.x < -10) look_dir = faceDir;
+    if(faceDir.x > -10) look_dir = faceDir;
     vec3 world_right = normalize(cross(world_up, look_dir));
     vec3 world_pos = offset + (world_right * local_pos.x) + (world_up * local_pos.y);
     gl_Position = mvp * vec4(world_pos, 1.0);

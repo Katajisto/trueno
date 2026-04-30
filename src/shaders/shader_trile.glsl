@@ -100,6 +100,8 @@ layout(binding=3) uniform trile_fs_params {
     int   is_preview;
     vec3  indirect_tint;
     int   sh_enabled;
+    float fog_start;
+    float fog_end;
 };
 
 layout(binding = 0) uniform texture2D triletex;
@@ -270,7 +272,13 @@ void main() {
     light += (1.0 - Frough) * (1.0 - metallic) * indirectDiff / PI * albedo * ssao * indirect_diff_scale;
 
     vec3 final_color = light + emissive;
-    frag_color = vec4(mix(deepColor, final_color, smoothstep(0.0, planeHeight, vpos.y)), 1.0);
+    final_color = mix(deepColor, final_color, smoothstep(0.0, planeHeight, vpos.y));
+
+    float fog_dist   = length(vpos - cam);
+    float fog_factor = smoothstep(fog_start, fog_end, fog_dist);
+    final_color      = mix(final_color, skyBase, fog_factor);
+
+    frag_color = vec4(final_color, 1.0);
 
     if      (is_preview == 1) frag_color.rgb = mix(frag_color.rgb, vec3(0.3, 0.7, 1.0), 0.5);
     else if (is_preview == 2) frag_color.rgb = mix(frag_color.rgb, vec3(1.0, 0.3, 0.2), 0.5);
