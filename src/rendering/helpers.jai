@@ -105,14 +105,14 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
             }
         }
 
-        for group : chunk.group {
+        for group : chunk.groups {
             task := Rendering_Task_Trile.{
                 trile = group.trile_name,
                 chunk_key = chunk.coord,
                 positions = group.instances,
-                worldConf = world.conf
+                worldConf = *world.conf
             };
-            add_rendering_task(*task);
+            add_rendering_task(task);
         }
         
     }

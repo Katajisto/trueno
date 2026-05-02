@@ -47,7 +47,8 @@ Render_Command_Set_Light :: struct {
 Render_Command_Add_Trile_Positions :: struct {
     #as using c : Render_Command;
     c.type      = .ADD_TRILE_POSITIONS;
-    positions   : []Vector4;
+    positions   : []Trile_Instance;
+    chunk       : Chunk_Key;
 }
 
 Render_Command_Draw_Trile_Positions :: struct {

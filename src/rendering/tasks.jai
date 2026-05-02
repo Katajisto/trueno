@@ -152,6 +152,7 @@ tasks_to_commands :: () {
                 trileTask := (cast(*Rendering_Task_Trile)it);
                 addPositionsCmd := New(Render_Command_Add_Trile_Positions,, temp);
                 addPositionsCmd.positions = trileTask.positions;
+                addPositionsCmd.chunk     = trileTask.chunk_key;
                 array_add(*render_command_buckets.setup, addPositionsCmd);
                 drawPositionsCmd := New(Render_Command_Draw_Trile_Positions,, temp);
                 drawPositionsCmd.trile        = trileTask.trile;

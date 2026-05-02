@@ -646,14 +646,15 @@ create_level_editor_preview_tasks :: () {
 		name, orientation, found := get_trile_at(*curworld.world, xx px, xx py, xx pz);
 		cursor_trile := ifx found then name else (ifx editor_current_trile then editor_current_trile.name else "");
 		if cursor_trile != "" {
-			positions: [..]Vector4;
+			positions: [..]Trile_Instance;
 			positions.allocator = temp;
-			array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, cast(float)orientation});
+			array_add(*positions, Trile_Instance.{xx (px % 32), xx (py % 32), xx (pz % 32), xx orientation});
 			task: Rendering_Task_Trile;
 			task.trile        = cursor_trile;
 			task.positions    = positions;
 			task.worldConf    = *curworld.world.conf;
 			task.preview_mode = 1;
+			task.chunk_key    = world_to_chunk_coord(xx px, xx py, xx pz);
 			add_rendering_task(task);
 		}
 		return;
@@ -688,7 +689,7 @@ create_level_editor_preview_tasks :: () {
 				}
 			}
 		} else {
-			array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, ori});
+			// array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, ori});
 		}
 	} else if current_tool_mode == .LINE {
 		if line_active {
@@ -710,7 +711,7 @@ create_level_editor_preview_tasks :: () {
 				count += 1;
 			}
 		} else {
-			array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, ori});
+			// array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, ori});
 		}
 	}
 
@@ -721,7 +722,7 @@ create_level_editor_preview_tasks :: () {
 
 	task: Rendering_Task_Trile;
 	task.trile        = editor_current_trile.name;
-	task.positions    = positions;
+	// task.positions    = positions;
 	task.worldConf    = *curworld.world.conf;
 	task.preview_mode = ifx is_delete then cast(s32)2 else cast(s32)1;
 	add_rendering_task(task);
