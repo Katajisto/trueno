@@ -82,24 +82,31 @@ arb_tri_flush :: () {
 
 
 
-    arbTriState.active = false;    
+    arbTriState.active = false;
+
+    w, h := get_window_size();
+    inv_w := 2.0 / cast(float) w;
+    inv_h := 2.0 / cast(float) h;
 
     for tri, i : arbTriState.trilist {
         bgn := i * 3 * 9;
         for 0..2 {
-            gArbtriMem[bgn + it * 9 + 0] = transform_to_screen_x(tri.pos[it].x);  
-            gArbtriMem[bgn + it * 9 + 1] = transform_to_screen_y(tri.pos[it].y) * -1.0;  
-            gArbtriMem[bgn + it * 9 + 2] = 0;  
-            gArbtriMem[bgn + it * 9 + 3] = tri.col[it].x;  
-            gArbtriMem[bgn + it * 9 + 4] = tri.col[it].y;  
-            gArbtriMem[bgn + it * 9 + 5] = tri.col[it].z;  
-            gArbtriMem[bgn + it * 9 + 6] = tri.col[it].w;  
-            gArbtriMem[bgn + it * 9 + 7] = tri.uv[it].x;  
-            gArbtriMem[bgn + it * 9 + 8] = tri.uv[it].y;  
+            gArbtriMem[bgn + it * 9 + 0] = tri.pos[it].x * inv_w - 1.0;
+            gArbtriMem[bgn + it * 9 + 1] = -(tri.pos[it].y * inv_h - 1.0);
+            gArbtriMem[bgn + it * 9 + 2] = 0;
+            gArbtriMem[bgn + it * 9 + 3] = tri.col[it].x;
+            gArbtriMem[bgn + it * 9 + 4] = tri.col[it].y;
+            gArbtriMem[bgn + it * 9 + 5] = tri.col[it].z;
+            gArbtriMem[bgn + it * 9 + 6] = tri.col[it].w;
+            gArbtriMem[bgn + it * 9 + 7] = tri.uv[it].x;
+            gArbtriMem[bgn + it * 9 + 8] = tri.uv[it].y;
         }
     }
 
-    sg_update_buffer(gPipelines.arbtri.bind.vertex_buffers[0], *(sg_range.{ ptr = gArbtriMem.data, size = size_of(type_of(gArbtriMem)) }));
+    upload_size := arbTriState.trilist.count * 3 * 9 * size_of(float);
+    if upload_size > 0 {
+        sg_update_buffer(gPipelines.arbtri.bind.vertex_buffers[0], *(sg_range.{ ptr = gArbtriMem.data, size = xx upload_size }));
+    }
 
     flush_arb_commands();
 }

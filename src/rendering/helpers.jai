@@ -12,17 +12,6 @@ fill_uniform_with_engine_data :: (uniform: *$A, enginedata: *$B) {
     #insert #run,stallable generate_copy_code();
 }
 
-Gathered_Positions :: struct {
-    name:      string;
-    chunk_key: Chunk_Key;
-    positions: [..]Vector4;
-}
-
-Gathered_Rdm_Position :: struct {
-    name:     string;
-    position: Vector4;
-}
-
 extract_frustum_planes :: (mvp: Matrix4) -> [6]Vector4 {
     planes : [6]Vector4;
     m := mvp;
@@ -35,7 +24,7 @@ extract_frustum_planes :: (mvp: Matrix4) -> [6]Vector4 {
     return planes;
 }
 
-aabb_in_frustum :: (planes: [6]Vector4, bmin: Vector3, bmax: Vector3) -> bool {
+aabb_in_frustum :: inline (planes: [6]Vector4, bmin: Vector3, bmax: Vector3) -> bool {
     for plane: planes {
         px := ifx plane.x >= 0 then bmax.x else bmin.x;
         py := ifx plane.y >= 0 then bmax.y else bmin.y;
@@ -57,6 +46,25 @@ LOD_DISTANCES :: float.[50.0, 100.0, 200.0];
 FOG_START     :: 60.0;
 FOG_END       :: 195.0;
 
+
+shad_gathered    : [..]Gathered_Positions;
+rdm_extra        : [..]Gathered_Positions;
+rdm_main         : [..]Gathered_Rdm_Position;
+gathered_per_lod : [3][..]Gathered_Positions;
+
+Gathered_Positions :: struct {
+    trile     : string;
+    chunk_key : Chunk_Key;
+    positions : [..]Vector4;
+}
+
+Gathered_Rdm_Position :: struct {
+    name:     string;
+    position: Vector4;
+}
+
+gathered_chunk_tasks : [..]Gathered_Positions;
+
 create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: float = 0) {
     create_sky_rendering_task(*world.conf);
     create_set_light_rendering_task(*world.conf);
@@ -74,123 +82,41 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
     reflect_mvp    := create_viewproj(*reflect_cam);
     reflect_planes := extract_frustum_planes(reflect_mvp);
 
-    // Gather positions for camera-visible instances (all passes) and
-    // shadow-only instances (chunks visible from sun but not camera).
-    gathered_per_lod : [3][..]Gathered_Positions;
-    for i: 0..2  gathered_per_lod[i].allocator = temp;
-    shad_gathered : [..]Gathered_Positions;
-    shad_gathered.allocator = temp;
-    rdm_extra     : [..]Gathered_Positions;   // RDM-flagged instances visible to camera; shadow/gbuffer/reflection use base pipeline
-    rdm_extra.allocator = temp;
-    rdm_main      : [..]Gathered_Rdm_Position; // one entry per RDM-flagged instance for the main pass
-    rdm_main.allocator = temp;
+    for chunk: world.chunks {       
+        chunk_quadrant_vis : [8]bool;
+        any_vis            : bool;
 
-    find_or_create :: (list: *[..]Gathered_Positions, name: string, chunk_key: Chunk_Key) -> *Gathered_Positions {
-        for *g: list.* {
-            if g.name == name && g.chunk_key == chunk_key  return g;
-        }
-        array_add(list, .{name = name, chunk_key = chunk_key});
-        g := *list.*[list.count - 1];
-        g.positions.allocator = temp;
-        return g;
-    }
-
-    for chunk: world.chunks {
-        bmin := Vector3.{chunk.coord.x * 32.0, chunk.coord.y * 32.0, chunk.coord.z * 32.0};
-        bmax := bmin + .{32, 32, 32};
-
-        in_cam     := aabb_in_frustum(cam_planes,     bmin, bmax);
-        in_reflect := aabb_in_frustum(reflect_planes, bmin, bmax);
-        in_shad    := aabb_in_frustum(shadow_planes,  bmin, bmax);
-        if !in_cam && !in_reflect && !in_shad  continue;
-
-        for group: chunk.groups {
-            for inst, idx: group.instances {
-                if idx < group.is_buried.count && group.is_buried[idx]  continue;
-                wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
-                imin := Vector3.{cast(float)wx, cast(float)wy, cast(float)wz};
-                imax := imin + .{1, 1, 1};
-
-                inst_cam     := in_cam     && aabb_in_frustum(cam_planes,     imin, imax);
-                inst_reflect := in_reflect && aabb_in_frustum(reflect_planes, imin, imax);
-                inst_shad    := in_shad    && aabb_in_frustum(shadow_planes,  imin, imax);
-                if !inst_cam && !inst_reflect && !inst_shad  continue;
-
-                dist := length(imin + .{0.5, 0.5, 0.5} - camera.position);
-
-                lod_idx : s32 = -1;
-                for i: 0..2 {
-                    if dist < LOD_DISTANCES[i] {
-                        lod_idx = cast(s32) i;
-                        break;
-                    }
-                }
-                if lod_idx < 0  continue; // beyond cull distance
-
-                pos := Vector4.{cast(float)wx, cast(float)wy, cast(float)wz, cast(float)inst.orientation};
-                is_rdm := is_rdm_instance_enabled(world, wx, wy, wz);
-                if inst_cam || inst_reflect {
-                    if is_rdm {
-                        target := find_or_create(*rdm_extra, group.trile_name, chunk.coord);
-                        array_add(*target.positions, pos);
-                        if inst_cam {
-                            array_add(*rdm_main, .{name = group.trile_name, position = pos});
-                        }
-                    } else {
-                        target := find_or_create(*gathered_per_lod[lod_idx], group.trile_name, chunk.coord);
-                        array_add(*target.positions, pos);
-                    }
-                } else {
-                    target := find_or_create(*shad_gathered, group.trile_name, chunk.coord);
-                    array_add(*target.positions, pos);
+        for i: 0..1 {
+            for j: 0..1 {
+                for k: 0..1 {
+                    bmin := Vector3.{
+                        chunk.coord.x * 32.0 + i * 16.0,
+                        chunk.coord.y * 32.0 + j * 16.0,
+                        chunk.coord.z * 32.0 + k * 16.0
+                    };
+                    bmax := bmin + .{16, 16, 16};
+                    in_cam     := aabb_in_frustum(cam_planes,     bmin, bmax);
+                    in_reflect := aabb_in_frustum(reflect_planes, bmin, bmax);
+                    in_shad    := aabb_in_frustum(shadow_planes,  bmin, bmax);
+                    vis        := in_cam || in_reflect || in_shad;
+                    chunk_quadrant_vis[i+j*2+k*2*2] = vis;
+                    if !any_vis then any_vis = vis;
                 }
             }
         }
-    }
 
-    for lod_idx: 0..2 {
-        for g: gathered_per_lod[lod_idx] {
-            if g.positions.count < 1  continue;
-            triletask : Rendering_Task_Trile;
-            triletask.trile     = g.name;
-            triletask.chunk_key = g.chunk_key;
-            triletask.positions = g.positions;
-            triletask.worldConf = *world.conf;
-            triletask.lod_index = cast(s32) lod_idx;
-            add_rendering_task(triletask);
+        for group : chunk.group {
+            task := Rendering_Task_Trile.{
+                trile = group.trile_name,
+                chunk_key = chunk.coord,
+                positions = group.instances,
+                worldConf = world.conf
+            };
+            add_rendering_task(*task);
         }
+        
     }
-    for g: shad_gathered {
-        if g.positions.count < 1  continue;
-        triletask : Rendering_Task_Trile;
-        triletask.trile       = g.name;
-        triletask.chunk_key   = g.chunk_key;
-        triletask.positions   = g.positions;
-        triletask.worldConf   = *world.conf;
-        triletask.shadow_only = true;
-        add_rendering_task(triletask);
-    }
-    for g: rdm_extra {
-        if g.positions.count < 1  continue;
-        triletask : Rendering_Task_Trile;
-        triletask.trile     = g.name;
-        triletask.chunk_key = g.chunk_key;
-        triletask.positions = g.positions;
-        triletask.worldConf = *world.conf;
-        triletask.skip_main = true;
-        add_rendering_task(triletask);
-    }
-    for r: rdm_main {
-        rect, found := rdm_get_atlas_rect(world, cast(s32) r.position.x, cast(s32) r.position.y, cast(s32) r.position.z);
-        if !found then continue;
-        rdmtask : Rendering_Task_Trile_RDM;
-        rdmtask.trile      = r.name;
-        rdmtask.position   = r.position;
-        rdmtask.atlas_rect = rect;
-        rdmtask.worldConf  = *world.conf;
-        add_rendering_task(rdmtask);
-    }
-
+    
     create_ground_rendering_task(world);
 }
 

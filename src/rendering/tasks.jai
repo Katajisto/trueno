@@ -57,7 +57,7 @@ Rendering_Task_Trile :: struct {
     t.type      = .TRILE;
     trile       : string;
     chunk_key   : Chunk_Key;
-    positions   : []Vector4;
+    positions   : []Trile_Instance;
     worldConf   : *World_Config;
     preview_mode : s32  = 0;    // 0=normal, 1=add preview (blue), 2=delete preview (red)
     shadow_only  : bool = false; // only submit to shadow bucket (frustum-culled from camera)

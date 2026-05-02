@@ -101,7 +101,7 @@ draw_profiler :: () {
 	draw_rectangle(.{xx(w-700), 0, 700, xx(h) }, .{0,0,0,1});
     __Iprof.draw(xx (w - 700), 20, 699, xx h, *iprof_conf);
     if profiler_mode == .FULL {
-		__Iprof.draw_graph(0, 100, xx(w-700), 100, *iprof_conf);
+		__Iprof.draw_graph(0, 0, xx(w-700), 300, *iprof_conf);
 	}
 }
 
