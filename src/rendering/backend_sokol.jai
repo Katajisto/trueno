@@ -143,9 +143,9 @@ backend_add_trile_positions :: (positions : []Trile_Instance, chunk: Chunk_Key) 
     array_reset_keeping_memory(*trile_position_staging);
     for position : positions {
         array_add(*trile_position_staging, Vector4.{
-            cast(float)(position.x + chunk.x),
-            cast(float)(position.y + chunk.y),
-            cast(float)(position.z + chunk.z),
+            cast(float)(position.x + chunk.x * 32.0),
+            cast(float)(position.y + chunk.y * 32.0),
+            cast(float)(position.z + chunk.z * 32.0),
             cast(float)(position.orientation)
         });
     }
@@ -178,7 +178,11 @@ backend_draw_trile_positions_gbuffer :: (trile : string, amount : s32, worldConf
 
     offset := trile_offsets[offset_index];
 
-    trilegfx := get_trile_gfx(trile);
+    trilegfx, success := get_trile_gfx(trile);
+    if !success {
+        log_warn("Failed to get trile: %\n", trile);
+        return;
+    }
 
     vbuf, nbuf, cbuf : sg_buffer;
     vcount : s64;
@@ -217,7 +221,12 @@ backend_draw_trile_positions_main :: (trile : string, amount : s32, worldConf: *
         return;
     }
 
-    trilegfx := get_trile_gfx(trile);
+    trilegfx, success := get_trile_gfx(trile);
+    if !success {
+        log_warn("Failed to get trile: %\n", trile);
+        return;
+    }
+
     offset := trile_offsets[offset_index];
 
     // Pick mesh source based on LOD level. For shadow + gbuffer we keep the original pipeline
@@ -363,7 +372,11 @@ backend_add_trile_rdm_position :: (position: Vector4) {
 backend_draw_trile_rdm :: (trile: string, worldConf: *World_Config, atlas_rect: Vector4, offset_index: s32) {
     if offset_index >= trile_rdm_offsets.count then return;
 
-    trilegfx := get_trile_gfx(trile);
+    trilegfx, success := get_trile_gfx(trile);
+    if !success {
+        log_warn("Failed to get trile: %\n", trile);
+        return;
+    }
     offset := trile_rdm_offsets[offset_index];
 
     mvp := create_viewproj(*camera);

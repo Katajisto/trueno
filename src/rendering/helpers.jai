@@ -83,34 +83,49 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
     reflect_planes := extract_frustum_planes(reflect_mvp);
 
     for chunk: world.chunks {       
-        chunk_quadrant_vis : [8]bool;
-        any_vis            : bool;
-
-        for i: 0..1 {
-            for j: 0..1 {
-                for k: 0..1 {
-                    bmin := Vector3.{
-                        chunk.coord.x * 32.0 + i * 16.0,
-                        chunk.coord.y * 32.0 + j * 16.0,
-                        chunk.coord.z * 32.0 + k * 16.0
-                    };
-                    bmax := bmin + .{16, 16, 16};
-                    in_cam     := aabb_in_frustum(cam_planes,     bmin, bmax);
-                    in_reflect := aabb_in_frustum(reflect_planes, bmin, bmax);
-                    in_shad    := aabb_in_frustum(shadow_planes,  bmin, bmax);
-                    vis        := in_cam || in_reflect || in_shad;
-                    chunk_quadrant_vis[i+j*2+k*2*2] = vis;
-                    if !any_vis then any_vis = vis;
-                }
-            }
-        }
+        // Skip chunks that are completely out of view.
+        bmin := Vector3.{
+            chunk.coord.x * 32.0,
+            chunk.coord.y * 32.0,
+            chunk.coord.z * 32.0
+        };
+        bmax := bmin + .{32, 32, 32};
+        in_cam     := aabb_in_frustum(cam_planes,     bmin, bmax);
+        in_reflect := aabb_in_frustum(reflect_planes, bmin, bmax);
+        in_shad    := aabb_in_frustum(shadow_planes,  bmin, bmax);
+        vis        := in_cam || in_reflect || in_shad;
+        if !vis then continue;
 
         for group : chunk.groups {
+            if group.instances.count < 1 then continue;
+
+
+            gmin := group.bounding_min;
+            gmax := group.bounding_max;
+
+            gmin += Vector3.{cast(float)chunk.coord.x * 32, cast(float)chunk.coord.y * 32, cast(float)chunk.coord.z * 32};
+            gmax += Vector3.{cast(float)chunk.coord.x * 32, cast(float)chunk.coord.y * 32, cast(float)chunk.coord.z * 32};
+            in_cam     := aabb_in_frustum(cam_planes,     gmin, gmax);
+            in_reflect := aabb_in_frustum(reflect_planes, gmin, gmax);
+            in_shad    := aabb_in_frustum(shadow_planes,  gmin, gmax);
+            vis        := in_cam || in_reflect || in_shad;
+
+            if !vis then continue;
+
+            diff := group.average_pos - camera.position;
+            dist := length(diff);
+            lod_index : s32 = 0;
+            for lod_dist : LOD_DISTANCES {
+                if dist < lod_dist then break;
+                lod_index += 1;
+            }
+            
             task := Rendering_Task_Trile.{
-                trile = group.trile_name,
-                chunk_key = chunk.coord,
-                positions = group.instances,
-                worldConf = *world.conf
+                trile      = group.trile_name,
+                chunk_key  = chunk.coord,
+                positions  = group.instances,
+                worldConf  = *world.conf,
+                lod_index = lod_index
             };
             add_rendering_task(task);
         }

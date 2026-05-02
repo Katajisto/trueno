@@ -44,9 +44,15 @@ Trile_Instance :: struct {
 }
 
 Chunk_Trile_Group :: struct {
-    trile_name: string;
-    instances:  [..]Trile_Instance;
-    is_buried:  [..]bool;  // Runtime-only, parallel to instances. Not serialized.
+    trile_name   : string;
+
+    // Precalculated to save time when we are creating render tasks.
+    bounding_min : Vector3;
+    bounding_max : Vector3;
+    average_pos  : Vector3;
+    
+    instances    :  [..]Trile_Instance;
+    is_buried    :  [..]bool;  // Runtime-only, parallel to instances. Not serialized.
 }
 
 Chunk :: struct {
@@ -676,6 +682,25 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
                 inst := read_value(chunk_data, *chunk_cursor, Trile_Instance);
                 array_add(*group.instances, inst);
             }
+            gmin := Vector3.{31,31,31};
+            gmax := Vector3.{0,0,0};
+            gavg := Vector3.{0,0,0};
+        
+            for i : group.instances {
+                gmin.x = min(gmin.x, xx i.x);
+                gmin.y = min(gmin.y, xx i.y);
+                gmin.z = min(gmin.z, xx i.z);
+                gmax.x = max(gmax.x, xx i.x);
+                gmax.y = max(gmax.y, xx i.y);
+                gmax.z = max(gmax.z, xx i.z);
+
+                gavg += Vector3.{xx i.x, xx i.y, xx i.z};
+            }
+            gavg /= cast(float) group.instances.count;
+
+            group.bounding_min = gmin;
+            group.bounding_max = gmax;
+            group.average_pos  = gavg;
             array_add(*chunk.groups, group);
         }
         table_set(*world.chunks, chunk.coord, chunk);
@@ -771,6 +796,7 @@ load_world_from_data :: (data: []u8) -> (World, bool) {
                 inst := read_value(data, *chunk_cursor, Trile_Instance);
                 array_add(*group.instances, inst);
             }
+            
             array_add(*chunk.groups, group);
         }
         table_set(*world.chunks, chunk.coord, chunk);
