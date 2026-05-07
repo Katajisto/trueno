@@ -544,9 +544,9 @@ backend_update_particle_buffers :: (cmd: *Render_Command_Update_Particles) {
     inst_buf1 := gPipelines.particle_additive.bind.vertex_buffers[1];
     inst_buf2 := gPipelines.particle_additive.bind.vertex_buffers[2];
     inst_buf3 := gPipelines.particle_additive.bind.vertex_buffers[3];
-    sg_update_buffer(inst_buf1, *(sg_range.{ ptr = cmd.pos_size.data,  size = byte_size }));
-    sg_update_buffer(inst_buf2, *(sg_range.{ ptr = cmd.uv_rects.data,  size = byte_size }));
-    sg_update_buffer(inst_buf3, *(sg_range.{ ptr = cmd.colors.data,    size = byte_size }));
+    sg_update_buffer(inst_buf1, *(sg_range.{ ptr = g_particle_render_buffer.pos_size.data,  size = byte_size }));
+    sg_update_buffer(inst_buf2, *(sg_range.{ ptr = g_particle_render_buffer.uv_rects.data,  size = byte_size }));
+    sg_update_buffer(inst_buf3, *(sg_range.{ ptr = g_particle_render_buffer.colors.data,    size = byte_size }));
 }
 
 backend_draw_particles :: (cmd: *Render_Command_Draw_Particles) {

@@ -164,11 +164,7 @@ draw_particle_editor_ui :: (theme: *GR.Overall_Theme) {
 
     er.y += er.h;
 
-    alive_count : s32 = 0;
-    for p : g_particles {
-        if p.alive then alive_count += 1;
-    }
-    pe_label(*er, tprint("Alive particles: %", alive_count), theme);
+    pe_label(*er, tprint("Alive particles: %", count_alive_particles()), theme);
     pe_label(*er, tprint("Emitter defs: %", g_emitter_defs.count), theme);
     pe_label(*er, tprint("Preview active: %", pe_preview_emitter.active), theme);
     pe_label(*er, tprint("Preview def: %", pe_preview_emitter.definition != null), theme);

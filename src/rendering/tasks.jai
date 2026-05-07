@@ -98,9 +98,6 @@ Rendering_Task_Particles_Buffer :: struct {
     #as using t : Rendering_Task;
     t.type      = .PARTICLES_BUFFER;
     total_count : s32;
-    pos_size    : [MAX_PARTICLES]Vector4;
-    uv_rects    : [MAX_PARTICLES]Vector4;
-    colors      : [MAX_PARTICLES]Vector4;
 }
 
 Rendering_Task_Set_Camera :: struct {
@@ -216,9 +213,6 @@ tasks_to_commands :: () {
                 bufTask := cast(*Rendering_Task_Particles_Buffer)it;
                 uploadCmd := New(Render_Command_Update_Particles,, temp);
                 uploadCmd.total_count = bufTask.total_count;
-                memcpy(uploadCmd.pos_size.data, bufTask.pos_size.data, bufTask.total_count * size_of(Vector4));
-                memcpy(uploadCmd.uv_rects.data, bufTask.uv_rects.data, bufTask.total_count * size_of(Vector4));
-                memcpy(uploadCmd.colors.data, bufTask.colors.data, bufTask.total_count * size_of(Vector4));
                 array_add(*render_command_buckets.setup, uploadCmd);
             case .PARTICLES;
                 particleTask := cast(*Rendering_Task_Particles)it;

@@ -320,6 +320,14 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	r.h = ui_h(4, 0);
 
 	if keybind_button(r, "Save world", .SAVE, *theme.button_theme) then sworld();
+	r.y += r.h;
+	if GR.button(r, "Delete buried triles", *theme.button_theme, 400) {
+		curworld := get_current_world();
+		if curworld.valid {
+			removed := delete_buried_triles(*curworld.world);
+			log_info("Deleted % buried triles\n", removed);
+		}
+	}
 	r.y += r.h * 2;
 
 	// Tool mode buttons
@@ -479,7 +487,6 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 		array_add(*group.instances, inst);
 		array_add(*chunk.groups, group);
 	}
-	invalidate_buried_around(*curworld.world, x, y, z);
 } @Command
 
 remove_trile :: (x: s32, y: s32, z: s32) {
@@ -491,21 +498,14 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 
 	lx, ly, lz := world_to_local(x, y, z);
 
-	removed := false;
 	for *group: chunk.groups {
 		for inst, idx: group.instances {
 			if inst.x == lx && inst.y == ly && inst.z == lz {
 				array_unordered_remove_by_index(*group.instances, idx);
-				if group.is_buried.count > idx {
-					array_unordered_remove_by_index(*group.is_buried, idx);
-				}
-				removed = true;
-				break;
+				return;
 			}
 		}
-		if removed  break;
 	}
-	if removed  invalidate_buried_around(*curworld.world, x, y, z);
 } @Command
 
 

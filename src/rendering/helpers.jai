@@ -102,9 +102,11 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
 
             gmin := group.bounding_min;
             gmax := group.bounding_max;
+            gavg := group.average_pos;
 
             gmin += Vector3.{cast(float)chunk.coord.x * 32, cast(float)chunk.coord.y * 32, cast(float)chunk.coord.z * 32};
             gmax += Vector3.{cast(float)chunk.coord.x * 32, cast(float)chunk.coord.y * 32, cast(float)chunk.coord.z * 32};
+            gavg += Vector3.{cast(float)chunk.coord.x * 32, cast(float)chunk.coord.y * 32, cast(float)chunk.coord.z * 32};
             in_cam     := aabb_in_frustum(cam_planes,     gmin, gmax);
             in_reflect := aabb_in_frustum(reflect_planes, gmin, gmax);
             in_shad    := aabb_in_frustum(shadow_planes,  gmin, gmax);
@@ -112,7 +114,7 @@ create_world_rendering_tasks :: (world: *World, camera: Camera, plane_height: fl
 
             if !vis then continue;
 
-            diff := group.average_pos - camera.position;
+            diff := gavg - camera.position;
             dist := length(diff);
             lod_index : s32 = 0;
             for lod_dist : LOD_DISTANCES {

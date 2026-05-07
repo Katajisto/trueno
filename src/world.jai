@@ -52,7 +52,6 @@ Chunk_Trile_Group :: struct {
     average_pos  : Vector3;
     
     instances    :  [..]Trile_Instance;
-    is_buried    :  [..]bool;  // Runtime-only, parallel to instances. Not serialized.
 }
 
 Chunk :: struct {
@@ -217,7 +216,6 @@ unload_current_world :: () {
     for *chunk: current_world.world.chunks {
         for *group: chunk.groups {
             array_free(group.instances);
-            array_free(group.is_buried);
         }
         array_free(chunk.groups);
     }
@@ -232,9 +230,6 @@ set_loaded_world :: (world: World) {
     current_world.world = world;
     current_world.valid = true;
     resolve_emitter_definitions(*current_world.world);
-    for *chunk: current_world.world.chunks {
-        recompute_buried_for_chunk(*current_world.world, chunk);
-    }
 }
 
 is_cell_opaque :: (name: string) -> bool {
@@ -259,81 +254,100 @@ trile_at_world :: (world: *World, wx: s32, wy: s32, wz: s32) -> string {
     return "";
 }
 
-BURIED_DIRS :: s32.[ 1,0,0,  -1,0,0,  0,1,0,  0,-1,0,  0,0,1,  0,0,-1 ];
-
-compute_buried_at_world :: (world: *World, wx: s32, wy: s32, wz: s32) -> bool {
-    for axis: 0..5 {
-        nwx := wx + BURIED_DIRS[axis*3+0];
-        nwy := wy + BURIED_DIRS[axis*3+1];
-        nwz := wz + BURIED_DIRS[axis*3+2];
-        if !is_cell_opaque(trile_at_world(world, nwx, nwy, nwz))  return false;
+recompute_group_bounds :: (group: *Chunk_Trile_Group) {
+    if group.instances.count == 0 {
+        group.bounding_min = .{};
+        group.bounding_max = .{};
+        group.average_pos  = .{};
+        return;
     }
-    return true;
+    gmin := Vector3.{31, 31, 31};
+    gmax := Vector3.{0, 0, 0};
+    gavg := Vector3.{0, 0, 0};
+    for i : group.instances {
+        gmin.x = min(gmin.x, xx i.x);
+        gmin.y = min(gmin.y, xx i.y);
+        gmin.z = min(gmin.z, xx i.z);
+        gmax.x = max(gmax.x, xx i.x);
+        gmax.y = max(gmax.y, xx i.y);
+        gmax.z = max(gmax.z, xx i.z);
+        gavg += Vector3.{xx i.x, xx i.y, xx i.z};
+    }
+    gavg /= cast(float) group.instances.count;
+    group.bounding_min = gmin;
+    group.bounding_max = gmax;
+    group.average_pos  = gavg;
 }
 
-recompute_buried_for_chunk :: (world: *World, chunk: *Chunk) {
-    // Build an O(1) local lookup grid (32^3 trile names) for this chunk so the
-    // common in-chunk neighbor case is a single index lookup. Cross-chunk
-    // neighbors fall back to trile_at_world.
+// Scans every chunk for triles whose 6 axis-aligned neighbors are all opaque,
+// and removes them. One-shot — operates against a snapshot of the original
+// state so a fully-enclosed cluster is removed in a single pass.
+delete_buried_triles :: (world: *World) -> s32 {
+    NEIGHBOR_DIRS :: s32.[ 1,0,0,  -1,0,0,  0,1,0,  0,-1,0,  0,0,1,  0,0,-1 ];
     GRID :: CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
-    grid: [GRID] string;
-    grid_data := grid;
-    for *group: chunk.groups {
-        for inst: group.instances {
-            idx := cast(int)inst.x + CHUNK_SIZE * (cast(int)inst.y + CHUNK_SIZE * cast(int)inst.z);
-            grid_data[idx] = group.trile_name;
+
+    cell_idx :: (lx: u8, ly: u8, lz: u8) -> int {
+        return cast(int)lx + CHUNK_SIZE * (cast(int)ly + CHUNK_SIZE * cast(int)lz);
+    }
+
+    build_chunk_grid :: (chunk: *Chunk, grid: *[GRID]string) {
+        for *group : chunk.groups {
+            for inst : group.instances  grid.*[cell_idx(inst.x, inst.y, inst.z)] = group.trile_name;
         }
     }
 
-    for *group: chunk.groups {
-        array_resize(*group.is_buried, group.instances.count);
-        for inst, i: group.instances {
-            wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
-            buried := true;
-            for axis: 0..5 {
-                nwx := wx + BURIED_DIRS[axis*3+0];
-                nwy := wy + BURIED_DIRS[axis*3+1];
-                nwz := wz + BURIED_DIRS[axis*3+2];
-                neighbor_name: string;
-                nkey := world_to_chunk_coord(nwx, nwy, nwz);
-                if nkey == chunk.coord {
-                    nlx, nly, nlz := world_to_local(nwx, nwy, nwz);
-                    nidx := cast(int)nlx + CHUNK_SIZE * (cast(int)nly + CHUNK_SIZE * cast(int)nlz);
-                    neighbor_name = grid_data[nidx];
-                } else {
-                    neighbor_name = trile_at_world(world, nwx, nwy, nwz);
-                }
-                if !is_cell_opaque(neighbor_name) {
-                    buried = false;
-                    break;
-                }
+    neighbor_trile_name :: (world: *World, chunk_coord: Chunk_Key, grid: *[GRID]string, wx: s32, wy: s32, wz: s32) -> string {
+        if world_to_chunk_coord(wx, wy, wz) == chunk_coord {
+            lx, ly, lz := world_to_local(wx, wy, wz);
+            return grid.*[cell_idx(lx, ly, lz)];
+        }
+        return trile_at_world(world, wx, wy, wz);
+    }
+
+    is_buried :: (world: *World, chunk_coord: Chunk_Key, grid: *[GRID]string, lx: u8, ly: u8, lz: u8) -> bool {
+        wx0, wy0, wz0 := chunk_local_to_world(chunk_coord, lx, ly, lz);
+        for axis : 0..5 {
+            name := neighbor_trile_name(world, chunk_coord, grid,
+                                        wx0 + NEIGHBOR_DIRS[axis*3+0],
+                                        wy0 + NEIGHBOR_DIRS[axis*3+1],
+                                        wz0 + NEIGHBOR_DIRS[axis*3+2]);
+            if !is_cell_opaque(name) then return false;
+        }
+        return true;
+    }
+
+    Pending :: struct {
+        group   : *Chunk_Trile_Group;
+        indices : [..]s32;
+    }
+
+    pending : [..]Pending;
+    pending.allocator = temp;
+
+    for *chunk : world.chunks {
+        grid : [GRID]string;
+        build_chunk_grid(chunk, *grid);
+
+        for *group : chunk.groups {
+            pr : Pending;
+            pr.group = group;
+            pr.indices.allocator = temp;
+            for inst, i : group.instances {
+                if is_buried(world, chunk.coord, *grid, inst.x, inst.y, inst.z) then array_add(*pr.indices, cast(s32) i);
             }
-            group.is_buried[i] = buried;
+            if pr.indices.count > 0 then array_add(*pending, pr);
         }
     }
-}
 
-recompute_buried_at_cell :: (world: *World, wx: s32, wy: s32, wz: s32) {
-    key := world_to_chunk_coord(wx, wy, wz);
-    chunk := table_find_pointer(*world.chunks, key);
-    if !chunk  return;
-    lx, ly, lz := world_to_local(wx, wy, wz);
-    for *group: chunk.groups {
-        for inst, i: group.instances {
-            if inst.x == lx && inst.y == ly && inst.z == lz {
-                if group.is_buried.count != group.instances.count  array_resize(*group.is_buried, group.instances.count);
-                group.is_buried[i] = compute_buried_at_world(world, wx, wy, wz);
-                return;
-            }
+    total : s32 = 0;
+    for pr : pending {
+        for < k : 0..pr.indices.count - 1 {
+            array_unordered_remove_by_index(*pr.group.instances, pr.indices[k]);
+            total += 1;
         }
+        recompute_group_bounds(pr.group);
     }
-}
-
-invalidate_buried_around :: (world: *World, wx: s32, wy: s32, wz: s32) {
-    recompute_buried_at_cell(world, wx, wy, wz);
-    for axis: 0..5 {
-        recompute_buried_at_cell(world, wx + BURIED_DIRS[axis*3+0], wy + BURIED_DIRS[axis*3+1], wz + BURIED_DIRS[axis*3+2]);
-    }
+    return total;
 }
 
 resolve_emitter_definitions :: (world: *World) {
@@ -347,7 +361,6 @@ clear_world :: () {
     for *chunk: current_world.world.chunks {
         for *group: chunk.groups {
             array_free(group.instances);
-            array_free(group.is_buried);
         }
         array_free(chunk.groups);
     }

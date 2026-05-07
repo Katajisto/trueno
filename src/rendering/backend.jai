@@ -110,9 +110,6 @@ Render_Command_Update_Particles :: struct {
     #as using c  : Render_Command;
     c.type       = .UPDATE_PARTICLES;
     total_count  : s32;
-    pos_size     : [MAX_PARTICLES]Vector4;
-    uv_rects     : [MAX_PARTICLES]Vector4;
-    colors       : [MAX_PARTICLES]Vector4;
 }
 
 Render_Command_Draw_Particles :: struct {

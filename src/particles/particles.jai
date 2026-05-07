@@ -41,25 +41,61 @@ Particle :: struct {
     definition : *Particle_Emitter_Config;
 }
 
-MAX_PARTICLES :: 16384;
+BUCKET_MAX_PARTICLES :: 2048;
+PARTICLE_BUCKETS     :: 16;
+MAX_PARTICLES        :: PARTICLE_BUCKETS * BUCKET_MAX_PARTICLES;
 
-g_particles    : [MAX_PARTICLES] Particle;
+
+Particle_Bucket :: struct {
+    in_use    : bool;
+    name      : string;
+    particles : [BUCKET_MAX_PARTICLES] Particle;
+}
+
+g_particle_buckets : [PARTICLE_BUCKETS] Particle_Bucket;
+
+Particle_Render_Buffer :: struct {
+    total_count : s32;
+    pos_size    : [MAX_PARTICLES] Vector4;
+    uv_rects    : [MAX_PARTICLES] Vector4;
+    colors      : [MAX_PARTICLES] Vector4;
+}
+
+g_particle_render_buffer : Particle_Render_Buffer;
+
 g_emitter_defs : [..] Particle_Emitter_Config;
 
 clear_particles :: () {
-    for *p: g_particles  p.alive = false;
+    for *bucket: g_particle_buckets {
+        bucket.in_use = false;
+        bucket.name = "";
+        for *p: bucket.particles  p.alive = false;
+    }
+}
+
+count_alive_particles :: () -> s32 {
+    count : s32 = 0;
+    for *bucket: g_particle_buckets {
+        if !bucket.in_use then continue;
+        for p: bucket.particles {
+            if p.alive then count += 1;
+        }
+    }
+    return count;
 }
 
 tick_particles_physics :: (dt: float) {
-    for *p: g_particles {
-        if !p.alive then continue;
-        p.age += dt;
-        if p.age >= p.lifetime {
-            p.alive = false;
-            continue;
+    for *bucket: g_particle_buckets {
+        for *p: bucket.particles {
+            if !p.alive then continue;
+            p.age += dt;
+            if p.age >= p.lifetime {
+                p.alive = false;
+                continue;
+            }
+            p.velocity.y -= p.gravity * dt;
+            p.position   += p.velocity * dt;
         }
-        p.velocity.y -= p.gravity * dt;
-        p.position   += p.velocity * dt;
     }
 }
 
@@ -98,99 +134,66 @@ tick_emitter_instance :: (inst: *Particle_Emitter_Instance, dt: float) {
 }
 
 add_particle_render_tasks :: () {
-    Batch :: struct {
-        anim_name  : string;
-        blend_mode : Particle_Blend_Mode;
-        anim       : *Animation;
-        sheet      : sg_image;
-        count      : s32;
-        pos_size   : *[MAX_PARTICLES]Vector4;
-        uv_rects   : *[MAX_PARTICLES]Vector4;
-        colors     : *[MAX_PARTICLES]Vector4;
-    }
-
-    batches : [..] Batch;
-    batches.allocator = temp;
-
-    for *p: g_particles {
-        if !p.alive then continue;
-        if p.definition == null then continue;
-        def := p.definition;
-        if def.animation_name.count == 0 then continue;
-
-        batch : *Batch = null;
-        for *b: batches {
-            if b.anim_name == def.animation_name && b.blend_mode == def.blend_mode {
-                batch = b;
-                break;
-            }
-        }
-
-        if batch == null {
-            anim := get_animation_from_string(def.animation_name);
-            if anim == null then continue;
-            if anim.frames.count == 0 then continue;
-            array_add(*batches, .{
-                anim_name  = def.animation_name,
-                blend_mode = def.blend_mode,
-                anim       = anim,
-                sheet      = anim.sheet,
-                pos_size   = New([MAX_PARTICLES]Vector4,, temp),
-                uv_rects   = New([MAX_PARTICLES]Vector4,, temp),
-                colors     = New([MAX_PARTICLES]Vector4,, temp),
-            });
-            batch = *batches[batches.count - 1];
-        }
-
-        if batch.count >= MAX_PARTICLES then continue;
-
-        t := p.age / p.lifetime;
-        size := def.size_start + (def.size_end - def.size_start) * t;
-        col := lerp_color(def.color_start, def.color_end, t);
-
-        idx := batch.count;
-        batch.pos_size.*[idx] = .{p.position.x, p.position.y, p.position.z, size};
-
-        anim := batch.anim;
-        frame_count := anim.frames.count;
-        frame := cast(s32)(t * cast(float)frame_count);
-        if frame < 0 then frame = 0;
-        if frame >= frame_count then frame = cast(s32)(frame_count - 1);
-        f := anim.frames[frame];
-        batch.uv_rects.*[idx] = .{
-            cast(float)f.x / cast(float)anim.sheet_w,
-            cast(float)f.y / cast(float)anim.sheet_h,
-            cast(float)f.w / cast(float)anim.sheet_w,
-            cast(float)f.h / cast(float)anim.sheet_h,
-        };
-
-        batch.colors.*[idx] = col;
-        batch.count += 1;
-    }
-
-    buf_task := New(Rendering_Task_Particles_Buffer,, temp);
+    buf := *g_particle_render_buffer;
     total_count : s32 = 0;
 
-    for *b: batches {
-        if b.count <= 0 then continue;
+    for *bucket: g_particle_buckets {
+        if !bucket.in_use then continue;
+
+        def := get_emitter_def(bucket.name);
+        if def == null then continue;
+        if def.animation_name.count == 0 then continue;
+
+        anim := get_animation_from_string(def.animation_name);
+        if anim == null then continue;
+        if anim.frames.count == 0 then continue;
 
         instance_offset := total_count;
-        memcpy(*buf_task.pos_size[instance_offset], cast(*void)b.pos_size, b.count * size_of(Vector4));
-        memcpy(*buf_task.uv_rects[instance_offset], cast(*void)b.uv_rects, b.count * size_of(Vector4));
-        memcpy(*buf_task.colors[instance_offset],   cast(*void)b.colors,   b.count * size_of(Vector4));
-        total_count += b.count;
+        bucket_count : s32 = 0;
 
-        draw_task : Rendering_Task_Particles;
-        draw_task.count           = b.count;
-        draw_task.instance_offset = instance_offset;
-        draw_task.blend_mode      = b.blend_mode;
-        draw_task.sheet           = b.sheet;
-        add_rendering_task(draw_task);
+        for *p: bucket.particles {
+            if !p.alive then continue;
+            if total_count + bucket_count >= MAX_PARTICLES then break;
+
+            t := p.age / p.lifetime;
+            size := def.size_start + (def.size_end - def.size_start) * t;
+            col := lerp_color(def.color_start, def.color_end, t);
+
+            idx := instance_offset + bucket_count;
+            buf.pos_size[idx] = .{p.position.x, p.position.y, p.position.z, size};
+
+            frame_count := anim.frames.count;
+            frame := cast(s32)(t * cast(float)frame_count);
+            if frame < 0 then frame = 0;
+            if frame >= frame_count then frame = cast(s32)(frame_count - 1);
+            f := anim.frames[frame];
+            buf.uv_rects[idx] = .{
+                cast(float)f.x / cast(float)anim.sheet_w,
+                cast(float)f.y / cast(float)anim.sheet_h,
+                cast(float)f.w / cast(float)anim.sheet_w,
+                cast(float)f.h / cast(float)anim.sheet_h,
+            };
+            buf.colors[idx] = col;
+            bucket_count += 1;
+        }
+
+        if bucket_count > 0 {
+            draw_task : Rendering_Task_Particles;
+            draw_task.count           = bucket_count;
+            draw_task.instance_offset = instance_offset;
+            draw_task.blend_mode      = def.blend_mode;
+            draw_task.sheet           = anim.sheet;
+            add_rendering_task(draw_task);
+            total_count += bucket_count;
+        }
     }
 
+    buf.total_count = total_count;
+
     if total_count > 0 {
-        buf_task.total_count = total_count;
-        add_rendering_task(buf_task.*);
+        upload_task : Rendering_Task_Particles_Buffer;
+        upload_task.total_count = total_count;
+        add_rendering_task(upload_task);
     }
 }
 
@@ -246,8 +249,24 @@ rng :: inline (lo: float, hi: float) -> float {
     return lo + Random.random_get_zero_to_one() * (hi - lo);
 }
 
+find_or_claim_bucket :: (name: string) -> *Particle_Bucket {
+    free_slot : *Particle_Bucket = null;
+    for *bucket: g_particle_buckets {
+        if bucket.in_use && bucket.name == name then return bucket;
+        if !bucket.in_use && free_slot == null then free_slot = bucket;
+    }
+    if free_slot {
+        free_slot.in_use = true;
+        free_slot.name   = name;
+    }
+    return free_slot;
+}
+
 spawn_one_particle :: (position: Vector3, def: *Particle_Emitter_Config) {
-    for *p: g_particles {
+    bucket := find_or_claim_bucket(def.name);
+    if bucket == null then return;
+
+    for *p: bucket.particles {
         if p.alive then continue;
         p.alive    = true;
         p.age      = 0;
