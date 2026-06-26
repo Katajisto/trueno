@@ -47,9 +47,7 @@ layout(location=1) out vec4 out_normal;
 
 void main() {
     vec2 uv = uv_in;
-    #if SOKOL_GLSL
-        uv.y = 1.0 - uv.y;
-    #endif
+    uv.y = 1.0 - uv.y;
     vec4 sampled = texture(sampler2D(gsprite, gspritesmp), uv);
     if(sampled.a < 0.01) discard;
     out_position = vec4(view_space_pos, 1.0);
