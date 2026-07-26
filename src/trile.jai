@@ -90,6 +90,15 @@ set_trile :: (name: string, trile: Trile) {
     }
 }
 
+get_any_trile :: () -> (*Trile, success: bool) {
+  for v : trile_table {
+    print("Found trile: %\n", v.name);
+    trileptr, err := get_trile(v.name);
+    return trileptr, err;
+  }
+  return null, false;
+}
+
 get_trile :: (name: string) -> (*Trile, success: bool) {
     trileptr := table_find_pointer(*trile_table, name);
     if !trileptr {

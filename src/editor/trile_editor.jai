@@ -218,7 +218,7 @@ trile_copy :: (from: string) {
 tick_trile_editor :: () {
     if console_open_ignore_input then return;
 
-    if !editor_current_trile then editor_current_trile = get_trile("test");
+    if !editor_current_trile then editor_current_trile = get_any_trile();
 
     if input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
         handle_tool_click();
