@@ -26,6 +26,7 @@ layout(binding = 4) uniform texture2D pos_buf;
 layout(binding = 4) uniform sampler pos_smp;
 
 layout(binding=1) uniform dof_config {
+    int   dof_disabled;
     float dof_max;
     float dof_point;
 };
@@ -131,11 +132,13 @@ void main() {
         sampled_color_hdr = texture(sampler2D(pptex, ppsmp), distorted_texcoord).rgb;
     }
 
-    float view_z = texture(sampler2D(pos_buf, pos_smp), distorted_texcoord).z;
-    float depth  = abs(view_z);
-    float coc    = smoothstep(0.0, 1.0, abs(depth - dof_point) / max(dof_max, 0.0001));
-    vec3 dof_blurred = texture(sampler2D(dof_tex, dof_smp), distorted_texcoord).rgb;
-    sampled_color_hdr = mix(sampled_color_hdr, dof_blurred, coc);
+    if(dof_disabled == 0) {
+      float view_z = texture(sampler2D(pos_buf, pos_smp), distorted_texcoord).z;
+      float depth  = abs(view_z);
+      float coc    = smoothstep(0.0, 1.0, abs(depth - dof_point) / max(dof_max, 0.0001));
+      vec3 dof_blurred = texture(sampler2D(dof_tex, dof_smp), distorted_texcoord).rgb;
+      sampled_color_hdr = mix(sampled_color_hdr, dof_blurred, coc);
+    }
 
     vec3 bloom_color = texture(sampler2D(bloom_tex, bloom_smp), distorted_texcoord).rgb;
     vec3 color_hdr = (sampled_color_hdr + bloom_color * bloom_amount) * exposure;

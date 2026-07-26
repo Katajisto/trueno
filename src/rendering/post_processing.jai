@@ -1,3 +1,5 @@
+disable_dof_post_process : bool = false;
+
 Post_Process :: struct {
     exposure          : float = 1.0; @Slider,0,3,0.1;
     contrast          : float = 1.0; @Slider,0,3,0.1;

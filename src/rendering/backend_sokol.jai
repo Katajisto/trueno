@@ -736,6 +736,7 @@ backend_process_command_buckets :: () {
     }
     sg_apply_uniforms(UB_post_process_config, *(sg_range.{ ptr = *post_process_config_uniform, size = size_of(type_of(post_process_config_uniform)) }));
     dof_config_uniform : Dof_Config;
+    dof_config_uniform.dof_disabled = ifx disable_dof_post_process then cast(s32)1 else cast(s32)0;
     dof_config_uniform.dof_max   = current_post_process.dof_max;
     dof_config_uniform.dof_point = current_post_process.dof_point;
     sg_apply_uniforms(UB_dof_config, *(sg_range.{ ptr = *dof_config_uniform, size = size_of(type_of(dof_config_uniform)) }));

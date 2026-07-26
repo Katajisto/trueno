@@ -107,14 +107,16 @@ tick_editor_ui :: () {
 
     #if OS != .WASM {
         if in_editor_view {
-            if current_editor_view == {
-                case .Trile_Editor;
-                    tick_trile_editor();
-                case .Level_Editor;
-                    tick_level_editor();
-                case .Particle_Editor;
-                    tick_particle_editor();
-            }
+          disable_dof_post_process = false; 
+          if current_editor_view == {
+              case .Trile_Editor;
+                  disable_dof_post_process = true; 
+                  tick_trile_editor();
+              case .Level_Editor;
+                  tick_level_editor();
+              case .Particle_Editor;
+                  tick_particle_editor();
+          }
         }
     }
 
