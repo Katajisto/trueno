@@ -1387,12 +1387,12 @@ create_ssao_images :: () {
     g_postprocess_attach_b = sg_make_attachments(*attachmentsDescB);
 
     bloom_levels := sg_image.[g_bloom_down_1, g_bloom_down_2, g_bloom_down_3, g_bloom_down_4, g_bloom_up_3, g_bloom_up_2, g_bloom_up_1];
-    for * bloom_levels { if it.id != INVALID_ID then sg_destroy_image(<<it); }
+    for * bloom_levels { if it.id != INVALID_ID then sg_destroy_image((.*)it); }
 
     make_bloom_level :: (img: *sg_image, attach: *sg_attachments, width: s32, height: s32) {
-        <<img = sg_make_image(*(sg_image_desc.{ width=width, height=height, pixel_format=.RGBA16F, render_target=true, sample_count=1 }));
-        sg_destroy_attachments(<<attach);
-        <<attach = sg_make_attachments(*(sg_attachments_desc.{ colors[0].image = <<img }));
+        (.*)img = sg_make_image(*(sg_image_desc.{ width=width, height=height, pixel_format=.RGBA16F, render_target=true, sample_count=1 }));
+        sg_destroy_attachments((.*)attach);
+        (.*)attach = sg_make_attachments(*(sg_attachments_desc.{ colors[0].image = (.*)img }));
     }
 
     make_bloom_level(*g_bloom_down_1, *g_bloom_down_1_attach, w/2,  h/2);
