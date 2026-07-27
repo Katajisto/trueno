@@ -329,6 +329,19 @@ recompute_buried_at_cell :: (world: *World, wx: s32, wy: s32, wz: s32) {
     }
 }
 
+get_note_locations :: (note : string) -> []Vector3 {
+    result: [..]Vector3;
+    print("Looking for notes %\n", current_world.world.name);
+    for n: current_world.world.notes {
+        print("COMP: % %\n", n.text, note);
+        if n.text == note {
+            v: Vector3 = .{cast(float)n.position.x, cast(float)n.position.y, cast(float)n.position.z};
+            array_add(*result, v);
+        }
+    }
+    return result;
+}
+
 invalidate_buried_around :: (world: *World, wx: s32, wy: s32, wz: s32) {
     recompute_buried_at_cell(world, wx, wy, wz);
     for axis: 0..5 {

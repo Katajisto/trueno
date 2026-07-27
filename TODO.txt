@@ -4,4 +4,5 @@ Engine todo list:
 - Sokol should be fully under a platform abstraction layer but it's not,
   currently it's fine but it would be really nice to be able to have a metal, vulkan
   webgpu backends at some point for the longevity of the engine. 
+- Backend sokol has a global named camera taking up the name which is fucking crazy.
 

@@ -1,7 +1,7 @@
 Camera :: struct {
 	fov      : float   = 75.0 * 3.141 / 180.0;
-	near     : float   = 1.0;
-	far      : float   = 20.0;
+	near     : float   = 0.5;
+	far      : float   = 2000.0;
 	position : Vector3 = .{2, 2, 2};
 	target   : Vector3 = .{0, 0, 0};
 }

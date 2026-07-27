@@ -78,7 +78,10 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
 
 draw_editor :: () {
     #if OS != .WASM {
+        disable_dof_post_process = false; 
         if !in_editor_view then return;
+        disable_dof_post_process = true; 
+
 
         if current_editor_view == {
             case .Trile_Editor;
@@ -107,10 +110,8 @@ tick_editor_ui :: () {
 
     #if OS != .WASM {
         if in_editor_view {
-          disable_dof_post_process = false; 
           if current_editor_view == {
               case .Trile_Editor;
-                  disable_dof_post_process = true; 
                   tick_trile_editor();
               case .Level_Editor;
                   tick_level_editor();

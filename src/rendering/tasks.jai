@@ -46,7 +46,7 @@ Rendering_Task_Billboard :: struct {
     t.type      = .BILLBOARD;
     position    : Vector3;
     animation   : *Animation;
-    frame       : s32;
+    frame       : s32; 
     flipX       : bool;
     flipY       : bool;
     faceDir     : Vector3 = .{-100, -100, -100};

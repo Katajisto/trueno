@@ -1,6 +1,6 @@
 _______________
 Vulkan Version:
- - available:  1.4.309
+ - available:  1.3.296
  - requesting: 1.3.0
 ______________________
 Used Instance Layers :
@@ -8,15 +8,17 @@ VK_LAYER_KHRONOS_validation
 
 Used Instance Extensions :
 ____________________
-Devices : 1
-0: AMD Radeon RX 6950 XT
+Devices : 2
+0: AMD Radeon RX 6700 XT (RADV NAVI22)
   - Compatible 
-Compatible physical devices found : 1
+1: llvmpipe (LLVM 20.1.2, 256 bits)
+  - Compatible 
+Compatible physical devices found : 2
 Using Device:
- - Device Name    : AMD Radeon RX 6950 XT
+ - Device Name    : AMD Radeon RX 6700 XT (RADV NAVI22)
  - Vendor         : AMD
- - Driver Version : 2.0.341
- - API Version    : 1.4.308
+ - Driver Version : 25.2.8
+ - API Version    : 1.4.318
  - Device Type    : Discrete GPU
 ________________________
 Used Device Extensions :
@@ -24,4 +26,33 @@ VK_KHR_deferred_host_operations
 VK_KHR_acceleration_structure
 VK_KHR_ray_query
 
-BLAS Compaction: 1.8MB -> 0.6MB (1.2MB saved, 65.9% smaller)
+BLAS Compaction: 0.3MB -> 0.2MB (0.1MB saved, 31.9% smaller)
+_______________
+Vulkan Version:
+ - available:  1.3.296
+ - requesting: 1.3.0
+______________________
+Used Instance Layers :
+VK_LAYER_KHRONOS_validation
+
+Used Instance Extensions :
+____________________
+Devices : 2
+0: AMD Radeon RX 6700 XT (RADV NAVI22)
+  - Compatible 
+1: llvmpipe (LLVM 20.1.2, 256 bits)
+  - Compatible 
+Compatible physical devices found : 2
+Using Device:
+ - Device Name    : AMD Radeon RX 6700 XT (RADV NAVI22)
+ - Vendor         : AMD
+ - Driver Version : 25.2.8
+ - API Version    : 1.4.318
+ - Device Type    : Discrete GPU
+________________________
+Used Device Extensions :
+VK_KHR_deferred_host_operations
+VK_KHR_acceleration_structure
+VK_KHR_ray_query
+
+BLAS Compaction: 0.3MB -> 0.2MB (0.1MB saved, 31.9% smaller)

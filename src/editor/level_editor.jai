@@ -646,15 +646,17 @@ create_level_editor_preview_tasks :: () {
 		name, orientation, found := get_trile_at(*curworld.world, xx px, xx py, xx pz);
 		cursor_trile := ifx found then name else (ifx editor_current_trile then editor_current_trile.name else "");
 		if cursor_trile != "" {
+			ck := world_to_chunk_coord(xx px, xx py, xx pz);
+			lx, ly, lz := world_to_local(xx px, xx py, xx pz);
 			positions: [..]Trile_Instance;
 			positions.allocator = temp;
-			array_add(*positions, Trile_Instance.{xx (px % 32), xx (py % 32), xx (pz % 32), xx orientation});
+			array_add(*positions, Trile_Instance.{lx, ly, lz, xx orientation});
 			task: Rendering_Task_Trile;
 			task.trile        = cursor_trile;
 			task.positions    = positions;
 			task.worldConf    = *curworld.world.conf;
 			task.preview_mode = 1;
-			task.chunk_key    = world_to_chunk_coord(xx px, xx py, xx pz);
+			task.chunk_key    = ck;
 			add_rendering_task(task);
 		}
 		return;
@@ -664,7 +666,8 @@ create_level_editor_preview_tasks :: () {
 
 	positions: [..]Vector4;
 	positions.allocator = temp;
-	ori := cast(float) get_current_orientation();
+	ori_u8 := get_current_orientation();
+	ori := cast(float) ori_u8;
 
 	if current_tool_mode == .POINT {
 		array_add(*positions, .{cast(float)px, cast(float)py, cast(float)pz, ori});
@@ -720,12 +723,37 @@ create_level_editor_preview_tasks :: () {
 	is_delete := (current_tool_mode == .AREA && area_active && area_delete)
 	          || (current_tool_mode == .LINE && line_active && line_delete);
 
-	task: Rendering_Task_Trile;
-	task.trile        = editor_current_trile.name;
-	// task.positions    = positions;
-	task.worldConf    = *curworld.world.conf;
-	task.preview_mode = ifx is_delete then cast(s32)2 else cast(s32)1;
-	add_rendering_task(task);
+	chunk_groups: [..] struct { key: Chunk_Key; instances: [..]Trile_Instance; };
+	chunk_groups.allocator = temp;
+	for pos : positions {
+		wx := cast(s32) pos.x; wy := cast(s32) pos.y; wz := cast(s32) pos.z;
+		ck := world_to_chunk_coord(wx, wy, wz);
+		lx, ly, lz := world_to_local(wx, wy, wz);
+		found := false;
+		for *grp : chunk_groups {
+			if grp.key == ck {
+				array_add(*grp.instances, Trile_Instance.{lx, ly, lz, ori_u8});
+				found = true;
+				break;
+			}
+		}
+		if !found {
+			instances: [..]Trile_Instance;
+			instances.allocator = temp;
+			array_add(*instances, Trile_Instance.{lx, ly, lz, ori_u8});
+			array_add(*chunk_groups, .{ck, instances});
+		}
+	}
+
+	for grp : chunk_groups {
+		task: Rendering_Task_Trile;
+		task.trile        = editor_current_trile.name;
+		task.positions    = grp.instances;
+		task.worldConf    = *curworld.world.conf;
+		task.chunk_key    = grp.key;
+		task.preview_mode = ifx is_delete then cast(s32)2 else cast(s32)1;
+		add_rendering_task(task);
+	}
 }
 
 get_trile_at :: (world: *World, wx: s32, wy: s32, wz: s32) -> (name: string, orientation: u8, found: bool) {
