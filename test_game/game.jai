@@ -1,3 +1,11 @@
+// @Entity is what registers a type with the engine; see src/entities.jai.
+Test_Marker :: struct {
+	#as using base : Entity;
+	base.type = Test_Marker;
+
+	PARTS :: Entity_Part.[];
+} @Entity
+
 game_engine_config :: () {
 }
 

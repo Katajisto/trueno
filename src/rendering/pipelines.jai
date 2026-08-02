@@ -113,6 +113,8 @@ gPipelines : struct {
     sh_irradiance: Pipeline_Binding;
 
     debugline : Pipeline_Binding;
+    // Same shader, but depth testing disabled so editor gizmos draw on top.
+    debugline_overlay : Pipeline_Binding;
 }
 
 create_final_image :: () {
@@ -1694,20 +1696,45 @@ create_particle_pipeline :: () {
 }
 
 create_debugline_pipeline :: () {
-    buf_desc := sg_buffer_desc.{
-        size  = DEBUG_LINE_MAX * 2 * 7 * size_of(float),
-        usage = .DYNAMIC,
-        label = "debug_line_verts",
+    // The two corner coordinates of a quad: x picks the side of the line, y picks
+    // the end. The vertex shader turns those into a screen-space widened line.
+    corners := float.[
+        -1, 0,   1, 0,   1, 1,
+        -1, 0,   1, 1,  -1, 1,
+    ];
+    quad_desc := sg_buffer_desc.{
+        data  = .{ ptr = corners.data, size = size_of(type_of(corners)) },
+        label = "debug_line_quad",
     };
-    gPipelines.debugline.bind.vertex_buffers[0] = sg_make_buffer(*buf_desc);
+    quad_buffer := sg_make_buffer(*quad_desc);
+
+    buf_desc := sg_buffer_desc.{
+        size  = DEBUG_LINE_MAX * size_of(Debug_Line),
+        usage = .DYNAMIC,
+        label = "debug_line_instances",
+    };
+    gPipelines.debugline.bind.vertex_buffers[0] = quad_buffer;
+    gPipelines.debugline.bind.vertex_buffers[1] = sg_make_buffer(*buf_desc);
+
+    overlay_buf_desc := sg_buffer_desc.{
+        size  = DEBUG_OVERLAY_LINE_MAX * size_of(Debug_Line),
+        usage = .DYNAMIC,
+        label = "debug_line_overlay_instances",
+    };
+    gPipelines.debugline_overlay.bind.vertex_buffers[0] = quad_buffer;
+    gPipelines.debugline_overlay.bind.vertex_buffers[1] = sg_make_buffer(*overlay_buf_desc);
 
     pipeline : sg_pipeline_desc;
     shader_desc := debugline_shader_desc(sg_query_backend());
     pipeline.shader = sg_make_shader(*shader_desc);
-    pipeline.primitive_type = .LINES;
-    pipeline.layout.buffers[0].stride = 28;
-    pipeline.layout.attrs[ATTR_debugline_a_pos] = .{ format = .FLOAT3, buffer_index = 0, offset = 0 };
-    pipeline.layout.attrs[ATTR_debugline_a_col] = .{ format = .FLOAT4, buffer_index = 0, offset = 12 };
+    pipeline.layout.buffers[0].stride    = 2 * size_of(float);
+    pipeline.layout.buffers[1].stride    = size_of(Debug_Line);
+    pipeline.layout.buffers[1].step_func = .PER_INSTANCE;
+    pipeline.layout.attrs[ATTR_debugline_a_corner] = .{ format = .FLOAT2, buffer_index = 0, offset = 0 };
+    pipeline.layout.attrs[ATTR_debugline_a_pos_a]  = .{ format = .FLOAT3, buffer_index = 1, offset = 0 };
+    pipeline.layout.attrs[ATTR_debugline_a_pos_b]  = .{ format = .FLOAT3, buffer_index = 1, offset = 12 };
+    pipeline.layout.attrs[ATTR_debugline_a_col]    = .{ format = .FLOAT4, buffer_index = 1, offset = 24 };
+    pipeline.layout.attrs[ATTR_debugline_a_width]  = .{ format = .FLOAT,  buffer_index = 1, offset = 40 };
     pipeline.depth = .{
         write_enabled = false,
         compare       = .LESS_EQUAL,
@@ -1720,4 +1747,13 @@ create_debugline_pipeline :: () {
     pipeline.colors[0]   = color_state;
     pipeline.label       = "debugline_pipeline";
     gPipelines.debugline.pipeline = sg_make_pipeline(*pipeline);
+
+    pipeline.depth.compare = .ALWAYS;
+    pipeline.colors[0].blend = .{
+        enabled        = true,
+        src_factor_rgb = .SRC_ALPHA,
+        dst_factor_rgb = .ONE_MINUS_SRC_ALPHA,
+    };
+    pipeline.label         = "debugline_overlay_pipeline";
+    gPipelines.debugline_overlay.pipeline = sg_make_pipeline(*pipeline);
 }

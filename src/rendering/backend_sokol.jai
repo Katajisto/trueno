@@ -22,6 +22,9 @@ backend_handle_command :: (cmd: *Render_Command) {
         case .ADD_TRILE_POSITIONS;
             add_command := cast(*Render_Command_Add_Trile_Positions)cmd;
             backend_add_trile_positions(add_command.positions, add_command.chunk);
+        case .ADD_TRILE_POSITIONS_F32;
+            add_f32_command := cast(*Render_Command_Add_Trile_Positions_F32)cmd;
+            backend_add_trile_positions_f32(add_f32_command.positions);
         case .DRAW_TRILE_POSITIONS;
             draw_command := cast(*Render_Command_Draw_Trile_Positions)cmd;
             backend_draw_trile_positions(draw_command.trile, draw_command.amount, draw_command.conf, draw_command.chunk_key, draw_command.preview_mode, draw_command.offset_index, draw_command.lod_index);
@@ -153,6 +156,14 @@ backend_add_trile_positions :: (positions : []Trile_Instance, chunk: Chunk_Key) 
     offset := sg_append_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
         ptr = trile_position_staging.data,
         size = size_of(Vector4) * cast(u64)trile_position_staging.count,
+    }));
+    array_add(*trile_offsets, offset);
+}
+
+backend_add_trile_positions_f32 :: (positions : []Vector4) {
+    offset := sg_append_buffer(gPipelines.trile.bind.vertex_buffers[3], *(sg_range.{
+        ptr = positions.data,
+        size = size_of(Vector4) * cast(u64)positions.count,
     }));
     array_add(*trile_offsets, offset);
 }

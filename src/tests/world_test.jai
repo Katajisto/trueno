@@ -268,11 +268,106 @@ test_legacy_load_cursor_fix :: () {
     end_suite(s);
 }
 
-#run {
+// Entity types come from the game, so these run against whatever the game
+// declares first rather than naming a type the engine cannot know about.
+test_entity_save_load_roundtrip :: () {
+    s := begin_suite("entity save/load roundtrip");
+    if ENTITY_TYPE_TABLE.count == 0 {
+        end_suite(s);
+        return;
+    }
+    type_name := ENTITY_TYPE_TABLE[0].name;
+
+    world := make_test_world();
+    a := spawn_entity(*world, type_name, .{3.5, 1.0, -2.0}, 17);
+    b := spawn_entity(*world, type_name, .{0.0, 0.0, 0.0});
+    check(*s, "spawning returns entities", a != null && b != null);
+    if a == null || b == null {
+        end_suite(s);
+        return;
+    }
+    check(*s, "spawned entities get distinct ids", a.id != b.id);
+
+    saved_fields := entity_fields_to_strings(a);
+
+    json_str, bin_data := save_world(*world);
+    bin_bytes: []u8;
+    bin_bytes.data = bin_data.data;
+    bin_bytes.count = bin_data.count;
+
+    loaded, ok := load_world_from_json(json_str, bin_bytes);
+    check(*s, "load succeeds", ok);
+    check(*s, "both entities come back", loaded.entities.count == 2);
+    if loaded.entities.count == 2 {
+        la := loaded.entities[0];
+        check(*s, "type survives",        la.type == a.type);
+        check(*s, "id survives",          la.id == a.id);
+        check(*s, "position survives",    la.position == Vector3.{3.5, 1.0, -2.0});
+        check(*s, "orientation survives", la.orientation == 17);
+
+        loaded_fields := entity_fields_to_strings(la);
+        same := loaded_fields.count == saved_fields.count;
+        for i: 0..min(loaded_fields.count, saved_fields.count)-1 {
+            if loaded_fields[i].name  != saved_fields[i].name   then same = false;
+            if loaded_fields[i].value != saved_fields[i].value  then same = false;
+        }
+        check(*s, "editable fields survive", same);
+    }
+
+    // Handing out an id a loaded entity already owns would make two entities
+    // indistinguishable to anything that refers to them by id.
+    check(*s, "the next id clears every loaded one", loaded.next_entity_id > max(a.id, b.id));
+
+    // The rest of the world is untouched by the entities riding along with it.
+    check(*s, "notes still load",    loaded.notes.count == 1);
+    check(*s, "emitters still load", loaded.emitter_instances.count == 1);
+
+    end_suite(s);
+}
+
+// Saves are name-keyed so that a build with fewer types or fields than the one
+// that wrote them still loads. Both halves of that log and carry on.
+test_entity_unknown_names :: () {
+    s := begin_suite("entities tolerate names from other builds");
+    if ENTITY_TYPE_TABLE.count == 0 {
+        end_suite(s);
+        return;
+    }
+
+    world := make_test_world();
+    e := spawn_entity(*world, ENTITY_TYPE_TABLE[0].name, .{1.0, 2.0, 3.0});
+    check(*s, "the known type spawns", e != null);
+    if e == null {
+        end_suite(s);
+        return;
+    }
+
+    // Expect one logged error here: that is the reported half of "skipped".
+    gone := spawn_entity(*world, "A_Type_That_Went_Away", .{0.0, 0.0, 0.0});
+    check(*s, "an unknown type spawns nothing", gone == null);
+    check(*s, "and adds nothing to the world",  world.entities.count == 1);
+
+    before := entity_fields_to_strings(e);
+    entity_apply_field(e, "a_field_that_went_away", "12");
+    after := entity_fields_to_strings(e);
+    unchanged := before.count == after.count;
+    for i: 0..min(before.count, after.count)-1 {
+        if before[i].value != after[i].value  then unchanged = false;
+    }
+    check(*s, "an unknown field name changes nothing", unchanged);
+
+    end_suite(s);
+}
+
+// Stallable: the entity tests read ENTITY_TYPE_TABLE, which cannot be built
+// until the metaprogram has collected every @Entity in the program.
+#run,stallable {
     test_floor_div_mod();
     test_coord_roundtrip();
     test_chunk_coord_values();
     test_world_save_load_roundtrip();
     test_world_json_chunk_offsets();
     test_legacy_load_cursor_fix();
+    test_entity_save_load_roundtrip();
+    test_entity_unknown_names();
 }

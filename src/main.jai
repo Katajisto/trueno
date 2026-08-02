@@ -15,6 +15,17 @@ String :: #import "String";
 Jaison :: #import "Jaison";
 stbi   :: #import "stb_image";
 
+FLAG_ANY_TEST     :: FLAG_TEST_ENGINE || FLAG_TEST_EXE_ENGINE || FLAG_TEST_GAME || FLAG_TEST_EXE_GAME;
+FLAG_ANY_EXE_TEST :: FLAG_TEST_EXE_ENGINE || FLAG_TEST_EXE_GAME;
+
+// The engine's own tests build against test_game/, so they still compile on a
+// checkout that does not have the game/ directory. Game tests build against the
+// real game, which is the whole point of them.
+FLAG_USE_TEST_GAME :: FLAG_TEST_ENGINE || FLAG_TEST_EXE_ENGINE;
+
+// The framework (suites, checks, the exe-test command list) is available under
+// every test flag; the engine's own test cases are not.
+#if FLAG_ANY_TEST                              { #load "tests/framework.jai"; }
 #if (FLAG_TEST_ENGINE || FLAG_TEST_EXE_ENGINE) { #load "tests/index.jai"; }
 
 #load "logging.jai";
@@ -32,6 +43,8 @@ stbi   :: #import "stb_image";
 #load "ray.jai";
 #load "profiling.jai";
 #load "particles/particles.jai";
+#load "orientation.jai";
+#load "entities.jai";
 #load "world.jai";
 #load "utils.jai";
 #load "audio/audio.jai";
@@ -40,10 +53,10 @@ stbi   :: #import "stb_image";
 #load "loading_screen.jai";
 #load "ui/demo.jai";
     
-#if !FLAG_TEST_EXE_ENGINE {
-    #load "../game/game.jai";
-} else {
+#if FLAG_USE_TEST_GAME {
     #load "../test_game/game.jai";
+} else {
+    #load "../game/game.jai";
 }
 
 last_frame_time : float64; // timestamp of the last frame
@@ -139,6 +152,10 @@ init :: () {
     #if FLAG_TEST_EXE_ENGINE {
         engine_exe_tests_add();
     }
+    #if FLAG_TEST_EXE_GAME {
+        // Fixed-name hook, same convention as game_init / game_tick.
+        game_exe_tests_add();
+    }
 }
 
 init_after_core :: () {
@@ -225,7 +242,7 @@ frame :: () {
     
     add_frame_profiling_point("After loading logic");
     
-    #if FLAG_TEST_EXE_ENGINE {
+    #if FLAG_ANY_EXE_TEST {
        run_exe_tests();
     }
     

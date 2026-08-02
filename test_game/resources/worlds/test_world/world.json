@@ -1,5 +1,5 @@
 {
- "version": 4,
+ "version": 5,
  "name": "test_world",
  "config": {
   "skyBase": [
@@ -23,8 +23,8 @@
   "sunPosition": [
    0.371391,0.557086,0.742781
   ],
-  "sunIntensity": 2,
-  "skyIntensity": 1,
+  "sunIntensity": 1,
+  "skyIntensity": 0.3,
   "hasClouds": 1,
   "planeHeight": 0,
   "animatePlaneHeight": 1,
@@ -33,12 +33,17 @@
   ],
   "deepColor": [
    1,1,1
-  ]
+  ],
+  "waterShininess": 64
  },
  "chunks": [
  ],
  "emitters": [
  ],
  "notes": [
+ ],
+ "entities": [
+ ],
+ "rdm_overrides": [
  ]
 }

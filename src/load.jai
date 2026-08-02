@@ -1,4 +1,4 @@
-#if FLAG_TEST_EXE_ENGINE {
+#if FLAG_USE_TEST_GAME {
     PACK_DIR           :: "./test_packs";
     GAME_RESOURCES_DIR :: "./test_game/resources";
 } else {

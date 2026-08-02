@@ -18,8 +18,10 @@ _emit :: (level: Log_Level, message: string) {
               else                          "[INFO]  ";
 
     // We need to protect the logger from custom allocators since we don't
-    // want those meddling with our log row allocation!
-    push_allocator(default_allocator);
+    // want those meddling with our log row allocation! Before the engine has
+    // set one up — at compile time, in a #run — there is nothing to protect
+    // against and nothing to allocate from, so the current one has to do.
+    push_allocator(ifx default_allocator.proc then default_allocator else context.allocator);
     line := copy_string(tprint("%1%2", prefix, message));
     print("%\n", line);
     console_add_output_line(line);

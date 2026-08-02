@@ -91,6 +91,8 @@ World :: struct {
     chunks            : Table(Chunk_Key, Chunk, chunk_key_hash, chunk_key_compare);
     emitter_instances : [..]Particle_Emitter_Instance;
     notes             : [..]Editor_Note;
+    entities          : [..]*Entity;
+    next_entity_id    : u32;
     rdm_overrides     : [..]Rdm_Instance_Override;
     rdm_lookup        : [..]Rdm_Atlas_Entry;   // populated by bake (Step 5) and by loader (Step 6)
 }
@@ -207,6 +209,33 @@ lworld :: (name: string) {
     load_world(name);
 } @Command;
 
+// Copy another world's config (sky, sun, water, ...) onto the loaded world, so a
+// new level can start from an existing look instead of retyping the values.
+copy_world_info :: (name: string) {
+    if !current_world.valid {
+        log_error("Cannot copy: no world loaded");
+        return;
+    }
+    #if OS != .WASM {
+        file :: #import "File";
+        path := tprint("%/worlds/%/world.json", GAME_RESOURCES_DIR, name);
+        json_str, read_ok := file.read_entire_file(path,, allocator = temp);
+        if !read_ok {
+            log_error("Cannot copy: failed to read '%'", path);
+            return;
+        }
+
+        parse_ok, wj := Jaison.json_parse_string(json_str, World_Json,, temp);
+        if !parse_ok {
+            log_error("Cannot copy: failed to parse world '%'", name);
+            return;
+        }
+
+        current_world.world.conf = world_config_from_json(*wj.config);
+        log_info("Copied world config from '%'", name);
+    }
+} @Command
+
 init_world_system :: () {
     Pool.set_allocators(*current_world.pool);
 }
@@ -222,6 +251,10 @@ unload_current_world :: () {
         array_free(chunk.groups);
     }
     deinit(*current_world.world.chunks);
+    free_all_entities(*current_world.world);
+    // Entity ids restart per world, so a stale editor selection would latch onto
+    // an unrelated entity in the next one.
+    #if OS != .WASM { level_editor_clear_entity_selection(); }
     array_free(current_world.world.rdm_lookup);
     Pool.reset(*current_world.pool);
     current_world.valid = false;
@@ -353,6 +386,11 @@ resolve_emitter_definitions :: (world: *World) {
     for *inst: world.emitter_instances {
         inst.definition = get_emitter_def(inst.definition_name);
     }
+    for e: world.entities {
+        for *inst: e.emitters {
+            inst.definition = get_emitter_def(inst.definition_name);
+        }
+    }
 }
 
 clear_world :: () {
@@ -384,6 +422,7 @@ World_Json :: struct {
     chunks        : [..]World_Json_Chunk;
     emitters      : [..]World_Json_Emitter;
     notes         : [..]World_Json_Note;
+    entities      : [..]World_Json_Entity;
     rdm_overrides : [..]World_Json_Rdm_Override;
 }
 
@@ -422,6 +461,17 @@ World_Json_Emitter :: struct {
 World_Json_Note :: struct {
     text     : string;
     position : [3]s32;
+}
+
+// Entity fields are stored as name/value string pairs rather than a typed
+// object, so that adding, removing or renaming a field never breaks loading:
+// unknown names are skipped and missing ones keep their struct defaults.
+World_Json_Entity :: struct {
+    type        : string;   // entity type name, so reordering ENTITY_TYPES is safe
+    id          : u32;
+    position    : [3]float;
+    orientation : u8;       // absent in worlds saved before entities could rotate
+    fields      : [..]Entity_Field;
 }
 
 World_Json_Rdm_Override :: struct {
@@ -619,7 +669,7 @@ save_world :: (world: *World) -> (json: string, chunks_bin: string) {
     }
 
     wj: World_Json;
-    wj.version = 4;
+    wj.version = 5;
     wj.name = world.name;
     wj.config = world_config_to_json(*world.conf);
 
@@ -646,6 +696,16 @@ save_world :: (world: *World) -> (json: string, chunks_bin: string) {
         jn.text = note.text;
         jn.position = .[note.position.x, note.position.y, note.position.z];
         array_add(*wj.notes, jn);
+    }
+
+    for e: world.entities {
+        je: World_Json_Entity;
+        je.type        = entity_type_name(e.type);
+        je.id          = e.id;
+        je.position    = e.position.component;
+        je.orientation = e.orientation;
+        for f: entity_fields_to_strings(e)  array_add(*je.fields, f);
+        array_add(*wj.entities, je);
     }
 
     for ov: world.rdm_overrides {
@@ -733,6 +793,16 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
         note.text = sprint("%", jn.text);
         note.position = .{x = jn.position[0], y = jn.position[1], z = jn.position[2]};
         array_add(*world.notes, note);
+    }
+
+    for je: wj.entities {
+        e := spawn_entity(*world, je.type, .{je.position[0], je.position[1], je.position[2]}, je.orientation);
+        if e == null then continue;  // unknown type; spawn_entity logged it
+        e.id = je.id;
+        if je.id >= world.next_entity_id then world.next_entity_id = je.id + 1;
+        for f: je.fields {
+            entity_apply_field(e, f.name, f.value);
+        }
     }
 
     for jov: wj.rdm_overrides {

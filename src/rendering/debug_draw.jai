@@ -1,7 +1,25 @@
-DEBUG_LINE_MAX :: 65536;
+DEBUG_LINE_MAX         :: 65536;
+DEBUG_OVERLAY_LINE_MAX :: 8192;
 
-g_debug_line_verts : [DEBUG_LINE_MAX * 2 * 7]float;
+// One record per line, uploaded as instance data: the line pipeline expands each
+// into a screen-space quad so lines can have a real pixel width.
+Debug_Line :: struct {
+    a     : Vector3;
+    b     : Vector3;
+    color : Vector4;
+    width : float;   // in pixels
+}
+
+DEBUG_LINE_DEFAULT_WIDTH :: 1.0;
+
+g_debug_lines      : [DEBUG_LINE_MAX]Debug_Line;
 g_debug_line_count : int;
+
+// Overlay lines ignore the depth buffer, so editor gizmos stay visible through
+// terrain. They are UI rather than debug visualization, so they are not gated
+// on debug_draw_enabled.
+g_overlay_lines      : [DEBUG_OVERLAY_LINE_MAX]Debug_Line;
+g_overlay_line_count : int;
 
 debug_draw_enabled   : bool = !FLAG_RELEASE_BUILD;
 debug_draw_grid      : bool = true;
@@ -24,25 +42,33 @@ toggle_debug_colliders :: () {
     debug_draw_colliders = !debug_draw_colliders;
 } @Command
 
-debug_line :: (a: Vector3, b: Vector3, col: Vector4) {
+debug_line :: (a: Vector3, b: Vector3, col: Vector4, width: float = DEBUG_LINE_DEFAULT_WIDTH) {
     if !debug_draw_enabled                   then return;
     if g_debug_line_count >= DEBUG_LINE_MAX  then return;
-    base := g_debug_line_count * 14;
-    g_debug_line_verts[base + 0]  = a.x;
-    g_debug_line_verts[base + 1]  = a.y;
-    g_debug_line_verts[base + 2]  = a.z;
-    g_debug_line_verts[base + 3]  = col.x;
-    g_debug_line_verts[base + 4]  = col.y;
-    g_debug_line_verts[base + 5]  = col.z;
-    g_debug_line_verts[base + 6]  = col.w;
-    g_debug_line_verts[base + 7]  = b.x;
-    g_debug_line_verts[base + 8]  = b.y;
-    g_debug_line_verts[base + 9]  = b.z;
-    g_debug_line_verts[base + 10] = col.x;
-    g_debug_line_verts[base + 11] = col.y;
-    g_debug_line_verts[base + 12] = col.z;
-    g_debug_line_verts[base + 13] = col.w;
+    g_debug_lines[g_debug_line_count] = .{a, b, col, width};
     g_debug_line_count += 1;
+}
+
+debug_line_overlay :: (a: Vector3, b: Vector3, col: Vector4, width: float = DEBUG_LINE_DEFAULT_WIDTH) {
+    if g_overlay_line_count >= DEBUG_OVERLAY_LINE_MAX  then return;
+    g_overlay_lines[g_overlay_line_count] = .{a, b, col, width};
+    g_overlay_line_count += 1;
+}
+
+debug_aabb_3d_overlay :: (mn: Vector3, mx: Vector3, col: Vector4, width: float = DEBUG_LINE_DEFAULT_WIDTH) {
+    corner :: (mn: Vector3, mx: Vector3, i: int) -> Vector3 {
+        return .{ ifx i & 1 then mx.x else mn.x,
+                  ifx i & 2 then mx.y else mn.y,
+                  ifx i & 4 then mx.z else mn.z };
+    }
+    // Every pair of corners differing in exactly one bit is an edge of the box.
+    for i: 0..7 {
+        for bit: int.[1, 2, 4] {
+            j := i | bit;
+            if j == i then continue;
+            debug_line_overlay(corner(mn, mx, i), corner(mn, mx, j), col, width);
+        }
+    }
 }
 
 debug_vector :: (origin: Vector3, vec: Vector3, col: Vector4) {
@@ -126,21 +152,34 @@ debug_aabb_3d :: (mn: Vector3, mx: Vector3, col: Vector4) {
     debug_line(.{mx.x, mn.y, mx.z}, .{mx.x, mx.y, mx.z}, col);
 }
 
-debug_draw_flush_gpu :: () {
-    if g_debug_line_count == 0 then return;
+flush_debug_lines :: (pipe: *Pipeline_Binding, lines: []Debug_Line, count: *int, params: *Debugline_Vs_Params) {
+    if count.* == 0 then return;
+    // Buffer 0 is the shared static quad; buffer 1 is this pipeline's instances.
     sg_update_buffer(
-        gPipelines.debugline.bind.vertex_buffers[0],
+        pipe.bind.vertex_buffers[1],
         *(sg_range.{
-            ptr  = g_debug_line_verts.data,
-            size = cast(u64)(g_debug_line_count * 14 * size_of(float)),
+            ptr  = lines.data,
+            size = cast(u64)(count.* * size_of(Debug_Line)),
         })
     );
-    mvp    := create_viewproj(*camera);
+    sg_apply_pipeline(pipe.pipeline);
+    sg_apply_bindings(*pipe.bind);
+    sg_apply_uniforms(UB_debugline_vs_params, *(sg_range.{ ptr = params, size = size_of(Debugline_Vs_Params) }));
+    sg_draw(0, 6, xx count.*);
+    count.* = 0;
+}
+
+debug_draw_flush_gpu :: () {
+    if g_debug_line_count == 0 && g_overlay_line_count == 0 then return;
+
+    w, h := get_window_size();
+    mvp  := create_viewproj(*camera);
     params : Debugline_Vs_Params;
     params.mvp = mvp.floats;
-    sg_apply_pipeline(gPipelines.debugline.pipeline);
-    sg_apply_bindings(*gPipelines.debugline.bind);
-    sg_apply_uniforms(UB_debugline_vs_params, *(sg_range.{ ptr = *params, size = size_of(Debugline_Vs_Params) }));
-    sg_draw(0, xx (g_debug_line_count * 2), 1);
-    g_debug_line_count = 0;
+    params.viewport = .[cast(float)w, cast(float)h, 0, 0];
+
+    flush_debug_lines(*gPipelines.debugline,         g_debug_lines,   *g_debug_line_count,   *params);
+    flush_debug_lines(*gPipelines.debugline_overlay, g_overlay_lines, *g_overlay_line_count, *params);
 }
+
+#assert size_of(Debug_Line) == 44 "Debug_Line must stay tightly packed: the pipeline layout hardcodes its field offsets.";

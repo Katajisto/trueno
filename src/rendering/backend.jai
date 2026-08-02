@@ -17,6 +17,7 @@ Render_Command_Type :: enum {
     SET_CAMERA;
     DRAW_GROUND;
     ADD_TRILE_POSITIONS;
+    ADD_TRILE_POSITIONS_F32;
     DRAW_TRILE_POSITIONS;
     ADD_TRILE_RDM_POSITION;
     DRAW_TRILE_RDM;
@@ -49,6 +50,15 @@ Render_Command_Add_Trile_Positions :: struct {
     c.type      = .ADD_TRILE_POSITIONS;
     positions   : []Trile_Instance;
     chunk       : Chunk_Key;
+}
+
+// Like Add_Trile_Positions, but takes float world-space positions directly
+// (xyz = position, w = orientation 0..23). Appends into the same instance
+// buffer / offset list, so draws go through Render_Command_Draw_Trile_Positions.
+Render_Command_Add_Trile_Positions_F32 :: struct {
+    #as using c : Render_Command;
+    c.type      = .ADD_TRILE_POSITIONS_F32;
+    positions   : []Vector4;
 }
 
 Render_Command_Draw_Trile_Positions :: struct {

@@ -2,6 +2,7 @@
     #load "iprof.jai";
     #load "trile_thumbnails.jai";
     #load "picker.jai";
+    #load "gizmo.jai";
     #load "trile_editor.jai";
     #load "level_editor.jai";
     #load "particle_editor.jai";

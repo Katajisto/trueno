@@ -3,11 +3,9 @@
 should_ignore_file :: (name: string) -> bool {
     if name.count > 0 && name[0] == #char "." return true;
 
-    ok, left, right :=  split_from_right(name, #char ".");
-    if right == "aseprite" {
-        print("Ignoring % as aseprite file...\n", name);
-        return true;
-    }
+    // Aseprite sources are inputs (see resource_mirror.jai), not shippable
+    // assets; only the .sheet.png/.sheet.json they export go into the pack.
+    if is_aseprite_source(name) return true;
 
     return false;
 }
@@ -53,11 +51,10 @@ create_pack :: (include_test_resources: bool = false, pack_dir: string = "./pack
     #import "Simple_Package";
     #import "File";
 
-    util.visit_files("./resources", true, true, file_visit_handler);
-    if include_test_resources {
-        util.visit_files("./test_game/resources", true, true, file_visit_handler);
-    } else {
-        util.visit_files("./game/resources", true, true, file_visit_handler);
+    // Packs come from the processed copy of the resource trees, never the trees
+    // themselves. See resource_mirror.jai.
+    for prepare_resource_mirror(include_test_resources) {
+        util.visit_files(it, true, true, file_visit_handler);
     }
 
     make_directory_if_it_does_not_exist(pack_dir);

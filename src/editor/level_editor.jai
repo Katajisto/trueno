@@ -29,6 +29,7 @@ Level_Editor_Tool_Mode :: enum {
     LINE;
     INSPECTOR;
     VIEWER;
+    ENTITY;
 }
 
 current_tool_mode : Level_Editor_Tool_Mode = .POINT;
@@ -58,6 +59,21 @@ inspector_emitter_def   : s32 = -1;
 inspector_rdm_roughness : int = 0;
 inspector_note_deactivate    : bool;
 inspector_note_activate_next : bool;
+
+// Entity tool: click to select, drag the gizmo to move or turn, right-click to
+// place. The selection is held by id rather than index so removing an entity
+// can't silently reselect another.
+Entity_Gizmo_Mode :: enum {
+    MOVE;
+    ROTATE;
+}
+
+entity_gizmo        : Gizmo_State;
+entity_gizmo_mode   : Entity_Gizmo_Mode;
+entity_selected_id  : s64 = -1;
+entity_add_type     : s32 = -1;
+entity_snap_enabled : bool  = true;
+entity_snap_step    : float = 1.0;
 
 editor_billboards_visible : bool = true;
 
@@ -333,6 +349,8 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	r.y += r.h;
 	if keybind_button(r, "Inspector", .LEVEL_TOOL_INSPECTOR, *t_button_selectable(theme, current_tool_mode == .INSPECTOR)) then current_tool_mode = .INSPECTOR;
 	r.y += r.h;
+	if keybind_button(r, "Entity", .LEVEL_TOOL_ENTITY, *t_button_selectable(theme, current_tool_mode == .ENTITY)) then current_tool_mode = .ENTITY;
+	r.y += r.h;
 	if keybind_button(r, "Viewer", .LEVEL_TOOL_VIEWER, *t_button_selectable(theme, current_tool_mode == .VIEWER)) then current_tool_mode = .VIEWER;
 	r.y += r.h;
 
@@ -370,7 +388,7 @@ draw_tools_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 			GR.label(r, "Click start of line", *t_label_left(theme));
 		}
 		r.y += r.h;
-	} else if current_tool_mode == .INSPECTOR {
+	} else if current_tool_mode == .INSPECTOR || current_tool_mode == .ENTITY {
 		r.h = ui_h(3, 2);
 		if GR.button(r, ifx editor_billboards_visible then "Hide Markers" else "Show Markers", *theme.button_theme, 199) {
 			editor_billboards_visible = !editor_billboards_visible;
@@ -510,6 +528,121 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 
 
 
+level_editor_clear_entity_selection :: () {
+	entity_selected_id  = -1;
+	entity_gizmo.hover  = .NONE;
+	entity_gizmo.active = .NONE;
+}
+
+get_selected_entity :: (world: *World) -> *Entity {
+	if entity_selected_id < 0 then return null;
+	for e: world.entities  if cast(s64)e.id == entity_selected_id  return e;
+	return null;
+}
+
+// World-space box covering an entity's cell plus every part it draws, used for
+// click-picking and for the selection outline.
+entity_bounds :: (e: *Entity) -> (mn: Vector3, mx: Vector3) {
+	mn := e.position;
+	mx := e.position + Vector3.{1, 1, 1};
+	for part: get_entity_parts(e.type) {
+		p, q : Vector3 = ---;
+		if part.kind == .TRILE {
+			p = entity_trile_point(e, part.offset);
+			q = p + Vector3.{1, 1, 1};
+		} else {
+			// Billboards and emitters are points; give them enough of a box to click.
+			c := entity_point(e, part.offset);
+			p = c - Vector3.{0.25, 0.25, 0.25};
+			q = c + Vector3.{0.25, 0.25, 0.25};
+		}
+		mn.x = min(mn.x, p.x); mn.y = min(mn.y, p.y); mn.z = min(mn.z, p.z);
+		mx.x = max(mx.x, q.x); mx.y = max(mx.y, q.y); mx.z = max(mx.z, q.z);
+	}
+	return mn, mx;
+}
+
+// The billboard that stands in for an entity in the editor: the type's declared
+// EDITOR_MARKER, or a default one when the entity draws nothing you could aim
+// at. Null for entities that are already visible on their own.
+entity_marker_animation :: (e: *Entity) -> *Animation {
+	marker := get_entity_editor_marker(e.type);
+	if marker.count > 0  return get_animation_from_string(marker);
+	for part: get_entity_parts(e.type) {
+		if part.kind == .TRILE || part.kind == .BILLBOARD  return null;
+	}
+	return get_animation_from_string("game_core.ball");
+}
+
+pick_entity :: (world: *World, ray: Ray) -> *Entity {
+	best      : *Entity = null;
+	best_dist : float   = FLOAT32_MAX;
+	for e: world.entities {
+		mn, mx := entity_bounds(e);
+		col := does_ray_hit_cube(ray, .{position = mn, size = mx - mn});
+		if !col.hit then continue;
+		d := abs(col.distance);
+		if d < best_dist {
+			best_dist = d;
+			best      = e;
+		}
+	}
+	return best;
+}
+
+snap_to_step :: (v: float, step: float) -> float {
+	if step <= 0 then return v;
+	return floor(v / step + 0.5) * step;
+}
+
+tick_entity_tool :: (ray: Ray) {
+	curworld := get_current_world();
+	if !curworld.valid then return;
+	world := *curworld.world;
+
+	e := get_selected_entity(world);
+	if e == null {
+		entity_gizmo.hover  = .NONE;
+		entity_gizmo.active = .NONE;
+	} else {
+		mn, mx := entity_bounds(e);
+		debug_aabb_3d_overlay(mn, mx, .{1.0, 0.75, 0.1, 0.8}, 2.0);
+
+		// The gizmo sits at the middle of the entity's cell, which is both what
+		// the entity's marker draws on and what it rotates about.
+		cam := get_level_editor_camera();
+		origin := e.position + ENTITY_PIVOT;
+		if entity_gizmo_mode == .MOVE {
+			moved, changed := gizmo_translate(*entity_gizmo, origin, cam, ray);
+			if changed {
+				p := moved - ENTITY_PIVOT;
+				if entity_snap_enabled {
+					p.x = snap_to_step(p.x, entity_snap_step);
+					p.y = snap_to_step(p.y, entity_snap_step);
+					p.z = snap_to_step(p.z, entity_snap_step);
+				}
+				e.position = p;
+			}
+		} else {
+			u, v, n, steps := gizmo_rotate(*entity_gizmo, origin, cam, ray);
+			if steps != 0 {
+				// A negative drag is the same turn taken the other way round.
+				turn := ifx steps > 0 then orientation_quarter_turn(u, v, n) else orientation_quarter_turn(v, u, n);
+				for 1..abs(steps)  e.orientation = compose_orientations(turn, e.orientation);
+			}
+		}
+		for *inst: e.emitters  inst.position = entity_point(e, inst.offset);
+	}
+
+	// A click that didn't land on the gizmo selects (or clears) the selection.
+	if entity_gizmo.active == .NONE && entity_gizmo.hover == .NONE {
+		if get_mouse_state(Key_Code.MOUSE_BUTTON_LEFT) & .START {
+			picked := pick_entity(world, ray);
+			entity_selected_id = ifx picked then cast(s64)picked.id else cast(s64)-1;
+		}
+	}
+}
+
 editor_edit_y :: () -> float {
     y := cast(float)editY;
     curworld := get_current_world();
@@ -525,6 +658,9 @@ tick_level_editor :: () {
 	tick_level_editor_camera();
 	tick_particles(cast(float)delta_time);
 
+	curworld := get_current_world();
+	if curworld.valid then tick_entity_emitters(*curworld.world, cast(float)delta_time);
+
 	if is_action_start(Editor_Action.LEVEL_TWIST_CCW) {
 		lastInputTime = get_time();
 		current_orientation_twist = (current_orientation_twist + 1) % 4;
@@ -538,8 +674,13 @@ tick_level_editor :: () {
 		current_orientation_face = (current_orientation_face + 1) % 6;
 	}
 
-	ray := get_mouse_ray(*get_level_editor_camera());
+	cam := get_level_editor_camera();
+	ray := get_mouse_ray(*cam);
 	hit, point := ray_plane_collision_point(ray, editor_edit_y(), 20);
+
+	// The entity tool works off the entities themselves, not the edit plane, so
+	// it runs whether or not the cursor is over the plane.
+	if current_tool_mode == .ENTITY then tick_entity_tool(ray);
 
 	show_trile_preview = false;
 	if hit {
@@ -632,6 +773,12 @@ tick_level_editor :: () {
 				inspector_z = cast(s32)pz;
 				inspector_note_deactivate = true;
 			}
+		} else if current_tool_mode == .ENTITY {
+			// Right-click places the type picked in the panel, so the cursor never
+			// has to leave the spot you're aiming at.
+			if get_mouse_state(Key_Code.MOUSE_BUTTON_RIGHT) & .START {
+				add_entity_at(cast(s32)px, cast(s32)py, cast(s32)pz);
+			}
 		}
 	}
 }
@@ -641,6 +788,9 @@ create_level_editor_preview_tasks :: () {
 	if !curworld.valid then return;
 
 	px := trile_preview_x; py := trile_preview_y; pz := trile_preview_z;
+
+	// The entity tool never paints triles, so it shows no brush preview.
+	if current_tool_mode == .ENTITY then return;
 
 	if current_tool_mode == .INSPECTOR {
 		name, orientation, found := get_trile_at(*curworld.world, xx px, xx py, xx pz);
@@ -980,10 +1130,130 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 	}
 }
 
+draw_entity_tool_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
+	curworld := get_current_world();
+	if !curworld.valid then return;
+	world := *curworld.world;
+
+	r.h = ui_h(3, 2);
+	GR.label(r.*, "-- Entity Tool --", *t_label_left(theme));
+	r.y += r.h;
+
+	e := get_selected_entity(world);
+	if e != null {
+		GR.label(r.*, tprint("Type: %", entity_type_name(e.type)), *t_label_left(theme));
+		r.y += r.h;
+		GR.label(r.*, tprint("Pos: %, %, %",
+			formatFloat(e.position.x, trailing_width=2),
+			formatFloat(e.position.y, trailing_width=2),
+			formatFloat(e.position.z, trailing_width=2)), *t_label_left(theme));
+		r.y += r.h;
+
+		GR.label(r.*, tprint("Orientation: %", e.orientation), *t_label_left(theme));
+		r.y += r.h;
+
+		r.h = ui_h(4, 0);
+		mode_r := r.*;
+		mode_r.w = r.w / 2;
+		if GR.button(mode_r, "Move", *t_button_selectable(theme, entity_gizmo_mode == .MOVE), 524) {
+			entity_gizmo_mode = .MOVE;
+			entity_gizmo.active = .NONE;
+		}
+		mode_r.x += mode_r.w;
+		if GR.button(mode_r, "Rotate", *t_button_selectable(theme, entity_gizmo_mode == .ROTATE), 525) {
+			entity_gizmo_mode = .ROTATE;
+			entity_gizmo.active = .NONE;
+		}
+		r.y += r.h;
+
+		// Rotation is always in quarter turns, so snapping is a move-only setting.
+		if entity_gizmo_mode == .MOVE {
+			snap_label := ifx entity_snap_enabled then tprint("Snap: %", formatFloat(entity_snap_step, trailing_width=2)) else "Snap: off";
+			if GR.button(r.*, snap_label, *t_button_selectable(theme, entity_snap_enabled), 520) {
+				entity_snap_enabled = !entity_snap_enabled;
+			}
+			r.y += r.h;
+			if entity_snap_enabled {
+				GR.slider(r.*, *entity_snap_step, 0.125, 1.0, 0.125, *theme.slider_theme);
+				r.y += r.h;
+			}
+		}
+
+		fields_r := r.*;
+		fields_r.h = ui_h(30, 0);
+		entity_autoedit(fields_r, e, theme);
+		r.y += fields_r.h;
+
+		if GR.button(r.*, "Remove Entity", *theme.button_theme, 521) {
+			remove_entity(world, e);
+			level_editor_clear_entity_selection();
+		}
+		r.y += r.h;
+		if GR.button(r.*, "Deselect", *theme.button_theme, 522) {
+			level_editor_clear_entity_selection();
+		}
+		r.y += r.h;
+	} else {
+		GR.label(r.*, "Click an entity to select it.", *t_label_left(theme));
+		r.y += r.h;
+		GR.label(r.*, "Drag the gizmo to move or turn.", *t_label_left(theme));
+		r.y += r.h;
+	}
+
+	r.h = ui_h(3, 2);
+	r.y += r.h * 0.5;
+	GR.label(r.*, "-- Spawn --", *t_label_left(theme));
+	r.y += r.h;
+
+	r.h = ui_h(4, 0);
+	for info, idx: ENTITY_TYPE_TABLE {
+		selected := cast(s32)idx == entity_add_type;
+		if GR.button(r.*, info.name, *t_button_selectable(theme, selected), cast(s32)(500 + idx)) {
+			entity_add_type = cast(s32)idx;
+		}
+		r.y += r.h;
+	}
+	r.h = ui_h(3, 2);
+	if entity_add_type >= 0 && entity_add_type < cast(s32)ENTITY_TYPE_TABLE.count {
+		GR.label(r.*, "Right-click in the world to place.", *t_label_left(theme));
+	} else {
+		GR.label(r.*, "Pick a type to place.", *t_label_left(theme));
+	}
+	r.y += r.h;
+}
+
+// Places the type picked in the panel. Called from the right-click handler, so
+// the position is whatever cell the cursor is over on the edit plane.
+add_entity_at :: (x: s32, y: s32, z: s32) {
+	if entity_add_type < 0 || entity_add_type >= cast(s32)ENTITY_TYPE_TABLE.count then return;
+	curworld := get_current_world();
+	if !curworld.valid then return;
+	spawned := spawn_entity(*curworld.world, ENTITY_TYPE_TABLE[entity_add_type].name, .{cast(float)x, cast(float)y, cast(float)z});
+	if spawned then entity_selected_id = cast(s64)spawned.id;
+}
+
+// Runs autoedit on the entity's concrete type, so each type gets an editor
+// generated from its own fields.
+entity_autoedit :: (rect: GR.Rect, e: *Entity, theme: *GR.Overall_Theme) {
+	#insert #run,stallable gen_entity_dispatch("autoedit(rect, cast(*%)e, theme, 400)");
+}
+
 add_editor_billboards :: () {
 	if !editor_billboards_visible then return;
 	curworld := get_current_world();
 	if !curworld.valid then return;
+
+	// Entities are marked first, before the fallback animation is required, so a
+	// type with its own EDITOR_MARKER still shows up if "game_core.ball" is gone.
+	for e: curworld.world.entities {
+		marker := entity_marker_animation(e);
+		if marker == null then continue;
+		task : Rendering_Task_Billboard;
+		task.position  = e.position + ENTITY_PIVOT;
+		task.animation = marker;
+		task.frame     = 0;
+		add_rendering_task(task);
+	}
 
 	anim := get_animation_from_string("game_core.ball");
 	if anim == null then return;
@@ -1012,6 +1282,7 @@ draw_level_editor :: () {
 	ph := effective_plane_height(*curworld.world.conf);
 	create_set_cam_rendering_task(cam, ph);
 	create_world_rendering_tasks(*curworld.world, cam, ph);
+	add_entity_render_tasks(*curworld.world);
 	if show_trile_preview && !trile_preview_disabled {
 		create_level_editor_preview_tasks();
 	}
@@ -1043,12 +1314,14 @@ draw_level_editor_ui :: (theme: *GR.Overall_Theme) {
 		case .INFO;
 			if curworld.valid then autoedit(r, *curworld.world.conf, theme);
     }
-	if current_tool_mode == .INSPECTOR {
+	if current_tool_mode == .INSPECTOR || current_tool_mode == .ENTITY {
 		rr := GR.get_rect(ui_w(85,0), ui_h(5,0), ui_w(15, 0), ui_h(95, 0));
 		draw_bg_rectangle(rr, theme);
 		ui_add_mouse_occluder(rr);
 		rr.y += ui_h(1, 0);
-		if inspector_selected {
+		if current_tool_mode == .ENTITY {
+			draw_entity_tool_panel(*rr, theme);
+		} else if inspector_selected {
 			draw_inspector_panel(*rr, theme);
 		} else {
 			rr.h = ui_h(3, 2);

@@ -7,6 +7,7 @@ Rendering_Task_Type :: enum {
     SET_CAMERA;
     SET_LIGHT;
     TRILE;     // We need to add an ability to invalidate buffer instead of updating it constantly. Also probably have a buffer for static world triles and one for moving ones.
+    TRILE_DYNAMIC;
     TRILE_RDM;
     TRIXELS;
     BILLBOARD;
@@ -63,6 +64,19 @@ Rendering_Task_Trile :: struct {
     shadow_only  : bool = false; // only submit to shadow bucket (frustum-culled from camera)
     skip_main    : bool = false; // RDM-flagged instances still cast shadows / write gbuffer / reflect, but main pass uses the RDM pipeline
     lod_index    : s32  = 0;     // 0 = full detail, 1 = 4^3 LOD, 2 = 2^3 LOD
+}
+
+// Triles at arbitrary float world positions (entities, moving things).
+// Shares the instance buffer and pipelines with the static TRILE path, so it
+// participates in main/gbuffer/shadow/reflection just like world triles.
+// chunk_key is the enclosing chunk, used only for SH probe lookup.
+Rendering_Task_Trile_Dynamic :: struct {
+    #as using t : Rendering_Task;
+    t.type      = .TRILE_DYNAMIC;
+    trile       : string;
+    positions   : []Vector4;    // xyz = world position, w = orientation 0..23
+    chunk_key   : Chunk_Key;
+    worldConf   : *World_Config;
 }
 
 Rendering_Task_Trile_RDM :: struct {
@@ -177,6 +191,22 @@ tasks_to_commands :: () {
                     array_add(*render_command_buckets.gbuffer, drawPositionsCmd);
                     array_add(*render_command_buckets.shadow, drawPositionsCmd);
                 }
+            case .TRILE_DYNAMIC;
+                dynTask := (cast(*Rendering_Task_Trile_Dynamic)it);
+                addF32Cmd := New(Render_Command_Add_Trile_Positions_F32,, temp);
+                addF32Cmd.positions = dynTask.positions;
+                array_add(*render_command_buckets.setup, addF32Cmd);
+                drawDynCmd := New(Render_Command_Draw_Trile_Positions,, temp);
+                drawDynCmd.trile        = dynTask.trile;
+                drawDynCmd.chunk_key    = dynTask.chunk_key;
+                drawDynCmd.amount       = cast(s32)dynTask.positions.count;
+                drawDynCmd.conf         = dynTask.worldConf;
+                drawDynCmd.offset_index = trile_add_counter;
+                trile_add_counter += 1;
+                array_add(*render_command_buckets.reflection, drawDynCmd);
+                array_add(*render_command_buckets.main, drawDynCmd);
+                array_add(*render_command_buckets.gbuffer, drawDynCmd);
+                array_add(*render_command_buckets.shadow, drawDynCmd);
             case .TRILE_RDM;
                 rdmTask := (cast(*Rendering_Task_Trile_RDM)it);
                 addCmd := New(Render_Command_Add_Trile_RDM_Position,, temp);
