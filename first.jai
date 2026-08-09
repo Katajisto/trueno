@@ -15,6 +15,13 @@ Trueno_Build_Options :: struct {
     test_exe_game   : bool;
 }
 
+// Engine tests build against test_game/ so they work without the game/ directory;
+// game tests build against the real game and its real resources. Kept in step with
+// FLAG_USE_TEST_GAME in src/main.jai.
+uses_test_game :: (opts: Trueno_Build_Options) -> bool {
+    return opts.test_engine || opts.test_exe_engine;
+}
+
 build_options_from_args :: (args: []string) -> Trueno_Build_Options {
     opts : Trueno_Build_Options;
 
@@ -66,8 +73,9 @@ max_asset_file_size :: (dir: string, ext: string, floor: s64 = 0) -> s64 {
 }
 
 add_asset_buffer_sizes_to_compiler_strings :: (trueno_opts: Trueno_Build_Options, w: Workspace) {
-    pack_dir           := ifx trueno_opts.test_exe_engine || trueno_opts.test_exe_game then "./test_packs" else "./packs";
-    game_resources_dir := ifx trueno_opts.test_exe_engine || trueno_opts.test_exe_game then "./test_game/resources" else "./game/resources";
+    use_test_game      := uses_test_game(trueno_opts);
+    pack_dir           := ifx use_test_game then "./test_packs" else "./packs";
+    game_resources_dir := ifx use_test_game then "./test_game/resources" else "./game/resources";
 
     sizes: [6]s64;
     sizes[0] = max_asset_file_size(pack_dir,           ".pack",       1 * 1024 * 1024);
@@ -254,8 +262,8 @@ wasm_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
     opt := get_build_options();
     trueno_opts := build_options_from_args(opt.compile_time_command_line);  
     compile_shaders();
-    is_test_exe := trueno_opts.test_exe_engine || trueno_opts.test_exe_game;
-    create_pack(is_test_exe, ifx is_test_exe then "./test_packs" else "./packs");
+    use_test_game := uses_test_game(trueno_opts);
+    create_pack(use_test_game, ifx use_test_game then "./test_packs" else "./packs");
 
     if trueno_opts.wasm_build {
         wasm_build(opt, trueno_opts);

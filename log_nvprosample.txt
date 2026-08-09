@@ -26,33 +26,4 @@ VK_KHR_deferred_host_operations
 VK_KHR_acceleration_structure
 VK_KHR_ray_query
 
-BLAS Compaction: 0.3MB -> 0.2MB (0.1MB saved, 31.9% smaller)
-_______________
-Vulkan Version:
- - available:  1.3.296
- - requesting: 1.3.0
-______________________
-Used Instance Layers :
-VK_LAYER_KHRONOS_validation
-
-Used Instance Extensions :
-____________________
-Devices : 2
-0: AMD Radeon RX 6700 XT (RADV NAVI22)
-  - Compatible 
-1: llvmpipe (LLVM 20.1.2, 256 bits)
-  - Compatible 
-Compatible physical devices found : 2
-Using Device:
- - Device Name    : AMD Radeon RX 6700 XT (RADV NAVI22)
- - Vendor         : AMD
- - Driver Version : 25.2.8
- - API Version    : 1.4.318
- - Device Type    : Discrete GPU
-________________________
-Used Device Extensions :
-VK_KHR_deferred_host_operations
-VK_KHR_acceleration_structure
-VK_KHR_ray_query
-
-BLAS Compaction: 0.3MB -> 0.2MB (0.1MB saved, 31.9% smaller)
+BLAS Compaction: 0.3MB -> 0.2MB (0.1MB saved, 32.1% smaller)
