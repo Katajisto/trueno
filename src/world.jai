@@ -59,6 +59,8 @@ Chunk :: struct {
     coord:  Chunk_Key;
     groups: [..]Chunk_Trile_Group;
 
+    occupancy_mask : [32][32][32]bool;
+
     sh_probe_grid:  sg_image;  // 192x4096 RGBA16F 2D texture (2 probes/trile/axis)
     sh_valid:       bool;
     sh_dirty:       bool;
@@ -95,6 +97,26 @@ World :: struct {
     next_entity_id    : u32;
     rdm_overrides     : [..]Rdm_Instance_Override;
     rdm_lookup        : [..]Rdm_Atlas_Entry;   // populated by bake (Step 5) and by loader (Step 6)
+}
+
+calculate_and_set_chunk_occupancy_mask :: (chunk: *Chunk) {
+    print("Calculating occupancy mask for chunk %\n", chunk.coord);
+    // Clear it first:
+    for i: 0..15 {
+        for j: 0..15 {
+            for k: 0..15 {
+                chunk.occupancy_mask[i][j][k] = false;
+            }
+        }
+    }
+    
+    for group: chunk.groups {
+        // @ToDo: Handle non-colliding triles by getting the
+        // trile data here and continuing if it's non-colliding.
+        for instance : group.instances {
+            chunk.occupancy_mask[instance.x][instance.y][instance.z] = true;
+        }
+    }
 }
 
 rdm_get_atlas_rect :: (world: *World, x: s32, y: s32, z: s32) -> (Vector4, bool) {
@@ -776,6 +798,7 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
             group.average_pos  = gavg;
             array_add(*chunk.groups, group);
         }
+        calculate_and_set_chunk_occupancy_mask(*chunk);
         table_set(*world.chunks, chunk.coord, chunk);
     }
 
@@ -812,114 +835,6 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
 
     return world, true;
 }
-
-load_world_from_data :: (data: []u8) -> (World, bool) {
-    world: World;
-    cursor: s64 = 0;
-
-    if data.count < size_of(u32) + size_of(u16) {
-        log_error("World file too small");
-        return world, false;
-    }
-
-    // Header
-    magic := read_value(data, *cursor, u32);
-    if magic != WORLD_MAGIC {
-        log_error("Invalid world file magic");
-        return world, false;
-    }
-
-    version := read_value(data, *cursor, u16);
-    if version != 1 && version != 2 && version != 3 {
-        log_error("Unsupported world version: %", version);
-        return world, false;
-    }
-
-    name_len := cast(s64) read_value(data, *cursor, u16);
-    world.name = read_string(data, *cursor, name_len);
-
-    // World config
-    conf_bin := read_value(data, *cursor, World_Config_Binary);
-    world.conf = world_config_from_binary(*conf_bin);
-
-    num_chunks := read_value(data, *cursor, u32);
-
-    // Read chunk table
-    Chunk_Table_Entry :: struct {
-        coord:  Chunk_Key;
-        offset: u32;
-        size:   u32;
-    }
-
-    chunk_table: [..]Chunk_Table_Entry;
-    chunk_table.allocator = temp;
-    for i: 0..cast(s64)num_chunks-1 {
-        entry: Chunk_Table_Entry;
-        entry.coord.x = read_value(data, *cursor, s32);
-        entry.coord.y = read_value(data, *cursor, s32);
-        entry.coord.z = read_value(data, *cursor, s32);
-        entry.offset  = read_value(data, *cursor, u32);
-        entry.size    = read_value(data, *cursor, u32);
-        array_add(*chunk_table, entry);
-    }
-
-    // Read chunk data
-    for entry: chunk_table {
-        chunk_cursor: s64 = cast(s64) entry.offset;
-        chunk: Chunk;
-        chunk.coord = entry.coord;
-
-        num_types := read_value(data, *chunk_cursor, u16);
-        for t: 0..cast(s64)num_types-1 {
-            group: Chunk_Trile_Group;
-            gname_len := cast(s64) read_value(data, *chunk_cursor, u16);
-            group.trile_name = read_string(data, *chunk_cursor, gname_len);
-            count := cast(s64) read_value(data, *chunk_cursor, u16);
-            for i: 0..count-1 {
-                inst := read_value(data, *chunk_cursor, Trile_Instance);
-                array_add(*group.instances, inst);
-            }
-            
-            array_add(*chunk.groups, group);
-        }
-        table_set(*world.chunks, chunk.coord, chunk);
-    }
-
-    if chunk_table.count > 0 {
-        last := chunk_table[chunk_table.count - 1];
-        cursor = cast(s64)(last.offset + last.size);
-    }
-
-    if version >= 2 && cursor < data.count {
-        num_emitters := cast(s64) read_value(data, *cursor, u16);
-        for i: 0..num_emitters-1 {
-            inst: Particle_Emitter_Instance;
-            name_len := cast(s64) read_value(data, *cursor, u16);
-            inst.definition_name = read_string(data, *cursor, name_len);
-            inst.position.x = read_value(data, *cursor, float);
-            inst.position.y = read_value(data, *cursor, float);
-            inst.position.z = read_value(data, *cursor, float);
-            inst.active = true;
-            array_add(*world.emitter_instances, inst);
-        }
-    }
-
-    if version >= 3 && cursor < data.count {
-        num_notes := cast(s64) read_value(data, *cursor, u16);
-        for i: 0..num_notes-1 {
-            note: Editor_Note;
-            text_len := cast(s64) read_value(data, *cursor, u16);
-            note.text = read_string(data, *cursor, text_len);
-            note.position.x = read_value(data, *cursor, s32);
-            note.position.y = read_value(data, *cursor, s32);
-            note.position.z = read_value(data, *cursor, s32);
-            array_add(*world.notes, note);
-        }
-    }
-
-    return world, true;
-}
-
 
 World_Config :: struct {
     // All of the @Notes are for the autoedit functionality.

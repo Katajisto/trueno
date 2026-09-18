@@ -168,28 +168,15 @@ process_completed_fetch :: (req: *Fetch_Request, data: []u8) {
         array_add(*g_asset_manager.loadedPacks, pack);
 
     case .WORLD;
-        is_json := data.count > 0 && data[0] == #char "{";
-        if is_json {
-            json_copy := NewArray(data.count, u8, false);
-            memcpy(json_copy.data, data.data, data.count);
-            chunks_req: Fetch_Request;
-            chunks_req.type            = .WORLD_CHUNKS;
-            chunks_req.priority        = req.priority;
-            chunks_req.world_name      = req.world_name;
-            chunks_req.path            = sprint("%/worlds/%/chunks.bin", GAME_RESOURCES_DIR, req.world_name);
-            chunks_req.world_json_data = json_copy;
-            array_add(*g_asset_manager.queue, chunks_req);
-        } else {
-            world, ok := load_world_from_data(data);
-            if ok {
-                set_loaded_world(world);
-                rdm_loader_enqueue_world(*get_current_world().world);
-                shgrid_loader_enqueue_world(*get_current_world().world);
-                log_info("Loaded world (legacy): %", req.world_name);
-            } else {
-                log_error("Failed to parse world '%'", req.world_name);
-            }
-        }
+        json_copy := NewArray(data.count, u8, false);
+        memcpy(json_copy.data, data.data, data.count);
+        chunks_req: Fetch_Request;
+        chunks_req.type            = .WORLD_CHUNKS;
+        chunks_req.priority        = req.priority;
+        chunks_req.world_name      = req.world_name;
+        chunks_req.path            = sprint("%/worlds/%/chunks.bin", GAME_RESOURCES_DIR, req.world_name);
+        chunks_req.world_json_data = json_copy;
+        array_add(*g_asset_manager.queue, chunks_req);
 
     case .WORLD_CHUNKS;
         json_data := req.world_json_data;
