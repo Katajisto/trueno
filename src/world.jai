@@ -59,11 +59,36 @@ Chunk :: struct {
     coord:  Chunk_Key;
     groups: [..]Chunk_Trile_Group;
 
-    occupancy_mask : [32][32][32]bool;
+    // This goes x,z,y so y is the bitmask because
+    // that is useful when we're checking for ground under
+    // entities
+    occupancy_mask : [32][32]u32;
 
     sh_probe_grid:  sg_image;  // 192x4096 RGBA16F 2D texture (2 probes/trile/axis)
     sh_valid:       bool;
     sh_dirty:       bool;
+}
+
+// @Note: these are local coords inside the chunk
+chunk_get_occupancy_mask_at :: inline (chunk: *Chunk, lx: u32, ly: u32, lz: u32) -> bool {
+    return (chunk.occupancy_mask[lx][lz] & (cast(u32)1 << ly)) != 0;
+}
+
+// @Note: these are local coords inside the chunk
+chunk_set_occupancy_mask_at :: inline (chunk: *Chunk, lx: u32, ly: u32, lz: u32, occupied: bool) {
+    if occupied {
+        chunk.occupancy_mask[lx][lz] |= (cast(u32)1 << ly);
+    } else {
+        chunk.occupancy_mask[lx][lz] &= ~(cast(u32)1 << ly);
+    }
+}
+
+chunk_clear_full_occupancy_mask :: (chunk: *Chunk) {
+    for i: 0..31 {
+        for j: 0..31 {
+            chunk.occupancy_mask[cast(u32)i][cast(u32)j] = 0;
+        }
+    }
 }
 
 Editor_Note :: struct {
@@ -100,21 +125,14 @@ World :: struct {
 }
 
 calculate_and_set_chunk_occupancy_mask :: (chunk: *Chunk) {
-    print("Calculating occupancy mask for chunk %\n", chunk.coord);
-    // Clear it first:
-    for i: 0..15 {
-        for j: 0..15 {
-            for k: 0..15 {
-                chunk.occupancy_mask[i][j][k] = false;
-            }
-        }
-    }
+    chunk_clear_full_occupancy_mask(chunk);
     
     for group: chunk.groups {
         // @ToDo: Handle non-colliding triles by getting the
         // trile data here and continuing if it's non-colliding.
         for instance : group.instances {
-            chunk.occupancy_mask[instance.x][instance.y][instance.z] = true;
+            
+            chunk_set_occupancy_mask_at(chunk, instance.x, instance.y, instance.z, true);
         }
     }
 }

@@ -498,6 +498,7 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 		array_add(*chunk.groups, group);
 	}
 	invalidate_buried_around(*curworld.world, x, y, z);
+	chunk_set_occupancy_mask_at(chunk, lx, ly, lz, true);
 } @Command
 
 remove_trile :: (x: s32, y: s32, z: s32) {
@@ -524,6 +525,7 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 		if removed  break;
 	}
 	if removed  invalidate_buried_around(*curworld.world, x, y, z);
+	chunk_set_occupancy_mask_at(chunk, lx, ly, lz, false);
 } @Command
 
 
