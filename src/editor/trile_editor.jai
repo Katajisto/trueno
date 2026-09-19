@@ -64,6 +64,7 @@ ntrile :: (name: string) {
     newt.name = sprint("%", name);
     set_trile(newt.name, newt);
     editor_current_trile = get_trile(newt.name);
+    trile_gen_heightmap(editor_current_trile);
 } @Command
 
 cpytrile :: (trile: string, destination: string) {
@@ -73,6 +74,7 @@ cpytrile :: (trile: string, destination: string) {
     newt.trixels = get_trile(trile).trixels;
     set_trile(newt.name, newt);
     editor_current_trile = get_trile(newt.name);
+    trile_gen_heightmap(editor_current_trile);
 } @Command
 
 ltrile :: (name: string) {
@@ -83,6 +85,7 @@ ltrile :: (name: string) {
         return;    
     }
     editor_current_trile = nt;
+    trile_gen_heightmap(editor_current_trile);
 } @Command
 
 #scope_file
@@ -104,6 +107,7 @@ do_undo :: () {
     undo_head  = (undo_head - 1 + UNDO_MAX) % UNDO_MAX;
     undo_count -= 1;
     editor_current_trile.trixels = undo_trixels[undo_head];
+    trile_gen_heightmap(editor_current_trile);
 }
 
 do_redo :: () {
@@ -114,6 +118,7 @@ do_redo :: () {
     redo_head  = (redo_head - 1 + UNDO_MAX) % UNDO_MAX;
     redo_count -= 1;
     editor_current_trile.trixels = redo_trixels[redo_head];
+    trile_gen_heightmap(editor_current_trile);
 }
 
 apply_tool_to_trixel :: (x: s64, y: s64, z: s64) {
@@ -187,7 +192,7 @@ handle_tool_click :: () {
             area_start_z = hovered_trixel_z;
         }
     }
-    
+    trile_gen_heightmap(editor_current_trile);
 }
 
 #scope_export
@@ -202,6 +207,7 @@ reset_trile :: () {
             }
         }
     }
+    trile_gen_heightmap(editor_current_trile);
 } @Command
 
 trile_copy :: (from: string) {
@@ -213,6 +219,7 @@ trile_copy :: (from: string) {
             }
         }
     }
+    trile_gen_heightmap(editor_current_trile);
 } @Command
 
 tick_trile_editor :: () {
@@ -577,6 +584,12 @@ draw_meta_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r.h = row_h;
     changed := GR.base_checkbox(r, "Opaque (occludes neighbors)", editor_current_trile.is_opaque, *theme.checkbox_theme);
     if changed  editor_current_trile.is_opaque = !editor_current_trile.is_opaque;
+    r.y += row_h;
+    changed = GR.base_checkbox(r, "Skip collision", editor_current_trile.skip_collision, *theme.checkbox_theme);
+    if changed  editor_current_trile.skip_collision = !editor_current_trile.skip_collision;
+    r.y += row_h;
+    changed = GR.base_checkbox(r, "Is stairs", editor_current_trile.is_stairs, *theme.checkbox_theme);
+    if changed  editor_current_trile.is_stairs = !editor_current_trile.is_stairs;
     r.y += row_h * 2;
 
     r.h = row_h;

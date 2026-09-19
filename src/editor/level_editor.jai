@@ -498,7 +498,10 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 		array_add(*chunk.groups, group);
 	}
 	invalidate_buried_around(*curworld.world, x, y, z);
-	chunk_set_occupancy_mask_at(chunk, lx, ly, lz, true);
+    trile, ok := get_trile(name);
+	if !ok || trile.skip_collision then return;
+    new_state : Occupancy_State = ifx trile.is_stairs then .OCCUPIED_STAIRS else .OCCUPIED;
+	chunk_set_occupancy_mask_at(chunk, lx, ly, lz, new_state);
 } @Command
 
 remove_trile :: (x: s32, y: s32, z: s32) {
@@ -525,7 +528,7 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 		if removed  break;
 	}
 	if removed  invalidate_buried_around(*curworld.world, x, y, z);
-	chunk_set_occupancy_mask_at(chunk, lx, ly, lz, false);
+	chunk_set_occupancy_mask_at(chunk, lx, ly, lz, .FREE);
 } @Command
 
 

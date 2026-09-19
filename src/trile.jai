@@ -30,6 +30,22 @@ get_trile_table_ptr :: () -> *Table(string, Trile) {
     return *trile_table;
 }
 
+trile_gen_heightmap :: (trile: *Trile) {
+    for x: 0..15 {
+        for z: 0..15 {
+            height : u8 = 16;
+            for y: 0..15 {
+                if trile.trixels[x][15-y][z].empty == true {
+                    height -= 1;
+                } else {
+                    break;
+                }
+            }
+            trile.heightmap[x][z] = height;
+        }
+    }   
+}
+
 // @Note: Creates the gfx things if they are not yet created.
 // Could be a bad idea to do this implicitly. Think about it
 // once it's more clear how this whole trile storage thing 
@@ -215,23 +231,38 @@ Trile :: struct {
     name      : string = "test";
     is_opaque : bool   = true;
     trixels   : [16][16][16] Trixel;
+
+    skip_collision : bool;
+    
+    // if the trile is something that should
+    // be able to be used so that the player
+    // moves in the Y direction, it needs to
+    // be marked as stairs and a heightmap
+    // in the Y axis is generated for it.
+    is_stairs      : bool;
+    heightmap      : [16][16]u8;
 };
 
 TrixelSerialize :: [5]u8;
 
 TrileSerialize :: struct {
-    name      : string = "test";
-    version   : int    = 0;
-    is_opaque : u8     = 1;
-    trixels   : [16][16][16] TrixelSerialize;
+    name           : string = "test";
+    version        : int    = 0;
+    is_opaque      : u8     = 1;
+    is_stairs      : u8     = 0;
+    skip_collision : u8     = 0;
+    trixels        : [16][16][16] TrixelSerialize;
 };
 
 trile_to_serialize_form :: (t: Trile) -> TrileSerialize {
     ts := TrileSerialize.{
-        name      = t.name,
-        version   = 2,
-        is_opaque = ifx t.is_opaque then cast(u8)1 else cast(u8)0,
+        name           = t.name,
+        version        = 3,
+        is_opaque      = ifx t.is_opaque then cast(u8)1 else cast(u8)0,
+        is_stairs      = ifx t.is_stairs then cast(u8)1 else cast(u8)0,
+        skip_collision = ifx t.skip_collision then cast(u8)1 else cast(u8)0,
     };
+
     for i: 0..15 {
         for j: 0..15 {
             for k: 0..15 {
@@ -247,6 +278,10 @@ trile_from_serialize_form :: (ts: TrileSerialize) -> Trile {
     t := Trile.{ name = sprint("%", ts.name) };
     if ts.version >= 2  t.is_opaque = ts.is_opaque != 0;
     else                t.is_opaque = true;
+    if ts.version >= 3  t.is_stairs = ts.is_stairs != 0;
+    else                t.is_stairs = false;
+    if ts.version >= 3  t.skip_collision = ts.skip_collision != 0;
+    else                t.skip_collision = false;
     for i: 0..15 {
         for j: 0..15 {
             for k: 0..15 {
@@ -270,6 +305,7 @@ trile_from_serialize_form :: (ts: TrileSerialize) -> Trile {
             }
         }
     }
+    trile_gen_heightmap(*t);
     return t;
 }
 

@@ -63,23 +63,42 @@ Chunk :: struct {
     // that is useful when we're checking for ground under
     // entities
     occupancy_mask : [32][32]u32;
+    // We want to be easily able to identify stairs from the chunk.
+    stairs_mask    : [32][32]u32;
 
     sh_probe_grid:  sg_image;  // 192x4096 RGBA16F 2D texture (2 probes/trile/axis)
     sh_valid:       bool;
     sh_dirty:       bool;
 }
 
-// @Note: these are local coords inside the chunk
-chunk_get_occupancy_mask_at :: inline (chunk: *Chunk, lx: u32, ly: u32, lz: u32) -> bool {
-    return (chunk.occupancy_mask[lx][lz] & (cast(u32)1 << ly)) != 0;
+Occupancy_State :: enum {
+    FREE;
+    OCCUPIED;
+    OCCUPIED_STAIRS;
 }
 
 // @Note: these are local coords inside the chunk
-chunk_set_occupancy_mask_at :: inline (chunk: *Chunk, lx: u32, ly: u32, lz: u32, occupied: bool) {
-    if occupied {
-        chunk.occupancy_mask[lx][lz] |= (cast(u32)1 << ly);
+chunk_get_occupancy_mask_at :: inline (chunk: *Chunk, lx: u32, ly: u32, lz: u32) -> Occupancy_State {
+    if (chunk.occupancy_mask[lx][lz] & (cast(u32)1 << ly)) != 0 {
+        if (chunk.stairs_mask[lx][lz] & (cast(u32)1 << ly)) != 0 then return .OCCUPIED_STAIRS;
+        return .OCCUPIED;
+    }
+    return .FREE;
+}
+
+// @Note: these are local coords inside the chunk
+chunk_set_occupancy_mask_at :: inline (chunk: *Chunk, lx: u32, ly: u32, lz: u32, occupied: Occupancy_State) {
+    if occupied != .FREE {
+        if occupied == .OCCUPIED_STAIRS {
+            chunk.occupancy_mask[lx][lz] |= (cast(u32)1 << ly);
+            chunk.stairs_mask[lx][lz] |= (cast(u32)1 << ly);
+        } else {
+            chunk.occupancy_mask[lx][lz] |= (cast(u32)1 << ly);
+            chunk.stairs_mask[lx][lz] &= ~(cast(u32)1 << ly);
+        }
     } else {
         chunk.occupancy_mask[lx][lz] &= ~(cast(u32)1 << ly);
+        chunk.stairs_mask[lx][lz] &= ~(cast(u32)1 << ly);
     }
 }
 
@@ -87,6 +106,7 @@ chunk_clear_full_occupancy_mask :: (chunk: *Chunk) {
     for i: 0..31 {
         for j: 0..31 {
             chunk.occupancy_mask[cast(u32)i][cast(u32)j] = 0;
+            chunk.stairs_mask[cast(u32)i][cast(u32)j] = 0;
         }
     }
 }
@@ -128,11 +148,12 @@ calculate_and_set_chunk_occupancy_mask :: (chunk: *Chunk) {
     chunk_clear_full_occupancy_mask(chunk);
     
     for group: chunk.groups {
-        // @ToDo: Handle non-colliding triles by getting the
-        // trile data here and continuing if it's non-colliding.
+        trile, ok := get_trile(group.trile_name);
+        if !ok || trile.skip_collision then continue;
+        new_state : Occupancy_State = ifx trile.is_stairs then .OCCUPIED_STAIRS else .OCCUPIED;
+        
         for instance : group.instances {
-            
-            chunk_set_occupancy_mask_at(chunk, instance.x, instance.y, instance.z, true);
+            chunk_set_occupancy_mask_at(chunk, instance.x, instance.y, instance.z, new_state);
         }
     }
 }
