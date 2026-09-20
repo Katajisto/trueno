@@ -144,16 +144,21 @@ World :: struct {
     rdm_lookup        : [..]Rdm_Atlas_Entry;   // populated by bake (Step 5) and by loader (Step 6)
 }
 
+// The mask state a colliding trile instance contributes. Stairs only count as
+// stairs when upright.
+occupancy_state_for :: inline (trile: *Trile, orientation: u8) -> Occupancy_State {
+    if trile.is_stairs && orientation < 4  return .OCCUPIED_STAIRS;
+    return .OCCUPIED;
+}
+
 calculate_and_set_chunk_occupancy_mask :: (chunk: *Chunk) {
     chunk_clear_full_occupancy_mask(chunk);
     
     for group: chunk.groups {
         trile, ok := get_trile(group.trile_name);
         if !ok || trile.skip_collision then continue;
-        new_state : Occupancy_State = ifx trile.is_stairs then .OCCUPIED_STAIRS else .OCCUPIED;
-        
         for instance : group.instances {
-            chunk_set_occupancy_mask_at(chunk, instance.x, instance.y, instance.z, new_state);
+            chunk_set_occupancy_mask_at(chunk, instance.x, instance.y, instance.z, occupancy_state_for(trile, instance.orientation));
         }
     }
 }
@@ -434,6 +439,22 @@ get_note_locations :: (note : string) -> []Vector3 {
         }
     }
     return result;
+}
+
+trile_instance_at_chunk :: (chunk: *Chunk, lx: s32, ly: s32, lz: s32) -> (bool, Trile_Instance, *Trile) {
+    for group : chunk.groups {
+        for instance : group.instances {
+            if instance.x == lx && instance.y == ly && instance.z == lz {
+                trile, ok := get_trile(group.trile_name);
+                if !ok {
+                    print("Error: did not find matching trile for group %\n", group.trile_name);
+                    return false, .{}, null;
+                }
+                return true, instance, trile;
+            }
+        }
+    }
+    return false, .{}, null;
 }
 
 invalidate_buried_around :: (world: *World, wx: s32, wy: s32, wz: s32) {
