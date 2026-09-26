@@ -103,6 +103,10 @@ is_action_start :: (action: $T) -> bool {
     return check_action(action, .START);
 }
 
+is_action_stop :: (action: $T) -> bool {
+    return check_action(action, .END);
+}
+
 init_keybinds :: () {
     set_default_bindings();
 }

@@ -127,7 +127,9 @@ handle_sokol_event :: (event: *sapp_event) {
             new_event.key_code = mapped;
             new_event.key_pressed = 1;
             add_modifier_info(event, *new_event);
-            input_button_states[mapped] = .START | .DOWN;
+            // OS key-repeat must not re-trigger START
+            if event.key_repeat  input_button_states[mapped] |= .DOWN;
+            else                 input_button_states[mapped] = .START | .DOWN;
         case .KEY_UP;
             mapped := get_key_code(event.key_code);
             new_event.type = .KEYBOARD;
