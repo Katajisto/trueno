@@ -26,6 +26,10 @@ current_editor_view : Editor_View = .Trile_Editor;
 
 in_editor_view : bool = false;
 
+editor_shows_water :: () -> bool {
+    return current_editor_view == .Level_Editor;
+}
+
 init_editor :: () {
     #if !FLAG_RELEASE_BUILD {
         #if OS != .WASM {

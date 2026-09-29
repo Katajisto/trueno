@@ -45,6 +45,7 @@ layout(binding=1) uniform plane_world_config {
     vec3 waterColor;
     vec3 deepColor;
     float time;
+    float waterReflectivity;
 };
 
 layout(binding=2) uniform plane_data {
@@ -136,12 +137,12 @@ void main() {
 
         vec2 screen_uv = gl_FragCoord.xy / vec2(screen_w, screen_h);
         screen_uv.y = 1.0 - screen_uv.y;
-        vec2 distortion = normal.xz * 0.007;
+        vec2 distortion = normal.xz * reflectionDistortion;
         vec3 reflected_color = texture(sampler2D(reftex, refsmp), screen_uv + distortion).rgb;
 
-        vec3 surface_color = mix(refracted_color, reflected_color, fresnel);
+        vec3 surface_color = mix(refracted_color, reflected_color, mix(fresnel, 1.0, waterReflectivity));
         vec3 final_color = surface_color + specular_highlight;
-        float alpha = mix(0.3, 0.5, fresnel);
+        float alpha = mix(mix(0.3, 0.5, fresnel), 1.0, waterReflectivity);
 
         vec3 fog = skyIntensity * sky(normalize(pos.xyz), sunPosition);
         float fogFactor = smoothstep(750.0, 1000.0, length(pos.xz));

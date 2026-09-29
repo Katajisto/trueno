@@ -149,6 +149,7 @@ autoedit :: (rect: GR.Rect, value: *$T, theme: *GR.Overall_Theme, identifier: s3
         for ti.members {
 			if it.flags & .CONSTANT continue;
 			if it.flags & .USING    continue;  // e.g. an entity's Entity base
+			if array_find(it.notes, "NoSave") continue;  // runtime state, not for editing
 			if !autoedit_supports_type(it.type) continue;
 			print_to_builder(*builder, "%\n", input_code_from_type_and_notes(it.name, it.type, it.notes, it_index));
         }

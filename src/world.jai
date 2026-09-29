@@ -55,6 +55,36 @@ Chunk_Trile_Group :: struct {
     is_buried    :  [..]bool;  // Runtime-only, parallel to instances. Not serialized.
 }
 
+// Chunk-local, like the instances. Call after changing group.instances.
+recompute_group_bounds :: (group: *Chunk_Trile_Group) {
+    if group.instances.count == 0 {
+        group.bounding_min = .{};
+        group.bounding_max = .{};
+        group.average_pos  = .{};
+        return;
+    }
+
+    gmin := Vector3.{31,31,31};
+    gmax := Vector3.{0,0,0};
+    gavg := Vector3.{0,0,0};
+
+    for i : group.instances {
+        gmin.x = min(gmin.x, xx i.x);
+        gmin.y = min(gmin.y, xx i.y);
+        gmin.z = min(gmin.z, xx i.z);
+        gmax.x = max(gmax.x, xx i.x);
+        gmax.y = max(gmax.y, xx i.y);
+        gmax.z = max(gmax.z, xx i.z);
+
+        gavg += Vector3.{xx i.x, xx i.y, xx i.z};
+    }
+    gavg /= cast(float) group.instances.count;
+
+    group.bounding_min = gmin;
+    group.bounding_max = gmax;
+    group.average_pos  = gavg;
+}
+
 Chunk :: struct {
     coord:  Chunk_Key;
     groups: [..]Chunk_Trile_Group;
@@ -524,6 +554,8 @@ World_Json_Config :: struct {
     waterColor           : [3]float;
     deepColor            : [3]float;
     waterShininess       : float;
+    waterReflectivity    : float = 0.0;
+    waterDistortion      : float = 0.007;
 }
 
 World_Json_Chunk :: struct {
@@ -685,6 +717,8 @@ world_config_to_json :: (conf: *World_Config) -> World_Json_Config {
     jc.waterColor         = conf.waterColor.component;
     jc.deepColor          = conf.deepColor.component;
     jc.waterShininess     = conf.waterShininess;
+    jc.waterReflectivity  = conf.waterReflectivity;
+    jc.waterDistortion    = conf.waterDistortion;
     return jc;
 }
 
@@ -705,6 +739,8 @@ world_config_from_json :: (jc: *World_Json_Config) -> World_Config {
     conf.waterColor.component    = jc.waterColor;
     conf.deepColor.component     = jc.deepColor;
     conf.waterShininess          = ifx jc.waterShininess > 0 then jc.waterShininess else 64.0;
+    conf.waterReflectivity       = jc.waterReflectivity;
+    conf.waterDistortion         = jc.waterDistortion;
     return conf;
 }
 
@@ -837,25 +873,7 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
                 inst := read_value(chunk_data, *chunk_cursor, Trile_Instance);
                 array_add(*group.instances, inst);
             }
-            gmin := Vector3.{31,31,31};
-            gmax := Vector3.{0,0,0};
-            gavg := Vector3.{0,0,0};
-        
-            for i : group.instances {
-                gmin.x = min(gmin.x, xx i.x);
-                gmin.y = min(gmin.y, xx i.y);
-                gmin.z = min(gmin.z, xx i.z);
-                gmax.x = max(gmax.x, xx i.x);
-                gmax.y = max(gmax.y, xx i.y);
-                gmax.z = max(gmax.z, xx i.z);
-
-                gavg += Vector3.{xx i.x, xx i.y, xx i.z};
-            }
-            gavg /= cast(float) group.instances.count;
-
-            group.bounding_min = gmin;
-            group.bounding_max = gmax;
-            group.average_pos  = gavg;
+            recompute_group_bounds(*group);
             array_add(*chunk.groups, group);
         }
         calculate_and_set_chunk_occupancy_mask(*chunk);
@@ -915,6 +933,8 @@ World_Config :: struct {
     waterColor    : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
     deepColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color // @ToDo: sensible default values.
     waterShininess      : float = 64.0; @Slider,1,512,8
+    waterReflectivity   : float = 0.0;  @Slider,0,1,0.05
+    waterDistortion     : float = 0.007; @Slider,0,0.05,0.001
     hsv_lighting        : s32   = 1;    @Slider,0,1,1
 
     // ambientColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color

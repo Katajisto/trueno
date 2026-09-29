@@ -65,8 +65,15 @@ Key_Combo :: struct {
     shift : bool;
 }
 
+MAX_BINDINGS_PER_ACTION :: 4;
+
+Action_Bindings :: struct {
+    combos : [MAX_BINDINGS_PER_ACTION]Key_Combo;
+    count  : s32;
+}
+
 // 5000 different actions ought to be enough for anything right?
-keys : [5000]Key_Combo;
+keys : [5000]Action_Bindings;
 
 check_action :: (action: $T, status: Key_Current_State) -> bool {
     offset := 0;
@@ -75,12 +82,16 @@ check_action :: (action: $T, status: Key_Current_State) -> bool {
     }
     if console_open_ignore_input then return false;
     if ui_keyboard_captured      then return false;
-    combo := keys[cast(s32)action + offset];
+    bindings := *keys[cast(s32)action + offset];
     ctrl_down  := cast(bool)(input_button_states[Key_Code.CTRL]  & .DOWN);
     shift_down := cast(bool)(input_button_states[Key_Code.SHIFT] & .DOWN);
-    if combo.ctrl  != ctrl_down  then return false;
-    if combo.shift != shift_down then return false;
-    return cast(bool)(input_button_states[combo.key] & status);
+    for 0..bindings.count-1 {
+        combo := bindings.combos[it];
+        if combo.ctrl  != ctrl_down  then continue;
+        if combo.shift != shift_down then continue;
+        if input_button_states[combo.key] & status then return true;
+    }
+    return false;
 }
 
 
@@ -92,7 +103,17 @@ set_binding :: (action: $T, combo: Key_Combo) {
         offset = EDITOR_ACTION_COUNT;
     }
 
-    keys[cast(s32)action + offset] = combo;
+    bindings := *keys[cast(s32)action + offset];
+    for 0..bindings.count-1 {
+        c := bindings.combos[it];
+        if c.key == combo.key && c.ctrl == combo.ctrl && c.shift == combo.shift  return;
+    }
+    if bindings.count >= MAX_BINDINGS_PER_ACTION {
+        log_warn("Action % already has % bindings, ignoring %", action, MAX_BINDINGS_PER_ACTION, combo);
+        return;
+    }
+    bindings.combos[bindings.count] = combo;
+    bindings.count += 1;
 }
 
 is_action_down :: (action: $T) -> bool {
@@ -116,7 +137,7 @@ get_action_combo :: (action: $T) -> Key_Combo {
     #if T != Editor_Action {
         offset = EDITOR_ACTION_COUNT;
     }
-    return keys[cast(s32)action + offset];
+    return keys[cast(s32)action + offset].combos[0];
 }
 
 keybind_button :: (r: GR.Rect, label: string, action: Editor_Action, theme: *GR.Button_Theme, loc := #caller_location) -> bool {

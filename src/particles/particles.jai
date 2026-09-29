@@ -112,9 +112,12 @@ add_particle_render_tasks :: () {
     batches : [..] Batch;
     batches.allocator = temp;
 
+    has_water, water_y := particle_water_height();
+
     for *p: g_particles {
         if !p.alive then continue;
         if p.definition == null then continue;
+        if has_water && p.position.y < water_y then continue;
         def := p.definition;
         if def.animation_name.count == 0 then continue;
 
@@ -194,6 +197,15 @@ add_particle_render_tasks :: () {
     }
 }
 
+particle_water_height :: () -> (has_water: bool, height: float) {
+    #if !FLAG_RELEASE_BUILD {
+        if in_editor_view && !editor_shows_water()  return false, 0;
+    }
+    curworld := get_current_world();
+    if !curworld.valid  return false, 0;
+    return true, effective_plane_height(*curworld.world.conf);
+}
+
 get_emitter_def :: (name: string) -> *Particle_Emitter_Config {
     for *def: g_emitter_defs {
         if def.name == name then return def;
@@ -238,14 +250,6 @@ save_particle_defs :: () {
     }
 }
 
-#scope_file
-
-Random :: #import "Random";
-
-rng :: inline (lo: float, hi: float) -> float {
-    return lo + Random.random_get_zero_to_one() * (hi - lo);
-}
-
 spawn_one_particle :: (position: Vector3, def: *Particle_Emitter_Config) {
     for *p: g_particles {
         if p.alive then continue;
@@ -266,6 +270,14 @@ spawn_one_particle :: (position: Vector3, def: *Particle_Emitter_Config) {
         p.definition = def;
         return;
     }
+}
+
+#scope_file
+
+Random :: #import "Random";
+
+rng :: inline (lo: float, hi: float) -> float {
+    return lo + Random.random_get_zero_to_one() * (hi - lo);
 }
 
 lerp_color :: (a: Vector4, b: Vector4, t: float) -> Vector4 {
