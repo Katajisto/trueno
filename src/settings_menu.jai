@@ -58,8 +58,17 @@ AUDIO_LABELS   :: string.["Master Volume", "Music Volume", "Sound Effects"];
     GRAPHICS_ITEMS :: string.["Fullscreen"];
 }
 
+main_items :: () -> []string {
+    result : [..]string;
+    result.allocator = temp;
+    array_add(*result, MAIN_ITEMS[0]);
+    for g_settings_config.main_items  array_add(*result, it.label);
+    for 1..MAIN_ITEMS.count-1  array_add(*result, MAIN_ITEMS[it]);
+    return result;
+}
+
 page_items :: () -> []string {
-    if g_settings.page == .MAIN      return MAIN_ITEMS;
+    if g_settings.page == .MAIN      return main_items();
     if g_settings.page == .SETTINGS  return SETTINGS_ITEMS;
     if g_settings.page == .AUDIO     return AUDIO_LABELS;
     if g_settings.page == .GRAPHICS  return GRAPHICS_ITEMS;
@@ -224,9 +233,17 @@ handle_enter :: (index: s32 = -1) {
     i := ifx index >= 0 then index else g_settings.cursor;
     if g_settings.page == {
         case .MAIN;
+            game_items := cast(s32) g_settings_config.main_items.count;
             if i == 0 { save_settings(); g_settings.open = false; }
-            if i == 1 then navigate_to(.SETTINGS);
-            if i == 2 { save_settings(); sapp_request_quit(); }
+            else if i <= game_items {
+                save_settings();
+                g_settings.open = false;
+                g_settings_config.main_items[i - 1].on_select();
+            } else {
+                i -= game_items;
+                if i == 1 then navigate_to(.SETTINGS);
+                if i == 2 { save_settings(); sapp_request_quit(); }
+            }
         case .SETTINGS;
             if i == 0 then navigate_to(.AUDIO);
             if i == 1 then navigate_to(.GRAPHICS);
@@ -255,10 +272,17 @@ Phosphene_Config :: struct {
     palette      : []Vector3;
 }
 
+// An entry the game adds to the pause menu. Choosing it closes the menu first.
+Settings_Menu_Item :: struct {
+    label     : string;
+    on_select : ();
+}
+
 Settings_Menu_Config :: struct {
     game_title  : string           = "TRUENO";
     credits     : string           = "Trueno engine by Tuomas Katajisto 2026";
     phosphenes  : Phosphene_Config;
+    main_items  : []Settings_Menu_Item;   // must outlive the config, e.g. a constant array
 }
 
 set_settings_config :: (config: Settings_Menu_Config) {
