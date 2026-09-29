@@ -487,6 +487,7 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 	for *group: chunk.groups {
 		if group.trile_name == name {
 			array_add(*group.instances, inst);
+			recompute_group_bounds(group);
 			added = true;
 			break;
 		}
@@ -495,6 +496,7 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 		group: Chunk_Trile_Group;
 		group.trile_name = sprint("%", name);
 		array_add(*group.instances, inst);
+		recompute_group_bounds(*group);
 		array_add(*chunk.groups, group);
 	}
 	invalidate_buried_around(*curworld.world, x, y, z);
@@ -520,6 +522,7 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 				if group.is_buried.count > idx {
 					array_unordered_remove_by_index(*group.is_buried, idx);
 				}
+				recompute_group_bounds(group);
 				removed = true;
 				break;
 			}
