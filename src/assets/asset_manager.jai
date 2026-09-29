@@ -306,6 +306,9 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
             case "wav";
                 audio := load_wav_from_memory(v.data);
                 table_set(*pack.audio, name, audio);
+            case "ogg";
+                audio := load_ogg_from_memory(v.data);
+                table_set(*pack.audio, name, audio);
             case "json";
                 if name == "particles" {
                     s := create_string_from_memory(v.data);

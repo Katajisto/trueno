@@ -64,6 +64,29 @@ load_hex_palette_from_memory :: (data: []u8) -> [..]Palette_Entry {
     return entries;
 }
 
+// Decoded in full up front, so the mixer sees the same float samples as from a wav;
+// only the pack stays small.
+load_ogg_from_memory :: (data: []u8) -> Audio_Data {
+    Vorbis :: #import "stb_vorbis";
+    audio : Audio_Data;
+    error : s32;
+    v := Vorbis.stb_vorbis_open_memory(data.data, cast(s32) data.count, *error, null);
+    if !v {
+        log_error("Failed to load ogg file! (stb_vorbis error %)", error);
+        return audio;
+    }
+    defer Vorbis.stb_vorbis_close(v);
+
+    info   := Vorbis.stb_vorbis_get_info(v);
+    frames := cast(s64) Vorbis.stb_vorbis_stream_length_in_samples(v);
+    array_resize(*audio.data, frames * info.channels);
+    got := Vorbis.stb_vorbis_get_samples_float_interleaved(v, info.channels, audio.data.data, cast(s32) audio.data.count);
+    audio.data.count  = got * info.channels;
+    audio.channels    = cast(s16) info.channels;
+    audio.sample_rate = cast(s32) info.sample_rate;
+    return audio;
+}
+
 load_wav_from_memory :: (data: []u8) -> Audio_Data {
     Wav :: #import "Wav_File";
     audio : Audio_Data;

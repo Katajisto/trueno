@@ -302,6 +302,7 @@ entity_saved_members :: (type: Type) -> []Type_Info_Struct_Member {
     result.allocator = temp;
     for (cast(*Type_Info_Struct) type).members {
         if it.flags & (.CONSTANT | .USING)  continue;
+        if array_find(it.notes, "NoSave")   continue;
         array_add(*result, it);
     }
     return result;
