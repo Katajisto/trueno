@@ -53,11 +53,13 @@ Ui_Vertex :: struct {
 }
 
 trile_mesh_create :: (trile: *Trile) -> Trile_Mesh {
-    return .{renderer_trile_mesh_create(mesh_trile(trile))};
+    vertices, indices := mesh_trile(trile);
+    return .{renderer_trile_mesh_create(vertices, indices)};
 }
 
 trile_mesh_update :: (mesh: Trile_Mesh, trile: *Trile) {
-    renderer_trile_mesh_update(mesh.id, mesh_trile(trile));
+    vertices, indices := mesh_trile(trile);
+    renderer_trile_mesh_update(mesh.id, vertices, indices);
 }
 
 trile_mesh_destroy :: (mesh: Trile_Mesh) {
@@ -192,6 +194,7 @@ Scene_Ui :: struct {
 Trile_Vertex :: struct {
     position : Vector3;
     swatch   : float;
+    ao       : float;   // 0 = fully occluded, 1 = open
 }
 
 Scene :: struct {

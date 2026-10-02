@@ -3,8 +3,10 @@ triles_init :: (orientations: [ORIENTATION_COUNT]Matrix3) {
     desc.layout.buffers[1].step_func = .PER_INSTANCE;
     desc.layout.attrs[ATTR_trile_position] = .{ format = .FLOAT3 };
     desc.layout.attrs[ATTR_trile_swatch]   = .{ format = .FLOAT };
+    desc.layout.attrs[ATTR_trile_ao]       = .{ format = .FLOAT };
     desc.layout.attrs[ATTR_trile_instance] = .{ format = .FLOAT4, buffer_index = 1 };
     desc.layout.attrs[ATTR_trile_tint]     = .{ format = .FLOAT,  buffer_index = 1 };
+    desc.index_type   = .UINT16;
     desc.cull_mode    = .BACK;
     desc.face_winding = .CCW;
     triles.pipeline = sg_make_pipeline(*desc);
@@ -15,16 +17,16 @@ triles_init :: (orientations: [ORIENTATION_COUNT]Matrix3) {
     triles.palette_dirty = true;
 }
 
-renderer_trile_mesh_create :: (vertices: []Trile_Vertex) -> u32 {
+renderer_trile_mesh_create :: (vertices: []Trile_Vertex, indices: []u16) -> u32 {
     id, mesh := slot_add(*triles.meshes);
-    make_mesh(mesh, vertices);
+    make_mesh(mesh, vertices, indices);
     return id;
 }
 
-renderer_trile_mesh_update :: (id: u32, vertices: []Trile_Vertex) {
+renderer_trile_mesh_update :: (id: u32, vertices: []Trile_Vertex, indices: []u16) {
     mesh := slot_get(*triles.meshes, id);
     free_mesh(mesh);
-    make_mesh(mesh, vertices);
+    make_mesh(mesh, vertices, indices);
 }
 
 renderer_trile_mesh_destroy :: (id: u32) {
@@ -78,24 +80,26 @@ triles_draw :: (pass: *Pass) {
     for triles.batches {
         if it.view_index != pass.view_index || (pass.reflection && it.key & PREVIEW_KEY)  continue;
         mesh := slot_get(*triles.meshes, xx (it.key & ~PREVIEW_KEY));
-        if !mesh || mesh.vertex_count == 0  continue;
+        if !mesh || mesh.index_count == 0  continue;
 
         bind : sg_bindings;
         bind.vertex_buffers[0]         = mesh.vertices;
+        bind.index_buffer              = mesh.indices;
         bind.vertex_buffers[1]         = triles.stream.buffer;
         bind.vertex_buffer_offsets[1]  = it.first * size_of(Instance);
         bind.images[IMG_palette]       = triles.palette_image;
         bind.samplers[SMP_palette_smp] = samplers.nearest_clamp;
         sg_apply_bindings(*bind);
-        sg_draw(0, mesh.vertex_count, it.count);
+        sg_draw(0, mesh.index_count, it.count);
     }
 }
 
 #scope_file
 
 Mesh :: struct {
-    vertices     : sg_buffer;
-    vertex_count : s32;
+    vertices    : sg_buffer;
+    indices     : sg_buffer;
+    index_count : s32;
 }
 
 Instance :: struct {
@@ -120,14 +124,18 @@ triles : struct {
     stream        : Stream_Buffer;
 }
 
-make_mesh :: (mesh: *Mesh, vertices: []Trile_Vertex) {
-    mesh.vertex_count = xx vertices.count;
-    if vertices.count {
+make_mesh :: (mesh: *Mesh, vertices: []Trile_Vertex, indices: []u16) {
+    mesh.index_count = xx indices.count;
+    if indices.count {
         mesh.vertices = sg_make_buffer(*(sg_buffer_desc.{ data = .{ vertices.data, xx (vertices.count * size_of(Trile_Vertex)) } }));
+        mesh.indices  = sg_make_buffer(*(sg_buffer_desc.{ type = .INDEXBUFFER, data = .{ indices.data, xx (indices.count * size_of(u16)) } }));
     }
 }
 
 free_mesh :: (mesh: *Mesh) {
-    if mesh.vertex_count  sg_destroy_buffer(mesh.vertices);
+    if mesh.index_count {
+        sg_destroy_buffer(mesh.vertices);
+        sg_destroy_buffer(mesh.indices);
+    }
     mesh.* = .{};
 }
