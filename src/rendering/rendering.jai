@@ -2,6 +2,7 @@
 // scene.jai and text.jai.
 
 #load "scene.jai";
+#load "trile_mesher.jai";
 #load "text.jai";
 #load "camera.jai";
 #load "debug_draw.jai";
@@ -16,7 +17,7 @@
 render :: () {
     text_end_frame();
     w, h := get_window_size();
-    scene_end_frame(w, h);
+    scene_end_frame(w, h, xx get_time());
     g_debug_line_count   = 0;
     g_overlay_line_count = 0;
 }

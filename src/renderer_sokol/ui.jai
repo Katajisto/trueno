@@ -1,38 +1,15 @@
 ui_init :: () {
-    shader_desc := ui_shader_desc(sg_query_backend());
-
-    desc : sg_pipeline_desc;
-    desc.shader = sg_make_shader(*shader_desc);
+    desc := pipeline_desc(ui_shader_desc(sg_query_backend()), .SCREEN, blend = true);
     desc.layout.attrs[ATTR_ui_position] = .{ format = .FLOAT2 };
     desc.layout.attrs[ATTR_ui_uv]       = .{ format = .FLOAT2 };
     desc.layout.attrs[ATTR_ui_color0]   = .{ format = .FLOAT4 };
-    desc.colors[0].blend = .{
-        enabled        = true,
-        src_factor_rgb = .SRC_ALPHA,
-        dst_factor_rgb = .ONE_MINUS_SRC_ALPHA,
-    };
     ui.pipeline = sg_make_pipeline(*desc);
-
-    ui.sampler = sg_make_sampler(*(sg_sampler_desc.{
-        wrap_u     = .CLAMP_TO_EDGE,
-        wrap_v     = .CLAMP_TO_EDGE,
-        min_filter = .NEAREST,
-        mag_filter = .NEAREST,
-    }));
 }
 
 ui_upload :: (scene: *Scene) {
     array_reset_keeping_memory(*ui.vertices);
     for scene.ui  array_add(*ui.vertices, ..it.vertices);
-    if ui.vertices.count == 0  return;
-
-    size := ui.vertices.count * size_of(Ui_Vertex);
-    if size > ui.buffer_size {
-        if ui.buffer_size  sg_destroy_buffer(ui.buffer);
-        ui.buffer_size = max(size, ui.buffer_size * 2);
-        ui.buffer = sg_make_buffer(*(sg_buffer_desc.{ size = xx ui.buffer_size, usage = .STREAM }));
-    }
-    sg_update_buffer(ui.buffer, *(sg_range.{ ui.vertices.data, xx size }));
+    stream_upload(*ui.stream, ui.vertices);
 }
 
 ui_draw :: (scene: *Scene, w: s32, h: s32) {
@@ -40,11 +17,11 @@ ui_draw :: (scene: *Scene, w: s32, h: s32) {
 
     sg_apply_pipeline(ui.pipeline);
     params := Ui_Vs_Params.{ screen_size = .[xx w, xx h] };
-    sg_apply_uniforms(UB_ui_vs_params, *(sg_range.{ *params, size_of(Ui_Vs_Params) }));
+    apply_uniforms(UB_ui_vs_params, *params);
 
     bind : sg_bindings;
-    bind.vertex_buffers[0] = ui.buffer;
-    bind.samplers[SMP_smp] = ui.sampler;
+    bind.vertex_buffers[0] = ui.stream.buffer;
+    bind.samplers[SMP_smp] = samplers.nearest_clamp;
 
     first : s32;
     for scene.ui {
@@ -66,8 +43,6 @@ ui_draw :: (scene: *Scene, w: s32, h: s32) {
 
 ui : struct {
     pipeline    : sg_pipeline;
-    sampler     : sg_sampler;
-    buffer      : sg_buffer;
-    buffer_size : int;
+    stream      : Stream_Buffer;
     vertices    : [..]Ui_Vertex;
 }

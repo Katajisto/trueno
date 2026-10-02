@@ -1139,7 +1139,7 @@ draw_editor_billboards :: (view: View_Id) {
 draw_level_editor :: () {
 	curworld := get_current_world();
 	if !curworld.valid then return;
-	view := add_view(.{camera = get_level_editor_camera(), environment = *curworld.world.environment});
+	view := add_view(.{camera = get_level_editor_camera(), environment = world_environment(*curworld.world)});
 	draw_entities(view, *curworld.world);
 	draw_live_particles(view);
 	if show_trile_preview && !trile_preview_disabled {

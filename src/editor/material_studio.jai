@@ -61,6 +61,7 @@ draw_material_studio_ui :: (theme: *GR.Overall_Theme) {
     r.y += r.h;
     GR.slider(r, *swatch.emittance, 0, 127, 1, *theme.slider_theme);
     r.y += r.h * 2;
+    swatch_changed(ms_selected);
 
     r.h = row_h;
     if GR.button(r, "Save", *theme.button_theme) {
@@ -73,6 +74,7 @@ draw_material_studio_ui :: (theme: *GR.Overall_Theme) {
         GR.label(r, "In use, can't delete", *t_label_left(theme));
     } else if GR.button(r, "Delete", *theme.button_theme) {
         swatch.* = .{};
+        swatch_changed(ms_selected);
         ms_selected = 0;
     }
 }

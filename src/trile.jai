@@ -158,10 +158,16 @@ swatch_add :: (name: string, color: [3]u8, roughness: u8 = 4, metallic: u8 = 0, 
     for 1..MAX_SWATCHES-1 {
         if g_swatches[it].used  continue;
         g_swatches[it] = .{used = true, name = copy_string(name), color = color, roughness = roughness, metallic = metallic, emittance = emittance};
+        swatch_changed(xx it);
         return cast(u8) it, true;
     }
     log_error("All % swatches are in use", MAX_SWATCHES - 1);
     return 0, false;
+}
+
+swatch_changed :: (id: u8) {
+    s := g_swatches[id];
+    swatch_set(id, s.color, s.roughness, s.metallic, s.emittance);
 }
 
 swatch_color :: (id: u8) -> Vector3 {
@@ -212,6 +218,7 @@ lswatches :: () {
         if it.id < 1 || it.id >= MAX_SWATCHES  continue;
         g_swatches[it.id] = .{used = true, name = sprint("%", it.name), color = it.color, roughness = it.roughness, metallic = it.metallic, emittance = it.emittance};
     }
+    for 0..MAX_SWATCHES-1  swatch_changed(xx it);
 } @Command
 
 Palette_Entry :: struct {

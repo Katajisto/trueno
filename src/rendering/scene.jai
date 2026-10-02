@@ -9,6 +9,13 @@ Font_Face  :: struct { id: s32; }
 View_Id    :: struct { index: s32; }
 
 Environment :: struct {
+    reflection_height  : float;
+    water              : bool;
+    water_color        : Vector3 = .{1, 1, 1};
+    deep_color         : Vector3 = .{1, 1, 1};
+    water_reflectivity : float;
+    water_distortion   : float = 0.007;
+    water_normals      : Texture;
 }
 
 View :: struct {
@@ -46,14 +53,19 @@ Ui_Vertex :: struct {
 }
 
 trile_mesh_create :: (trile: *Trile) -> Trile_Mesh {
-    scene.trile_mesh_count += 1;
-    return .{scene.trile_mesh_count};
+    return .{renderer_trile_mesh_create(mesh_trile(trile))};
 }
 
 trile_mesh_update :: (mesh: Trile_Mesh, trile: *Trile) {
+    renderer_trile_mesh_update(mesh.id, mesh_trile(trile));
 }
 
 trile_mesh_destroy :: (mesh: Trile_Mesh) {
+    renderer_trile_mesh_destroy(mesh.id);
+}
+
+swatch_set :: (id: u8, color: [3]u8, roughness: u8, metallic: u8, emittance: u8) {
+    renderer_swatch_set(id, color, roughness, metallic, emittance);
 }
 
 // Pixels are RGBA8.
@@ -74,8 +86,9 @@ World_Group :: struct {
     instances : []Trile_Instance;
 }
 
-world_set_chunk :: (key: Chunk_Key, groups: []World_Group) {
+world_set_chunk :: (key: Chunk_Key, origin: Vector3, groups: []World_Group) {
     chunk := find_or_add(*scene.chunks, key);
+    chunk.origin = origin;
     for chunk.groups  array_free(it.instances);
     array_reset_keeping_memory(*chunk.groups);
     for groups {
@@ -103,6 +116,13 @@ world_clear :: () {
 
 add_view :: (view: View) -> View_Id {
     array_add(*scene.views, view);
+    camera := view.camera;
+    array_add(*scene.view_proj, create_viewproj(*camera));
+
+    height := ifx view.environment then view.environment.reflection_height else 0;
+    camera.position.y = 2 * height - camera.position.y;
+    camera.target.y   = 2 * height - camera.target.y;
+    array_add(*scene.reflection_view_proj, create_viewproj(*camera));
     return .{xx (scene.views.count - 1)};
 }
 
@@ -133,6 +153,7 @@ ui_scissor_clear :: () {
 }
 
 Scene_Chunk :: struct {
+    origin : Vector3;
     groups : [..]World_Group;
 }
 
@@ -168,12 +189,18 @@ Scene_Ui :: struct {
     clear_scissor : bool;
 }
 
-Scene :: struct {
-    trile_mesh_count : u32;
+Trile_Vertex :: struct {
+    position : Vector3;
+    swatch   : float;
+}
 
+Scene :: struct {
     chunks : Table(Chunk_Key, Scene_Chunk, chunk_key_hash, chunk_key_compare);
 
     views      : [..]View;
+    view_proj  : [..]Matrix4;
+    reflection_view_proj : [..]Matrix4;
+    time       : float;
     triles     : [..]Scene_Trile;
     billboards : [..]Scene_Billboard;
     particles  : [..]Scene_Particles;
@@ -181,16 +208,24 @@ Scene :: struct {
 }
 
 scene_init :: () {
-    renderer_init();
+    orientations : [ORIENTATION_COUNT]Matrix3;
+    for *orientations {
+        m := orientation_matrix(xx it_index).m;
+        for r: 0..2  for c: 0..2  it.coef[r][c] = xx m[r][c];
+    }
+    renderer_init(orientations);
 }
 
 scene_shutdown :: () {
     renderer_shutdown();
 }
 
-scene_end_frame :: (width: s32, height: s32) {
+scene_end_frame :: (width: s32, height: s32, time: float) {
+    scene.time = time;
     renderer_render(*scene, width, height);
     array_reset_keeping_memory(*scene.views);
+    array_reset_keeping_memory(*scene.view_proj);
+    array_reset_keeping_memory(*scene.reflection_view_proj);
     array_reset_keeping_memory(*scene.triles);
     array_reset_keeping_memory(*scene.billboards);
     array_reset_keeping_memory(*scene.particles);

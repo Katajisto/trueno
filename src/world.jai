@@ -251,7 +251,8 @@ upload_chunk :: (chunk: *Chunk) {
         mesh, ok := get_trile_mesh(it.trile_name);
         if ok  array_add(*groups, .{mesh, it.instances});
     }
-    world_set_chunk(chunk.coord, groups);
+    origin := Vector3.{xx (chunk.coord.x * CHUNK_SIZE), xx (chunk.coord.y * CHUNK_SIZE), xx (chunk.coord.z * CHUNK_SIZE)};
+    world_set_chunk(chunk.coord, origin, groups);
 }
 
 get_note_locations :: (note : string) -> []Vector3 {
@@ -719,6 +720,19 @@ World_Config :: struct {
 }
 
 INDOOR_REFLECTION_PLANE :: 1.0;
+
+world_environment :: (world: *World) -> *Environment {
+    env  := *world.environment;
+    conf := *world.conf;
+    env.reflection_height  = effective_plane_height(conf);
+    env.water              = !conf.indoor;
+    env.water_color        = conf.waterColor;
+    env.deep_color         = conf.deepColor;
+    env.water_reflectivity = conf.waterReflectivity;
+    env.water_distortion   = conf.waterDistortion;
+    env.water_normals      = get_texture_from_pack("core", "utiltex/water_small.png");
+    return env;
+}
 
 // The planar reflection height: the water surface outdoors, the floor indoors.
 effective_plane_height :: (wc: *World_Config) -> float {
