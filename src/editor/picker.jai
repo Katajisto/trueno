@@ -59,7 +59,7 @@ draw_trile_picker :: (r_in: GR.Rect, theme: *GR.Overall_Theme) {
     btn_theme.frame_color_down    = .{0, 0, 0, 0};
     btn_theme.frame_color_flash   = .{0, 0, 0, 0};
 
-    atlas_valid := g_thumbnail_atlas.tex.id != INVALID_ID;
+    atlas_valid := g_thumbnail_atlas.tex.id != 0;
 
     region, inside := GR.begin_scrollable_region(r, *theme.scrollable_region_theme);
 

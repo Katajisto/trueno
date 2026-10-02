@@ -36,14 +36,7 @@ draw_line :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, color: Vector4
 }
 
 text_width :: (text: string) -> float {
-    if text.count < 1 {
-        return 0;
-    }
-	
-    fonsSetFont(state.fons, state.font_default.fons_font);
-    fonsSetSize(state.fons, xx iprof_font.character_height);
-    w := fonsTextBounds(state.fons, 0.0, 0.0, text.data, text.data + text.count, null);
-	return cast(float) w;
+    return text_measure(state.font_default.face, xx iprof_font.character_height, text);
 }
 
 draw_rectangle_prof :: (x0: float, y0: float, x1: float, y1: float, color: Vector4) {

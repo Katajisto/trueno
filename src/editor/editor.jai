@@ -6,10 +6,10 @@
     #load "trile_editor.jai";
     #load "level_editor.jai";
     #load "particle_editor.jai";
+    #load "material_studio.jai";
 }
 #if FLAG_TACOMA_ENABLED { #load "tacoma.jai"; }
 #load "console.jai";
-#load "textureDebugger.jai";
 
 #scope_file
 
@@ -18,6 +18,7 @@ Editor_View :: enum {
     Trile_Editor;
     Level_Editor;
     Particle_Editor;
+    Material_Editor;
 };
 
 current_editor_view : Editor_View = .Trile_Editor;
@@ -62,6 +63,8 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
             if keybind_button(r, "Trile studio",    .STUDIO_TRILE,    *t_button_selectable(theme, current_editor_view == .Trile_Editor))    { clear_particles(); current_editor_view = .Trile_Editor; }
             r.x -= r.w;
             if keybind_button(r, "Particle studio", .STUDIO_MATERIAL, *t_button_selectable(theme, current_editor_view == .Particle_Editor)) { clear_particles(); current_editor_view = .Particle_Editor; }
+            r.x -= r.w;
+            if keybind_button(r, "Material studio", .STUDIO_SWATCHES, *t_button_selectable(theme, current_editor_view == .Material_Editor)) { clear_particles(); current_editor_view = .Material_Editor; }
 
             if current_editor_view == {
                 case .Trile_Editor;
@@ -70,23 +73,19 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
                     draw_level_editor_ui(theme);
                 case .Particle_Editor;
                     draw_particle_editor_ui(theme);
+                case .Material_Editor;
+                    draw_material_studio_ui(theme);
             }
         }
         draw_profiler();
     }
-    draw_texture_debugger(theme);
-    draw_postprocess_popup(theme);
-    draw_lighting_popup(theme);
     GR.draw_popups();
     immediate_flush();
 }
 
 draw_editor :: () {
     #if OS != .WASM {
-        disable_dof_post_process = false; 
         if !in_editor_view then return;
-        disable_dof_post_process = true; 
-
 
         if current_editor_view == {
             case .Trile_Editor;

@@ -6,7 +6,7 @@ CHUNK_SIZE :: 32;
 
 Current_World :: struct {
     world : World;
-    pool  : Pool.Pool; // A memory pool to allocate stuff for the lifetime of this level being active. For example RDMs.
+    pool  : Pool.Pool; // A memory pool to allocate stuff for the lifetime of this level being active.
     valid : bool = false;
 };
 
@@ -44,46 +44,10 @@ Trile_Instance :: struct {
 }
 
 Chunk_Trile_Group :: struct {
-    trile_name   : string;
-
-    // Precalculated to save time when we are creating render tasks.
-    bounding_min : Vector3;
-    bounding_max : Vector3;
-    average_pos  : Vector3;
-    
-    instances    :  [..]Trile_Instance;
-    is_buried    :  [..]bool;  // Runtime-only, parallel to instances. Not serialized.
+    trile_name : string;
+    instances  : [..]Trile_Instance;
 }
 
-// Chunk-local, like the instances. Call after changing group.instances.
-recompute_group_bounds :: (group: *Chunk_Trile_Group) {
-    if group.instances.count == 0 {
-        group.bounding_min = .{};
-        group.bounding_max = .{};
-        group.average_pos  = .{};
-        return;
-    }
-
-    gmin := Vector3.{31,31,31};
-    gmax := Vector3.{0,0,0};
-    gavg := Vector3.{0,0,0};
-
-    for i : group.instances {
-        gmin.x = min(gmin.x, xx i.x);
-        gmin.y = min(gmin.y, xx i.y);
-        gmin.z = min(gmin.z, xx i.z);
-        gmax.x = max(gmax.x, xx i.x);
-        gmax.y = max(gmax.y, xx i.y);
-        gmax.z = max(gmax.z, xx i.z);
-
-        gavg += Vector3.{xx i.x, xx i.y, xx i.z};
-    }
-    gavg /= cast(float) group.instances.count;
-
-    group.bounding_min = gmin;
-    group.bounding_max = gmax;
-    group.average_pos  = gavg;
-}
 
 Chunk :: struct {
     coord:  Chunk_Key;
@@ -95,10 +59,6 @@ Chunk :: struct {
     occupancy_mask : [32][32]u32;
     // We want to be easily able to identify stairs from the chunk.
     stairs_mask    : [32][32]u32;
-
-    sh_probe_grid:  sg_image;  // 192x4096 RGBA16F 2D texture (2 probes/trile/axis)
-    sh_valid:       bool;
-    sh_dirty:       bool;
 }
 
 Occupancy_State :: enum {
@@ -146,32 +106,16 @@ Editor_Note :: struct {
     text     : string;
 }
 
-RDM_DEFAULT_SIZE :: 128;
-
-Rdm_Instance_Override :: struct {
-    x           : s32;
-    y           : s32;
-    z           : s32;
-    rdm_enabled : bool;
-    rdm_size    : s32; // side in px; 0 means legacy — treat as RDM_DEFAULT_SIZE.
-}
-
-// Per-world entry of the global RDM atlas. atlas_rect is normalized UV (x, y, w, h).
-Rdm_Atlas_Entry :: struct {
-    x, y, z    : s32;
-    atlas_rect : Vector4;
-}
 
 World :: struct {
     name              : string;
     conf              : World_Config;
+    environment       : Environment;
     chunks            : Table(Chunk_Key, Chunk, chunk_key_hash, chunk_key_compare);
     emitter_instances : [..]Particle_Emitter_Instance;
     notes             : [..]Editor_Note;
     entities          : [..]*Entity;
     next_entity_id    : u32;
-    rdm_overrides     : [..]Rdm_Instance_Override;
-    rdm_lookup        : [..]Rdm_Atlas_Entry;   // populated by bake (Step 5) and by loader (Step 6)
 }
 
 // The mask state a colliding trile instance contributes. Stairs only count as
@@ -191,69 +135,6 @@ calculate_and_set_chunk_occupancy_mask :: (chunk: *Chunk) {
             chunk_set_occupancy_mask_at(chunk, instance.x, instance.y, instance.z, occupancy_state_for(trile, instance.orientation));
         }
     }
-}
-
-rdm_get_atlas_rect :: (world: *World, x: s32, y: s32, z: s32) -> (Vector4, bool) {
-    for world.rdm_lookup {
-        if it.x == x && it.y == y && it.z == z then return it.atlas_rect, true;
-    }
-    return .{}, false;
-}
-
-is_rdm_instance_enabled :: (world: *World, x: s32, y: s32, z: s32) -> bool {
-    for world.rdm_overrides {
-        if it.x == x && it.y == y && it.z == z then return it.rdm_enabled;
-    }
-    return false;
-}
-
-set_rdm_instance_enabled :: (world: *World, x: s32, y: s32, z: s32, enabled: bool) {
-    for *world.rdm_overrides {
-        if it.x == x && it.y == y && it.z == z {
-            if !enabled {
-                array_ordered_remove_by_index(*world.rdm_overrides, it_index);
-            } else {
-                it.rdm_enabled = true;
-                if it.rdm_size == 0 then it.rdm_size = RDM_DEFAULT_SIZE;
-            }
-            return;
-        }
-    }
-    if enabled {
-        array_add(*world.rdm_overrides, .{x=x, y=y, z=z, rdm_enabled=true, rdm_size=RDM_DEFAULT_SIZE});
-    }
-}
-
-get_rdm_instance_size :: (world: *World, x: s32, y: s32, z: s32) -> s32 {
-    for world.rdm_overrides {
-        if it.x == x && it.y == y && it.z == z {
-            if !it.rdm_enabled then return 0;
-            return ifx it.rdm_size > 0 then it.rdm_size else RDM_DEFAULT_SIZE;
-        }
-    }
-    return 0;
-}
-
-set_rdm_instance_size :: (world: *World, x: s32, y: s32, z: s32, size: s32) {
-    for *world.rdm_overrides {
-        if it.x == x && it.y == y && it.z == z {
-            it.rdm_size = size;
-            return;
-        }
-    }
-}
-
-RDM_SIZE_LADDER :: s32.[32, 64, 128, 256, 512, 1024, 2048, 4096];
-
-rdm_cycle_size :: (cur: s32, dir: s32) -> s32 {
-    idx : s32 = 2;
-    for RDM_SIZE_LADDER {
-        if it == cur { idx = cast(s32) it_index; break; }
-    }
-    idx += dir;
-    if idx < 0 then idx = 0;
-    if idx >= cast(s32) RDM_SIZE_LADDER.count then idx = cast(s32) RDM_SIZE_LADDER.count - 1;
-    return RDM_SIZE_LADDER[idx];
 }
 
 // Convert a world-space integer position to chunk coordinate.
@@ -338,11 +219,10 @@ init_world_system :: () {
 
 unload_current_world :: () {
     if !current_world.valid then return;
-    rdm_loader_cancel_all();
+    world_clear();
     for *chunk: current_world.world.chunks {
         for *group: chunk.groups {
             array_free(group.instances);
-            array_free(group.is_buried);
         }
         array_free(chunk.groups);
     }
@@ -351,7 +231,6 @@ unload_current_world :: () {
     // Entity ids restart per world, so a stale editor selection would latch onto
     // an unrelated entity in the next one.
     #if OS != .WASM { level_editor_clear_entity_selection(); }
-    array_free(current_world.world.rdm_lookup);
     Pool.reset(*current_world.pool);
     current_world.valid = false;
 }
@@ -361,101 +240,18 @@ set_loaded_world :: (world: World) {
     current_world.world = world;
     current_world.valid = true;
     resolve_emitter_definitions(*current_world.world);
-    for *chunk: current_world.world.chunks {
-        recompute_buried_for_chunk(*current_world.world, chunk);
-    }
+    for *chunk: current_world.world.chunks  upload_chunk(chunk);
 }
 
-is_cell_opaque :: (name: string) -> bool {
-    if name.count == 0  return false;
-    t, ok := get_trile(name);
-    if !ok  return false;
-    return t.is_opaque;
-}
-
-trile_at_world :: (world: *World, wx: s32, wy: s32, wz: s32) -> string {
-    key := world_to_chunk_coord(wx, wy, wz);
-    chunk := table_find_pointer(*world.chunks, key);
-    if !chunk  return "";
-    lx, ly, lz := world_to_local(wx, wy, wz);
-    for *group: chunk.groups {
-        for inst: group.instances {
-            if inst.x == lx && inst.y == ly && inst.z == lz {
-                return group.trile_name;
-            }
-        }
+// Hands a chunk's triles to the renderer. Call after loading or editing it.
+upload_chunk :: (chunk: *Chunk) {
+    groups: [..]World_Group;
+    groups.allocator = temp;
+    for chunk.groups {
+        mesh, ok := get_trile_mesh(it.trile_name);
+        if ok  array_add(*groups, .{mesh, it.instances});
     }
-    return "";
-}
-
-BURIED_DIRS :: s32.[ 1,0,0,  -1,0,0,  0,1,0,  0,-1,0,  0,0,1,  0,0,-1 ];
-
-compute_buried_at_world :: (world: *World, wx: s32, wy: s32, wz: s32) -> bool {
-    for axis: 0..5 {
-        nwx := wx + BURIED_DIRS[axis*3+0];
-        nwy := wy + BURIED_DIRS[axis*3+1];
-        nwz := wz + BURIED_DIRS[axis*3+2];
-        if !is_cell_opaque(trile_at_world(world, nwx, nwy, nwz))  return false;
-    }
-    return true;
-}
-
-recompute_buried_for_chunk :: (world: *World, chunk: *Chunk) {
-    // Build an O(1) local lookup grid (32^3 trile names) for this chunk so the
-    // common in-chunk neighbor case is a single index lookup. Cross-chunk
-    // neighbors fall back to trile_at_world.
-    GRID :: CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
-    grid: [GRID] string;
-    grid_data := grid;
-    for *group: chunk.groups {
-        for inst: group.instances {
-            idx := cast(int)inst.x + CHUNK_SIZE * (cast(int)inst.y + CHUNK_SIZE * cast(int)inst.z);
-            grid_data[idx] = group.trile_name;
-        }
-    }
-
-    for *group: chunk.groups {
-        array_resize(*group.is_buried, group.instances.count);
-        for inst, i: group.instances {
-            wx, wy, wz := chunk_local_to_world(chunk.coord, inst.x, inst.y, inst.z);
-            buried := true;
-            for axis: 0..5 {
-                nwx := wx + BURIED_DIRS[axis*3+0];
-                nwy := wy + BURIED_DIRS[axis*3+1];
-                nwz := wz + BURIED_DIRS[axis*3+2];
-                neighbor_name: string;
-                nkey := world_to_chunk_coord(nwx, nwy, nwz);
-                if nkey == chunk.coord {
-                    nlx, nly, nlz := world_to_local(nwx, nwy, nwz);
-                    nidx := cast(int)nlx + CHUNK_SIZE * (cast(int)nly + CHUNK_SIZE * cast(int)nlz);
-                    neighbor_name = grid_data[nidx];
-                } else {
-                    neighbor_name = trile_at_world(world, nwx, nwy, nwz);
-                }
-                if !is_cell_opaque(neighbor_name) {
-                    buried = false;
-                    break;
-                }
-            }
-            group.is_buried[i] = buried;
-        }
-    }
-}
-
-recompute_buried_at_cell :: (world: *World, wx: s32, wy: s32, wz: s32) {
-    key := world_to_chunk_coord(wx, wy, wz);
-    chunk := table_find_pointer(*world.chunks, key);
-    if !chunk  return;
-    lx, ly, lz := world_to_local(wx, wy, wz);
-    for *group: chunk.groups {
-        for inst, i: group.instances {
-            if inst.x == lx && inst.y == ly && inst.z == lz {
-                if group.is_buried.count != group.instances.count  array_resize(*group.is_buried, group.instances.count);
-                group.is_buried[i] = compute_buried_at_world(world, wx, wy, wz);
-                return;
-            }
-        }
-    }
+    world_set_chunk(chunk.coord, groups);
 }
 
 get_note_locations :: (note : string) -> []Vector3 {
@@ -487,13 +283,6 @@ trile_instance_at_chunk :: (chunk: *Chunk, lx: s32, ly: s32, lz: s32) -> (bool, 
     return false, .{}, null;
 }
 
-invalidate_buried_around :: (world: *World, wx: s32, wy: s32, wz: s32) {
-    recompute_buried_at_cell(world, wx, wy, wz);
-    for axis: 0..5 {
-        recompute_buried_at_cell(world, wx + BURIED_DIRS[axis*3+0], wy + BURIED_DIRS[axis*3+1], wz + BURIED_DIRS[axis*3+2]);
-    }
-}
-
 resolve_emitter_definitions :: (world: *World) {
     for *inst: world.emitter_instances {
         inst.definition = get_emitter_def(inst.definition_name);
@@ -507,10 +296,10 @@ resolve_emitter_definitions :: (world: *World) {
 
 clear_world :: () {
     if !current_world.valid then return;
+    world_clear();
     for *chunk: current_world.world.chunks {
         for *group: chunk.groups {
             array_free(group.instances);
-            array_free(group.is_buried);
         }
         array_free(chunk.groups);
     }
@@ -535,7 +324,6 @@ World_Json :: struct {
     emitters      : [..]World_Json_Emitter;
     notes         : [..]World_Json_Note;
     entities      : [..]World_Json_Entity;
-    rdm_overrides : [..]World_Json_Rdm_Override;
 }
 
 World_Json_Config :: struct {
@@ -556,6 +344,7 @@ World_Json_Config :: struct {
     waterShininess       : float;
     waterReflectivity    : float = 0.0;
     waterDistortion      : float = 0.007;
+    indoor               : s32;
 }
 
 World_Json_Chunk :: struct {
@@ -586,14 +375,6 @@ World_Json_Entity :: struct {
     position    : [3]float;
     orientation : u8;       // absent in worlds saved before entities could rotate
     fields      : [..]Entity_Field;
-}
-
-World_Json_Rdm_Override :: struct {
-    x           : s32;
-    y           : s32;
-    z           : s32;
-    rdm_enabled : bool;
-    rdm_size    : s32;
 }
 
 // World_Config serialized as a fixed-size binary blob.
@@ -719,6 +500,7 @@ world_config_to_json :: (conf: *World_Config) -> World_Json_Config {
     jc.waterShininess     = conf.waterShininess;
     jc.waterReflectivity  = conf.waterReflectivity;
     jc.waterDistortion    = conf.waterDistortion;
+    jc.indoor             = conf.indoor;
     return jc;
 }
 
@@ -741,6 +523,7 @@ world_config_from_json :: (jc: *World_Json_Config) -> World_Config {
     conf.waterShininess          = ifx jc.waterShininess > 0 then jc.waterShininess else 64.0;
     conf.waterReflectivity       = jc.waterReflectivity;
     conf.waterDistortion         = jc.waterDistortion;
+    conf.indoor                  = jc.indoor;
     return conf;
 }
 
@@ -826,11 +609,6 @@ save_world :: (world: *World) -> (json: string, chunks_bin: string) {
         array_add(*wj.entities, je);
     }
 
-    for ov: world.rdm_overrides {
-        size := ifx ov.rdm_size > 0 then ov.rdm_size else RDM_DEFAULT_SIZE;
-        array_add(*wj.rdm_overrides, .{x=ov.x, y=ov.y, z=ov.z, rdm_enabled=ov.rdm_enabled, rdm_size=size});
-    }
-
     json_str := Jaison.json_write_string(wj, " ");
     return json_str, builder_to_string(*bin_builder);
 }
@@ -873,7 +651,6 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
                 inst := read_value(chunk_data, *chunk_cursor, Trile_Instance);
                 array_add(*group.instances, inst);
             }
-            recompute_group_bounds(*group);
             array_add(*chunk.groups, group);
         }
         calculate_and_set_chunk_occupancy_mask(*chunk);
@@ -906,11 +683,6 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
         }
     }
 
-    for jov: wj.rdm_overrides {
-        size := ifx jov.rdm_size > 0 then jov.rdm_size else RDM_DEFAULT_SIZE;
-        array_add(*world.rdm_overrides, .{x=jov.x, y=jov.y, z=jov.z, rdm_enabled=jov.rdm_enabled, rdm_size=size});
-    }
-
     return world, true;
 }
 
@@ -936,35 +708,21 @@ World_Config :: struct {
     waterReflectivity   : float = 0.0;  @Slider,0,1,0.05
     waterDistortion     : float = 0.007; @Slider,0,0.05,0.001
     hsv_lighting        : s32   = 1;    @Slider,0,1,1
+    // Indoor levels: no sun shadows (faces toward the sun still light up), a
+    // flat skyBase instead of the sky, and no water. The reflection plane moves
+    // to the top of the floor layer (y = 1) for floor reflections.
+    indoor              : s32   = 0;    @Slider,0,1,1
 
     // ambientColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color
     // ambientIntensity : float   = 0.3; @Slider,0,3,0.1
 
 }
 
-// Copies over all the fields of our world config into a given shader type.
-// Requires that the shader type has all of the fields the world config has.
-world_config_to_shader_type :: (wc: *World_Config, data: *$T) {
-    generate_copy_code :: () -> string {
-        builder : String_Builder;
-        ti_src := type_info(World_Config);
-        ti_dst := type_info(T);
-        for src_member: ti_src.members {
-            has_field := false;
-            for dst_member: ti_dst.members {
-                if dst_member.name == src_member.name { has_field = true; break; }
-            }
-            if !has_field  continue;
-            if src_member.type == type_info(Vector3) then print_to_builder(*builder, "data.% = wc.%.component;\n", src_member.name, src_member.name);
-            else print_to_builder(*builder, "data.% = wc.%;\n", src_member.name, src_member.name);
-        }
-        return builder_to_string(*builder);
-    }
-    data.time = xx get_time();
-    #insert #run,stallable generate_copy_code();
-}
+INDOOR_REFLECTION_PLANE :: 1.0;
 
+// The planar reflection height: the water surface outdoors, the floor indoors.
 effective_plane_height :: (wc: *World_Config) -> float {
+    if wc.indoor  return INDOOR_REFLECTION_PLANE;
     if wc.animatePlaneHeight {
         return wc.planeHeight * (1.0 + sin(cast(float)get_time() * 0.5) * 0.1);
     }
@@ -1013,3 +771,4 @@ draw_world_picker :: (r_in: GR.Rect, theme: *GR.Overall_Theme) {
 		}
 	}
 }
+

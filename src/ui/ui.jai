@@ -45,29 +45,21 @@ Ui_Font :: struct {
     character_height                 : int = 30;
     typical_descender                : int = 1;
     typical_ascender                 : int = 1;
-    fons_font                        : s32 = 0;
+    face                             : Font_Face;
     temporary_glyphs                 : [..]Ui_Font_Glyph;
     temporary_glyphs_byte_offsets    : [..]u32;
     temporary_glyphs_width_in_pixels : u32;
 };
 
 ui_init_font_fields :: (font: *Ui_Font) {
-    m_str := "M";
-    fonsSetFont(state.fons, xx font.fons_font);
-    fonsSetSize(state.fons, xx font.character_height);
-
-    ascender, descender, line_h : float;
-    fonsVertMetrics(state.fons, *ascender, *descender, *line_h);
-    
+    ascender, descender := text_vertical_metrics(font.face, xx font.character_height);
     font.typical_descender = cast(int) descender;
     font.typical_ascender  = cast(int) (ascender * 0.85); // @stupid fix to make the ascender not be so big.
-    
-    w := fonsTextBounds(state.fons, 0.0, 0.0, m_str.data, m_str.data + m_str.count, null);
-    font.em_width = xx w;
+    font.em_width = xx text_measure(font.face, xx font.character_height, "M");
 }
 
 Ui_Texture :: struct {
-    tex: sg_image;
+    tex: Texture;
 }
 
 Ui_Rect :: struct {
@@ -120,25 +112,8 @@ texture_load_from_memory :: (texture: *Ui_Texture, memory: []u8, srgb: bool, bui
     y : s32;
     channels : s32;
     data := stbi.stbi_load_from_memory(memory.data, xx memory.count, *x, *y, *channels, 4);
-    img := sg_alloc_image();
-
-    subimg : [6][16]sg_range;
-    subimg[0][0] = .{
-        ptr = data,
-        size = xx (x * y * 4)
-    };
-
-    sg_init_image(img, *(sg_image_desc.{
-        width = x,
-        height = y,
-        pixel_format = sg_pixel_format.RGBA8,
-        data = .{
-            subimage = subimg
-        }
-    }));
-
+    texture.tex = texture_create(x, y, .{x * y * 4, data});
     stbi.stbi_image_free(data);
-    texture.tex = img;
     if !default_texture then default_texture = texture;
     return true;
 }
@@ -147,31 +122,27 @@ gScissor : Ui_Rect;
 gScissorActive : bool = false;
 
 set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32)  {
-    arb_tri_command_add(.{ type = .SET_SCISSOR, scissor = .{x0, y0, x1 - x0, y1 - y0}});
+    immediate_flush();
+    ui_scissor(x0, y0, x1 - x0, y1 - y0);
 }
 clear_scissor :: () {
-    arb_tri_command_add(.{type = .REMOVE_SCISSOR});
+    immediate_flush();
+    ui_scissor_clear();
 }
 
-gCurrentTexture : *Ui_Texture = null;
-add_uvs         : bool        = false;
+// Immediate-mode triangles are batched until the texture changes or something
+// else has to go into the UI stream between them.
+ui_batch         : [..]Ui_Vertex;
+ui_batch_texture : Texture;
 
 set_shader_for_color :: (enable_blend := false) {
-    arb_tri_command_add(.{
-        type = .REMOVE_TEXTURE
-    });
-    add_uvs = false;
     immediate_flush();
+    ui_batch_texture = .{};
 }
 
-
 set_shader_for_images :: (texture: *Ui_Texture) {
-    arb_tri_command_add(.{
-        type = .SET_TEXTURE,
-        texture = texture
-    });
-    add_uvs = true;
     immediate_flush();
+    ui_batch_texture = texture.tex;
 }
 
 gPreppedText: string;
@@ -184,11 +155,7 @@ prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_I
         return 0;
     }
     // print("Font: %\n", font);
-    fonsPushState(state.fons);
-    defer fonsPopState(state.fons);
-    fonsSetFont(state.fons, state.font_default.fons_font);
-    fonsSetSize(state.fons, xx font.character_height);
-    w := fonsTextBounds(state.fons, 0.0, 0.0, text.data, text.data + text.count, null);
+    w := text_measure(state.font_default.face, xx font.character_height, text);
     gPreppedText = text;
     gPreppedTextWidth = cast(s32) w;
 
@@ -202,7 +169,7 @@ prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_I
     for 0..(text.count-1) {
         glyph : Ui_Font_Glyph;
 
-        glyph.advance = cast(u32) fonsTextBounds(state.fons, 0.0, 0.0, text.data + it, text.data + it + 1, null);
+        glyph.advance = cast(u32) text_measure(state.font_default.face, xx font.character_height, .{1, text.data + it});
         font.temporary_glyphs_width_in_pixels += glyph.advance;
         
         array_add(*font.temporary_glyphs, glyph);
@@ -213,22 +180,8 @@ prepare_text :: (font: *Ui_Type_Indicator.Font, text: string, effects: Ui_Type_I
 }
 draw_prepared_text :: (font: *Ui_Type_Indicator.Font, x: s64, y: s64, text_color: Vector4, effects: Ui_Type_Indicator.Font_Effects = 0) {
     if gPreppedText.count < 1 then return;
-    fonsPushState(state.fons);
-    defer fonsPopState(state.fons);
-    fonsSetFont(state.fons, state.font_default.fons_font);
-    fonsSetSize(state.fons, xx font.character_height);
-    color := sfons_rgba(xx (255.0 * text_color.x), xx (255.0 * text_color.y), xx (255.0 * text_color.z), xx (255.0 * text_color.w));
-    fonsSetColor(state.fons, color);
-    result := cast(*u8) temporary_alloc(gPreppedText.count + 1);  // Add 1 for the zero.
-    memcpy(result, gPreppedText.data, gPreppedText.count);
-    result[gPreppedText.count] = 0;
-    sgl_layer(layer);
-    fonsDrawText(state.fons, xx x, xx y, result, null);
-    arb_tri_command_add(.{
-        type = .DRAW_TEXT,
-        layer = layer
-    });
-    layer += 1;
+    immediate_flush();
+    ui_text(state.font_default.face, xx font.character_height, xx x, xx y, text_color, gPreppedText);
 }
 get_mouse_pointer_position :: (window: Ui_Type_Indicator.Window_Type, right_handed: bool) -> (x: int, y: int, success: bool) {
     return xx input_mouse_x, xx input_mouse_y, true;
@@ -242,29 +195,9 @@ get_font_at_size :: (memory: [] u8, pixel_height: int) -> *Font {
 
 // TODO: Figure out what to do with the normal?
 immediate_triangle :: (p0: Vector3, p1: Vector3, p2: Vector3, c0 := Vector4.{1,1,1,1}, c1 := Vector4.{1,1,1,1}, c2 := Vector4.{1,1,1,1}, uv0 := Vector2.{}, uv1 := Vector2.{}, uv2 := Vector2.{}, normal := Vector3.{z=1}) {
-    tri: Arb_Tri;
-    tri.pos[0] = p0;
-    tri.pos[1] = p1;
-    tri.pos[2] = p2;
-
-    tri.col[0] = c0;
-    tri.col[1] = c1;
-    tri.col[2] = c2;
-    
-    // This UV symbolizes that the sampler should not be used.
-    nullUV : Vector2 = .{-4, -2};
-
-    if !add_uvs {
-        tri.uv[0] = nullUV;
-        tri.uv[1] = nullUV;
-        tri.uv[2] = nullUV;
-    } else {
-        tri.uv[0] = flip_y_if_plat(uv0);
-        tri.uv[1] = flip_y_if_plat(uv1);
-        tri.uv[2] = flip_y_if_plat(uv2);
-    }
-
-    arb_tri_add(tri);
+    array_add(*ui_batch, .{p0.xy, uv0, c0});
+    array_add(*ui_batch, .{p1.xy, uv1, c1});
+    array_add(*ui_batch, .{p2.xy, uv2, c2});
 }
 
 immediate_rect :: (x: float, y: float, w: float, h: float, rotation: float = 0) {
@@ -327,12 +260,9 @@ immediate_quad :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, color := 
 }
 
 immediate_flush :: () {
-    arb_tri_command_add(.{
-        type = .FLUSH_TRI,
-        tri_offset = arbTriState.latest_flush,
-        tri_count = arbTriState.trilist.count - arbTriState.latest_flush
-    });
-    arbTriState.latest_flush = arbTriState.trilist.count;
+    if ui_batch.count == 0  return;
+    ui_triangles(ui_batch, ui_batch_texture);
+    array_reset_keeping_memory(*ui_batch);
 }
 
 init_ui :: () {
@@ -412,18 +342,14 @@ draw_ui_rect_animation:: (r: GR.Rect, animationPlayer: *Animation_Player) {
         cast(float) frame.h / cast(float)animation.sheet_h,
     };
 
-    uv0 := flip_y_if_plat(Vector2.{uv.x, uv.y});
-    uv1 := flip_y_if_plat(Vector2.{uv.x + uv.z, uv.y});
-    uv2 := flip_y_if_plat(Vector2.{uv.x + uv.z, uv.y + uv.w});
-    uv3 := flip_y_if_plat(Vector2.{uv.x, uv.y + uv.w});
+    uv0 := Vector2.{uv.x, uv.y};
+    uv1 := Vector2.{uv.x + uv.z, uv.y};
+    uv2 := Vector2.{uv.x + uv.z, uv.y + uv.w};
+    uv3 := Vector2.{uv.x, uv.y + uv.w};
     
     immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h}, .{0.9,0.9,0.9,1}, uv0, uv1, uv2, uv3);
     immediate_flush();
     set_shader_for_color();
-}
-
-font_boundary :: () {
-    arb_tri_command_add(.{type = .FONT_BOUNDARY});
 }
 
 render_ui :: () {
@@ -437,10 +363,10 @@ render_ui :: () {
     } else {
         if !loading then game_ui(*voxel_theme);
     }
-    #if FLAG_DEMO_BUILD { if !in_editor_view && !loading then draw_demo_ui(*voxel_theme); }
     draw_settings_menu();
 }
 
 ui_pass :: () {
-    render_ui(); // Generates commands that are handled in arb_tri_flush
+    render_ui();
+    immediate_flush();
 }

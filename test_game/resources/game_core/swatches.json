@@ -1,0 +1,134 @@
+[
+ {
+  "id": 1,
+  "name": "204,204,204",
+  "color": [
+   204,
+   204,
+   204
+  ],
+  "roughness": 7,
+  "metallic": 0,
+  "emittance": 0
+ },
+ {
+  "id": 2,
+  "name": "227,202,149",
+  "color": [
+   227,
+   202,
+   149
+  ],
+  "roughness": 5,
+  "metallic": 0,
+  "emittance": 0
+ },
+ {
+  "id": 3,
+  "name": "255,0,0",
+  "color": [
+   255,
+   0,
+   0
+  ],
+  "roughness": 5,
+  "metallic": 0,
+  "emittance": 0
+ },
+ {
+  "id": 4,
+  "name": "255,254,255",
+  "color": [
+   255,
+   254,
+   255
+  ],
+  "roughness": 5,
+  "metallic": 0,
+  "emittance": 0
+ },
+ {
+  "id": 5,
+  "name": "255,254,254",
+  "color": [
+   255,
+   254,
+   254
+  ],
+  "roughness": 7,
+  "metallic": 0,
+  "emittance": 0
+ },
+ {
+  "id": 6,
+  "name": "0,0,0",
+  "color": [
+   0,
+   0,
+   0
+  ],
+  "roughness": 7,
+  "metallic": 1,
+  "emittance": 0
+ },
+ {
+  "id": 7,
+  "name": "255,199,0",
+  "color": [
+   255,
+   199,
+   0
+  ],
+  "roughness": 0,
+  "metallic": 3,
+  "emittance": 0
+ },
+ {
+  "id": 8,
+  "name": "169,74,14",
+  "color": [
+   169,
+   74,
+   14
+  ],
+  "roughness": 6,
+  "metallic": 0,
+  "emittance": 0
+ },
+ {
+  "id": 9,
+  "name": "86,80,80",
+  "color": [
+   86,
+   80,
+   80
+  ],
+  "roughness": 1,
+  "metallic": 3,
+  "emittance": 0
+ },
+ {
+  "id": 10,
+  "name": "33,112,12",
+  "color": [
+   33,
+   112,
+   12
+  ],
+  "roughness": 0,
+  "metallic": 0,
+  "emittance": 0
+ },
+ {
+  "id": 11,
+  "name": "255,0,255",
+  "color": [
+   255,
+   0,
+   255
+  ],
+  "roughness": 4,
+  "metallic": 0,
+  "emittance": 0
+ }
+]

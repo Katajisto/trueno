@@ -184,7 +184,8 @@ draw_particle_editor_ui :: (theme: *GR.Overall_Theme) {
 }
 
 draw_particle_editor :: () {
-    create_set_cam_rendering_task(pe_cam, 0.0);
+    view := add_view(.{camera = pe_cam, environment = New(Environment,, temp), draw_world = false});
+    draw_live_particles(view);
 
     if pe_selected_index >= 0 && pe_selected_index < cast(s32)g_emitter_defs.count {
         def := *g_emitter_defs[pe_selected_index];

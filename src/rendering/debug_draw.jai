@@ -1,8 +1,8 @@
 DEBUG_LINE_MAX         :: 65536;
 DEBUG_OVERLAY_LINE_MAX :: 8192;
 
-// One record per line, uploaded as instance data: the line pipeline expands each
-// into a screen-space quad so lines can have a real pixel width.
+// Debug lines are the one draw without a view: they are collected globally and
+// drawn in every view that renders to the screen, then cleared by render().
 Debug_Line :: struct {
     a     : Vector3;
     b     : Vector3;
@@ -151,35 +151,3 @@ debug_aabb_3d :: (mn: Vector3, mx: Vector3, col: Vector4) {
     debug_line(.{mn.x, mn.y, mx.z}, .{mn.x, mx.y, mx.z}, col);
     debug_line(.{mx.x, mn.y, mx.z}, .{mx.x, mx.y, mx.z}, col);
 }
-
-flush_debug_lines :: (pipe: *Pipeline_Binding, lines: []Debug_Line, count: *int, params: *Debugline_Vs_Params) {
-    if count.* == 0 then return;
-    // Buffer 0 is the shared static quad; buffer 1 is this pipeline's instances.
-    sg_update_buffer(
-        pipe.bind.vertex_buffers[1],
-        *(sg_range.{
-            ptr  = lines.data,
-            size = cast(u64)(count.* * size_of(Debug_Line)),
-        })
-    );
-    sg_apply_pipeline(pipe.pipeline);
-    sg_apply_bindings(*pipe.bind);
-    sg_apply_uniforms(UB_debugline_vs_params, *(sg_range.{ ptr = params, size = size_of(Debugline_Vs_Params) }));
-    sg_draw(0, 6, xx count.*);
-    count.* = 0;
-}
-
-debug_draw_flush_gpu :: () {
-    if g_debug_line_count == 0 && g_overlay_line_count == 0 then return;
-
-    w, h := get_window_size();
-    mvp  := create_viewproj(*camera);
-    params : Debugline_Vs_Params;
-    params.mvp = mvp.floats;
-    params.viewport = .[cast(float)w, cast(float)h, 0, 0];
-
-    flush_debug_lines(*gPipelines.debugline,         g_debug_lines,   *g_debug_line_count,   *params);
-    flush_debug_lines(*gPipelines.debugline_overlay, g_overlay_lines, *g_overlay_line_count, *params);
-}
-
-#assert size_of(Debug_Line) == 44 "Debug_Line must stay tightly packed: the pipeline layout hardcodes its field offsets.";

@@ -1,30 +1,13 @@
 #scope_file
 
-trile_gfx_table : Table(string, Trile_GFX);
+trile_mesh_table : Table(string, Trile_Mesh);
 trile_table     : Table(string, Trile);
 
 #scope_export
 
 editor_current_trile : *Trile = null;
 
-Trile_GFX_LOD :: struct {
-    vertex_buffer : sg_buffer;
-    normal_buffer : sg_buffer;
-    color_buffer  : sg_buffer;
-    vertex_count  : s64;
-}
-
-Trile_GFX :: struct {
-    trixel_colors : sg_image;
-    vertex_buffer : sg_buffer;
-    normal_buffer : sg_buffer;
-    centre_buffer : sg_buffer;
-    vertices      : []float;
-    vertex_count  : s64;
-
-    lod_4 : Trile_GFX_LOD;   // 4^3 cube grid
-    lod_2 : Trile_GFX_LOD;   // 2^3 cube grid
-};
+TRIXEL_SIZE :: 1.0 / 16.0;
 
 get_trile_table_ptr :: () -> *Table(string, Trile) {
     return *trile_table;
@@ -35,7 +18,7 @@ trile_gen_heightmap :: (trile: *Trile) {
         for z: 0..15 {
             height : u8 = 16;
             for y: 0..15 {
-                if trile.trixels[x][15-y][z].empty == true {
+                if trile.trixels[x][15-y][z] == 0 {
                     height -= 1;
                 } else {
                     break;
@@ -46,61 +29,37 @@ trile_gen_heightmap :: (trile: *Trile) {
     }   
 }
 
-// @Note: Creates the gfx things if they are not yet created.
-// Could be a bad idea to do this implicitly. Think about it
-// once it's more clear how this whole trile storage thing 
-// will pan out. -ktjst
-get_trile_gfx :: (name: string) -> (Trile_GFX, success: bool) {
-    success, value := table_find(*trile_gfx_table, name);
-    if !success {
-        // Check if such a trile exists. 
-        trile, success_with_trile := get_trile(name);
-        if success_with_trile {
-            // Okay, so we have the trile, let's generate the GFX stuff for it.
-            gfx := generate_trile_gfx_matias(trile);         
-            set_trile_gfx(name, gfx, true);
-            return gfx, true;
-        } else {
-            return .{}, false;
-        }
-    }
-    return value, success;
+// Meshes are created the first time a trile is drawn.
+get_trile_mesh :: (name: string) -> (Trile_Mesh, success: bool) {
+    found, mesh := table_find(*trile_mesh_table, name);
+    if found  return mesh, true;
+    trile, ok := get_trile(name);
+    if !ok  return .{}, false;
+    mesh = trile_mesh_create(trile);
+    table_set(*trile_mesh_table, name, mesh);
+    return mesh, true;
 }
 
-set_trile_gfx :: (name: string, gfx: Trile_GFX, skip_preexist_check: bool = false) {
-    if !skip_preexist_check {
-        old_gfx, success := get_trile_gfx(name);
-        if success {
-            sg_destroy_buffer(old_gfx.vertex_buffer);
-            sg_destroy_buffer(old_gfx.normal_buffer);
-            sg_destroy_buffer(old_gfx.centre_buffer);
-            sg_destroy_image(old_gfx.trixel_colors);
-            destroy_trile_gfx_lod(*old_gfx.lod_4);
-            destroy_trile_gfx_lod(*old_gfx.lod_2);
-            array_reset(*old_gfx.vertices);
-            log_debug("Destroyed old GFX buffers for trile: %", name);
-        }
-    }
-    table_set(*trile_gfx_table, name, gfx);
+// After editing a trile's trixels in place.
+trile_changed :: (trile: *Trile) {
+    found, mesh := table_find(*trile_mesh_table, trile.name);
+    if found  trile_mesh_update(mesh, trile);
+}
+
+forget_trile_mesh :: (name: string) {
+    found, mesh := table_find(*trile_mesh_table, name);
+    if !found  return;
+    trile_mesh_destroy(mesh);
+    table_remove(*trile_mesh_table, name);
 }
 
 set_trile :: (name: string, trile: Trile) {
     log_debug("Setting trile with name: %", name);
-    // Destroy and remove any cached GFX so it gets regenerated from new data.
-    gfx_exists, old_gfx := table_find(*trile_gfx_table, name);
-    if gfx_exists {
-        sg_destroy_buffer(old_gfx.vertex_buffer);
-        sg_destroy_buffer(old_gfx.normal_buffer);
-        sg_destroy_buffer(old_gfx.centre_buffer);
-        sg_destroy_image(old_gfx.trixel_colors);
-        destroy_trile_gfx_lod(*old_gfx.lod_4);
-        destroy_trile_gfx_lod(*old_gfx.lod_2);
-        array_reset(*old_gfx.vertices);
-        table_remove(*trile_gfx_table, name);
-    }
     saved_editor_name: string;
     if editor_current_trile then saved_editor_name = editor_current_trile.name;
-    table_set(*trile_table, name, trile);
+    stored := table_set(*trile_table, name, trile);
+    // Updated in place, so handles already uploaded with world chunks stay valid.
+    trile_changed(stored);
     if saved_editor_name.count > 0 {
         editor_current_trile = table_find_pointer(*trile_table, saved_editor_name);
     }
@@ -128,17 +87,7 @@ rename_trile :: (old_name: string, new_name: string) {
     trile := get_trile(old_name);
     if !trile return;
     was_current := editor_current_trile != null && editor_current_trile.name == old_name;
-    gfx_exists, old_gfx := table_find(*trile_gfx_table, old_name);
-    if gfx_exists {
-        sg_destroy_buffer(old_gfx.vertex_buffer);
-        sg_destroy_buffer(old_gfx.normal_buffer);
-        sg_destroy_buffer(old_gfx.centre_buffer);
-        sg_destroy_image(old_gfx.trixel_colors);
-        destroy_trile_gfx_lod(*old_gfx.lod_4);
-        destroy_trile_gfx_lod(*old_gfx.lod_2);
-        array_reset(*old_gfx.vertices);
-        table_remove(*trile_gfx_table, old_name);
-    }
+    forget_trile_mesh(old_name);
     copy := trile.*;
     copy.name = sprint("%", new_name);
     set_trile(copy.name, copy);
@@ -147,17 +96,7 @@ rename_trile :: (old_name: string, new_name: string) {
 }
 
 delete_trile :: (name: string) {
-    gfx_exists, old_gfx := table_find(*trile_gfx_table, name);
-    if gfx_exists {
-        sg_destroy_buffer(old_gfx.vertex_buffer);
-        sg_destroy_buffer(old_gfx.normal_buffer);
-        sg_destroy_buffer(old_gfx.centre_buffer);
-        sg_destroy_image(old_gfx.trixel_colors);
-        destroy_trile_gfx_lod(*old_gfx.lod_4);
-        destroy_trile_gfx_lod(*old_gfx.lod_2);
-        array_reset(*old_gfx.vertices);
-        table_remove(*trile_gfx_table, name);
-    }
+    forget_trile_mesh(name);
     table_remove(*trile_table, name);
     if editor_current_trile != null && editor_current_trile.name == name {
         editor_current_trile = null;
@@ -175,6 +114,7 @@ lstrile :: () -> string {
 
 striles :: () {
     Jaison :: #import "Jaison";
+    sswatches();
     triles : [..]TrileSerialize;
     triles.allocator = temp;
     for v : trile_table {
@@ -190,6 +130,7 @@ striles :: () {
 
 ltriles :: () {
     Jaison :: #import "Jaison";
+    lswatches();
     s := load_string_from_pack("game_core", "triles.json");
     success, triles := Jaison.json_parse_string(s, [..]TrileSerialize,, temp);
     for triles {
@@ -198,12 +139,80 @@ ltriles :: () {
     }
 } @Command
 
-Material :: struct {
+MAX_SWATCHES :: 256;
+
+// A colour and the material that goes with it. Trixels store the index into
+// g_swatches; index 0 is never used and means empty.
+Swatch :: struct {
+    used      : bool;
+    name      : string;
+    color     : [3]u8;
     roughness : u8 = 4;
-    metallic  : u8 = 0;
-    emittance : u8 = 0;  // 0 = not emissive; 1-127 = emissive (replaces roughness/metallic in encoding)
-    color     : Vector3 = .{1.0, 0.0, 1.0};
+    metallic  : u8;
+    emittance : u8;
 }
+
+g_swatches : [MAX_SWATCHES]Swatch;
+
+swatch_add :: (name: string, color: [3]u8, roughness: u8 = 4, metallic: u8 = 0, emittance: u8 = 0) -> u8, success: bool {
+    for 1..MAX_SWATCHES-1 {
+        if g_swatches[it].used  continue;
+        g_swatches[it] = .{used = true, name = copy_string(name), color = color, roughness = roughness, metallic = metallic, emittance = emittance};
+        return cast(u8) it, true;
+    }
+    log_error("All % swatches are in use", MAX_SWATCHES - 1);
+    return 0, false;
+}
+
+swatch_color :: (id: u8) -> Vector3 {
+    c := g_swatches[id].color;
+    return .{c[0] / 255.0, c[1] / 255.0, c[2] / 255.0};
+}
+
+swatch_in_use :: (id: u8) -> bool {
+    for trile: trile_table {
+        for x: 0..15  for y: 0..15  for z: 0..15 {
+            if trile.trixels[x][y][z] == id  return true;
+        }
+    }
+    return false;
+}
+
+Swatch_Serialize :: struct {
+    id        : int;
+    name      : string;
+    color     : [3]u8;
+    roughness : u8;
+    metallic  : u8;
+    emittance : u8;
+}
+
+sswatches :: () {
+    Jaison :: #import "Jaison";
+    list : [..]Swatch_Serialize;
+    list.allocator = temp;
+    for g_swatches {
+        if !it.used  continue;
+        array_add(*list, .{it_index, it.name, it.color, it.roughness, it.metallic, it.emittance});
+    }
+    #if OS != .WASM {
+        file :: #import "File";
+        json := Jaison.json_write_string(list, " ");
+        file.write_entire_file(tprint("%/game_core/swatches.json", GAME_RESOURCES_DIR), json);
+    }
+} @Command
+
+lswatches :: () {
+    Jaison :: #import "Jaison";
+    for *g_swatches  it.* = .{};
+    data, found := get_raw_file_from_pack("game_core", "swatches.json");
+    if !found  return;
+    _, list := Jaison.json_parse_string(xx data, [..]Swatch_Serialize,, temp);
+    for list {
+        if it.id < 1 || it.id >= MAX_SWATCHES  continue;
+        g_swatches[it.id] = .{used = true, name = sprint("%", it.name), color = it.color, roughness = it.roughness, metallic = it.metallic, emittance = it.emittance};
+    }
+} @Command
 
 Palette_Entry :: struct {
     name      : string;
@@ -222,15 +231,10 @@ Loaded_Palette :: struct {
 
 g_palettes : [..]Loaded_Palette;
 
-Trixel :: struct {
-    material : Material;
-    empty    : bool = false;
-};
-
 Trile :: struct {
     name      : string = "test";
     is_opaque : bool   = true;
-    trixels   : [16][16][16] Trixel;
+    trixels   : [16][16][16]u8;   // swatch ids, 0 = empty
 
     skip_collision : bool;
     
@@ -243,109 +247,39 @@ Trile :: struct {
     heightmap      : [16][16]u8;
 };
 
-TrixelSerialize :: [5]u8;
-
 TrileSerialize :: struct {
     name           : string = "test";
-    version        : int    = 0;
     is_opaque      : u8     = 1;
     is_stairs      : u8     = 0;
     skip_collision : u8     = 0;
-    trixels        : [16][16][16] TrixelSerialize;
+    trixels        : string;   // base64 of the 16^3 swatch ids
 };
 
 trile_to_serialize_form :: (t: Trile) -> TrileSerialize {
-    ts := TrileSerialize.{
+    return .{
         name           = t.name,
-        version        = 3,
         is_opaque      = ifx t.is_opaque then cast(u8)1 else cast(u8)0,
         is_stairs      = ifx t.is_stairs then cast(u8)1 else cast(u8)0,
         skip_collision = ifx t.skip_collision then cast(u8)1 else cast(u8)0,
+        trixels        = base64_encode(.{size_of(type_of(t.trixels)), cast(*u8) *t.trixels},, temp),
     };
-
-    for i: 0..15 {
-        for j: 0..15 {
-            for k: 0..15 {
-                r,g,b,a := material_to_rgba(t.trixels[i][j][k].material);
-                ts.trixels[i][j][k] = .[ifx t.trixels[i][j][k].empty then cast(u8)0 else cast(u8)1, r,g,b,a]; 
-            }
-        }
-    }
-    return ts;
 }
 
 trile_from_serialize_form :: (ts: TrileSerialize) -> Trile {
     t := Trile.{ name = sprint("%", ts.name) };
-    if ts.version >= 2  t.is_opaque = ts.is_opaque != 0;
-    else                t.is_opaque = true;
-    if ts.version >= 3  t.is_stairs = ts.is_stairs != 0;
-    else                t.is_stairs = false;
-    if ts.version >= 3  t.skip_collision = ts.skip_collision != 0;
-    else                t.skip_collision = false;
-    for i: 0..15 {
-        for j: 0..15 {
-            for k: 0..15 {
-                matinfo := ts.trixels[i][j][k];
-                mat : Material;
-                if ts.version == 0 {
-                    // Old format: bit 0=addRoughness(unused), bits 1-2=emittance(0-3), bits 3-4=metallic, bits 5-7=roughness
-                    packed := matinfo[4];
-                    old_emittance := (packed >> 1) & 0x3;
-                    mat.metallic  = (packed >> 3) & 0x3;
-                    mat.roughness = (packed >> 5) & 0x7;
-                    mat.emittance = old_emittance * 42;  // scale 0-3 → 0,42,84,126
-                    mat.color.x   = cast(float) matinfo[1] / 255.0;
-                    mat.color.y   = cast(float) matinfo[2] / 255.0;
-                    mat.color.z   = cast(float) matinfo[3] / 255.0;
-                } else {
-                    mat = material_from_rgba(matinfo[1], matinfo[2], matinfo[3], matinfo[4]);
-                }
-                t.trixels[i][j][k].material = mat;
-                t.trixels[i][j][k].empty    = matinfo[0] == 0;
-            }
-        }
+    t.is_opaque      = ts.is_opaque != 0;
+    t.is_stairs      = ts.is_stairs != 0;
+    t.skip_collision = ts.skip_collision != 0;
+    ids, ok := base64_decode(ts.trixels,, temp);
+    if ok && ids.count == size_of(type_of(t.trixels)) {
+        memcpy(*t.trixels, ids.data, ids.count);
+    } else {
+        log_error("Trile % has broken trixel data", ts.name);
     }
     trile_gen_heightmap(*t);
     return t;
 }
 
-material_encode_to_char :: (mat: Material) -> u8 {
-    if mat.emittance > 0 {
-        // Emissive mode: bit 0 = 1, bits 1-7 = emittance (0-127)
-        return 0x1 | ((mat.emittance & 0x7F) << 1);
-    }
-    // Material mode: bit 0 = 0, bits 3-4 = metallic, bits 5-7 = roughness
-    return ((mat.metallic & 0x3) << 3) | ((mat.roughness & 0x7) << 5);
-}
+#scope_file
 
-material_encode_to_float :: (mat: Material) -> float {
-    return cast(float)(material_encode_to_char(mat)) / 255.0;
-}
-
-material_decode_from_char :: (packedMaterial: u8) -> Material {
-    mat : Material;
-    if packedMaterial & 0x1 {
-        mat.emittance = (packedMaterial >> 1) & 0x7F;
-    } else {
-        mat.roughness = (packedMaterial >> 5) & 7;
-        mat.metallic  = (packedMaterial >> 3) & 3;
-    }
-    return mat;
-}
-
-material_to_rgba :: (mat: Material) -> (r: u8, g: u8, b: u8, a: u8) {
-    r : u8 = cast(u8) (mat.color.x * 255.0);
-    g : u8 = cast(u8) (mat.color.y * 255.0);
-    b : u8 = cast(u8) (mat.color.z * 255.0);
-    a : u8 = material_encode_to_char(mat);
-    return r,g,b,a;
-}
-
-material_from_rgba :: (r: u8, g: u8, b: u8, a: u8) -> Material {
-    mat := material_decode_from_char(a);
-    mat.color.x = (cast(float) r)/255.0;
-    mat.color.y = (cast(float) g)/255.0;
-    mat.color.z = (cast(float) b)/255.0;
-    return mat;
-}
-
+#import "Base64";

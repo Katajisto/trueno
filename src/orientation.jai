@@ -1,12 +1,7 @@
-// The 24 axis-aligned cube rotations, encoded as 'face * 4 + twist' exactly as
-// the trile shaders decode them (see get_orientation_matrix in
-// shader_trile_shadow.glsl). Everything here mirrors that decode, so a rotation
-// applied to a position on the CPU lines up with the geometry the GPU draws.
-//
-// Note the shaders build their mat3s from columns, which makes each of their
-// rot_* helpers the transpose of the usual form. The matrices below are the
-// effective row-major operators (v' = M * v), so they match what the shader
-// actually does rather than what its helper names suggest.
+// The 24 axis-aligned cube rotations, encoded as 'face * 4 + twist'. These
+// matrices are the reference: the renderer has to turn an orientation into
+// exactly this rotation, so that placement on the CPU lines up with what is
+// drawn. They are row-major operators (v' = M * v).
 
 ORIENTATION_COUNT :: 24;
 

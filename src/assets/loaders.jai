@@ -1,26 +1,9 @@
-create_texture_from_memory :: (data: []u8) -> (sg_image, s32, s32) {
+create_texture_from_memory :: (data: []u8) -> (Texture, s32, s32) {
     x, y, channels : s32;
     image := stbi.stbi_load_from_memory(data.data, xx data.count, *x, *y, *channels, 4);
-
-    subimg : [6][16]sg_range;
-    subimg[0][0] = .{
-        ptr = image,
-        size = xx (x * y * 4)
-    };
-
-    img := sg_alloc_image();
-
-    sg_init_image(img, *(sg_image_desc.{
-        width = x,
-        height = y,
-        pixel_format = sg_pixel_format.RGBA8,
-        data = .{
-            subimage = subimg
-        }
-    }));
-
+    texture := texture_create(x, y, .{x * y * 4, image});
     stbi.stbi_image_free(image);
-    return img, x, y;
+    return texture, x, y;
 }
 
 create_string_from_memory :: (data: []u8) -> string {

@@ -124,8 +124,7 @@ beachgame/
 │   │   ├── helpers.jai        create_world_rendering_tasks(), uniform helpers
 │   │   ├── arbtri.jai         Immediate-mode triangle batch renderer (UI)
 │   │   ├── post_processing.jai Post-process config, LUT management
-│   │   ├── sky.jai            Sky rendering helpers
-│   │   └── ssao.jai           SSAO kernel/noise generation
+│   │   └── sky.jai            Sky rendering helpers
 │   │
 │   ├── editor/
 │   │   ├── editor.jai         Editor root: three views, F3 toggle
@@ -249,10 +248,8 @@ Sokol GFX draw calls
 | Setup        | GPU position/uniform buffers   | Uploads trile instance stream data     |
 | Shadow       | 1000×1000 depth texture        | Orthographic sun directional light; PCF soft edges (Gaussian-weighted sampling) |
 | Reflection   | Half-res RGBA32F texture       | Planar water reflection: camera Y-flipped around water plane; handles dynamic objects that RDMs cannot |
-| G-Buffer     | Position + Normal RGBA16F      | Used by SSAO and deferred effects      |
-| SSAO         | Single-channel AO texture      | Random sample kernel, 64 samples       |
-| SSAO Blur    | Blurred AO texture             | Separable blur                         |
-| Main         | RGBA32F HDR target             | Forward render: sun direct + RDM indirect (specular + diffuse) + SSAO |
+| G-Buffer     | Position + Normal RGBA16F      | Used by SH irradiance and deferred effects |
+| Main         | RGBA32F HDR target             | Forward render: albedo-first trile shading with trixel AO and sky fog; RDM triles keep PBR |
 | Post chain   | Bloom → DoF ping-pong          | Between postprocess_a / postprocess_b  |
 | Final        | Swapchain                      | Tonemap, LUT grade, vignette, grain    |
 
@@ -371,12 +368,31 @@ handles dynamic objects (players, ball) that do not appear in the static RDMs, a
 sharp mirror-like reflections correct for large flat surfaces. Post-processing can add ripple
 distortion to the reflection texture.
 
-#### SSAO
+#### Trixel AO
 
-Screen-space ambient occlusion darkens cavities and contact areas. A geometry pass outputs
-world-space position and normal (RGBA16F G-buffer), then the SSAO pass samples 64 random
-offsets to estimate local occlusion. The result is blurred with a separable filter and applied to
-the ambient/diffuse contribution.
+Ambient occlusion is worked out per pixel in the trile shaders, voxel style, from the trile's
+16³ trixel grid: each corner of a trixel face is darkened by the trixels in front of it, and the
+four corners are blended across the face. It darkens all of a face's lighting, squared for crisp
+edges and scaled by `trixel_ao_strength` in the lighting config.
+
+To carry across trile boundaries, every instance knows which of its 26 surrounding cells hold an
+opaque trile (`Chunk_Trile_Group.neighbours`, computed alongside `is_buried`). Those cells count
+as solid throughout. The mask is in the trile's own unrotated frame and is packed together with
+the orientation into the instance's `w` (`trile_instance_w`), so every shader that reads the
+orientation decodes it first.
+
+#### Trile shading
+
+Opaque triles are shaded albedo-first, after Fez: a sunlit face shows its colour, a shaded face
+that colour times `shadow_tint`, slightly more saturated. Top, x sides, z sides and bottom each
+get a fixed brightness (`face_shade_*`). Trixel colours are converted from sRGB to linear before
+lighting. Specular only appears on smooth materials: roughness 0..7 is read as gloss
+`1 - roughness/7`, so roughness 7 never shines. Fog takes the sky colour in the view direction,
+climbs to `fog_max` between `fog_start` and `fog_end`, then to fully fogged by the LOD cull
+distance so nothing pops. All of it lives in `Lighting_Config`, saved to
+`game_core/lighting.json` next to `postprocess.json`; `lighting_debug` shows colour × face shade
+(1), AO (2) or light only (3). Post adds `tonemap = 2`, a hue-preserving soft clip, and applies
+LUTs after gamma encoding.
 
 #### Pre-bake pipeline
 

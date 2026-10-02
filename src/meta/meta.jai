@@ -5,7 +5,6 @@
 #load "hacks.jai";
 #load "console_commands.jai";
 #load "entity_types.jai";
-#load "shaderload.jai";
 
 endframe_modified := false;
 pointerimage_modified := false;

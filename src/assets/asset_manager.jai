@@ -6,8 +6,7 @@ Pool :: #import "Pool";
 
 #load "loaders.jai";
 
-// MAX_PACK_SIZE, MAX_WORLD_SIZE, MAX_CHUNKS_SIZE, MAX_SHGRID_SIZE,
-// MAX_RDM_ATLAS_SIZE, MAX_RDM_MANIFEST_SIZE are injected as build strings
+// MAX_PACK_SIZE, MAX_WORLD_SIZE and MAX_CHUNKS_SIZE are injected as build strings
 // by first.jai after scanning the actual asset files at compile time.
 
 MAX_FETCH_SLOTS :: 16;
@@ -25,9 +24,6 @@ Fetch_Type :: enum {
     PACK;
     WORLD;
     WORLD_CHUNKS;
-    RDM_ATLAS;
-    RDM_MANIFEST;
-    SHGRID;
 }
 
 Fetch_Request :: struct {
@@ -38,9 +34,8 @@ Fetch_Request :: struct {
     // PACK
     pack_name         : string;
 
-    // WORLD / RDM / SH
+    // WORLD
     world_name        : string;
-    chunk_key         : Chunk_Key;
 
     // WORLD_CHUNKS: JSON carried forward from the WORLD fetch
     world_json_data   : []u8;
@@ -66,17 +61,11 @@ g_asset_manager : Asset_Manager;
 
 #scope_file
 
-#load "rdm_loader.jai";
-#load "sh_loader.jai";
-
 fetch_type_buffer_size :: (type: Fetch_Type) -> s64 {
     if #complete type == {
         case .PACK;         return MAX_PACK_SIZE;
         case .WORLD;        return MAX_WORLD_SIZE;
         case .WORLD_CHUNKS; return MAX_CHUNKS_SIZE;
-        case .RDM_ATLAS;    return MAX_RDM_ATLAS_SIZE;
-        case .RDM_MANIFEST; return MAX_RDM_MANIFEST_SIZE;
-        case .SHGRID;       return MAX_SHGRID_SIZE;
     }
 }
 
@@ -136,15 +125,6 @@ handle_fetch_failed :: (req: *Fetch_Request) {
         free(req.world_json_data.data);
         log_error("Failed to load chunks.bin for world '%'", req.world_name);
 
-    case .RDM_ATLAS;
-        log_info("RDM: no global atlas for world '%' (ok if none baked yet)", req.world_name);
-
-    case .RDM_MANIFEST;
-        log_info("RDM: no manifest for world '%' (ok if none baked yet)", req.world_name);
-
-    case .SHGRID;
-        sh_loader_handle_failed(req);
-
     }
 }
 
@@ -189,60 +169,10 @@ process_completed_fetch :: (req: *Fetch_Request, data: []u8) {
         world, ok := load_world_from_json(json_str, data);
         if ok {
             set_loaded_world(world);
-            rdm_loader_enqueue_world(*get_current_world().world);
-            shgrid_loader_enqueue_world(*get_current_world().world);
             log_info("Loaded world: %", req.world_name);
         } else {
             log_error("Failed to parse world '%'", req.world_name);
         }
-
-    case .RDM_ATLAS;
-        curworld := get_current_world();
-        if !curworld.valid || curworld.world.name != req.world_name then return;
-
-        header_size := cast(s64) size_of(RDM_File_Header);
-        if data.count < header_size {
-            log_error("RDM: global atlas too small (world %)", req.world_name);
-            return;
-        }
-        header := cast(*RDM_File_Header) data.data;
-        if header.magic != RDM_FILE_MAGIC {
-            log_error("RDM: bad atlas magic (world %)", req.world_name);
-            return;
-        }
-        atlas_pixel_bytes := cast(u64) header.width * cast(u64) header.height * 4 * size_of(u16);
-        atlas_imgdata: sg_image_data;
-        atlas_imgdata.subimage[0][0] = .{ data.data + header_size, atlas_pixel_bytes };
-        atlas_desc: sg_image_desc = .{
-            render_target = false,
-            width         = header.width,
-            height        = header.height,
-            pixel_format  = sg_pixel_format.RGBA16F,
-            sample_count  = 1,
-            data          = atlas_imgdata,
-        };
-        if g_rdm_atlas.id != 0 then sg_destroy_image(g_rdm_atlas);
-        g_rdm_atlas = sg_make_image(*atlas_desc);
-        log_debug("RDM: loaded global atlas (%x%)", header.width, header.height);
-
-    case .RDM_MANIFEST;
-        curworld := get_current_world();
-        if !curworld.valid || curworld.world.name != req.world_name then return;
-
-        json_str : string;
-        json_str.data  = data.data;
-        json_str.count = data.count;
-        ok, entries := Jaison.json_parse_string(json_str, [..]Rdm_Atlas_Entry,, temp);
-        if !ok {
-            log_error("RDM: failed to parse manifest for world '%'", req.world_name);
-            return;
-        }
-        array_reset_keeping_memory(*curworld.world.rdm_lookup);
-        for e: entries  array_add(*curworld.world.rdm_lookup, e);
-        log_debug("RDM: loaded manifest (% entries)", entries.count);
-
-    case .SHGRID;
-        sh_loader_handle_completed(req, data);
 
     }
 }
@@ -252,7 +182,7 @@ Loaded_Pack :: struct {
     nameHash    : u32 = 0;
     data_buffer : []u8;
     content     : Load_Package;
-    textures    : Table(string, sg_image);
+    textures    : Table(string, Texture);
     animations  : Table(string, Animation);
     audio       : Table(string, Audio_Data);
     pool        : Pool.Pool;
@@ -263,7 +193,7 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
 
     Queued_Sheet_File :: struct {
         name    : string;
-        image   : sg_image;
+        image   : Texture;
         sheet_w : s32;
         sheet_h : s32;
         sheet   : Aseprite_Sheet;
@@ -300,9 +230,6 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
                 } else {
                     queuedSheet.sheet = sheet;
                 }
-            case "colorgrade.png";
-                img, x, y := create_texture_from_memory(v.data);
-                add_image_to_lut_list(img, v.name);
             case "wav";
                 audio := load_wav_from_memory(v.data);
                 table_set(*pack.audio, name, audio);
@@ -421,7 +348,7 @@ dispatch_slots :: () {
 #scope_export
 
 free_resources_from_pack :: (pack: *Loaded_Pack) {
-    for pack.textures  sg_destroy_image(it);
+    for pack.textures  texture_destroy(it);
     table_reset(*pack.textures);
     table_reset(*pack.audio);
     table_reset(*pack.animations);
@@ -499,9 +426,9 @@ load_pack :: (name: string, priority: Load_Priority = .LOADING_SCREEN) {
 #scope_file
 #scope_export
 
-get_texture_from_pack :: (pack: string, path: string) -> (sg_image) {
+get_texture_from_pack :: (pack: string, path: string) -> (Texture) {
     found, pack := find_pack_by_name(pack);
-    invalid_img : sg_image;
+    invalid_img : Texture;
 
     if !found {
         return invalid_img;
@@ -539,7 +466,16 @@ add_font_from_pack :: (pack: string, path: string) {
         log_error("Failed to find font % from pack", path);
         return;
     }
-    state.font_default.fons_font = fonsAddFontMem(state.fons, "sans", entry.data.data, xx entry.data.count, 0);
+    state.font_default.face = font_face_add("sans", entry.data);
+}
+
+// For files that may legitimately be absent from a pack.
+get_raw_file_from_pack :: (pack: string, path: string) -> ([]u8, found: bool) {
+    pack_ok, loaded := find_pack_by_name(pack);
+    if !pack_ok return .[], false;
+    ok, entry := table_find(*loaded.content.lookup, path);
+    if !ok return .[], false;
+    return entry.data, true;
 }
 
 load_string_from_pack :: (pack: string, path: string) -> string {

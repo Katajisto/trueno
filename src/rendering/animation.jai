@@ -33,10 +33,26 @@ animation_player_tick :: (player: *Animation_Player) {
     }
 }
 
-animation_draw :: (player: *Animation_Player, position: Vector3, flipX: bool = false, flipY: bool = false, faceDir : Vector3 = .{-100, -100, -100}) {
+animation_draw :: (view: View_Id, player: *Animation_Player, position: Vector3, flip_x := false, face := BILLBOARD_FACE_CAMERA) {
     animation_player_tick(player);
     if player.current_animation == null then return;
-    create_billboard_rendering_task(position, player.current_animation, player.current_frame, flipX, flipY, faceDir);
+    draw_animation_frame(view, player.current_animation, player.current_frame, position, flip_x, face);
+}
+
+// Sprites are 16 pixels to a world unit.
+draw_animation_frame :: (view: View_Id, anim: *Animation, frame_index: s32, position: Vector3, flip_x := false, face := BILLBOARD_FACE_CAMERA) {
+    frame := anim.frames[frame_index];
+    uv := Vector4.{
+        cast(float) frame.x / anim.sheet_w,
+        cast(float) frame.y / anim.sheet_h,
+        cast(float) frame.w / anim.sheet_w,
+        cast(float) frame.h / anim.sheet_h,
+    };
+    if flip_x {
+        uv.x += uv.z;
+        uv.z  = -uv.z;
+    }
+    draw_billboard(view, anim.sheet, uv, .{cast(float)(frame.w / 16), cast(float)(frame.h / 16)}, position, face);
 }
 
 animation_set :: (player: *Animation_Player, animation: string) {
@@ -70,7 +86,7 @@ Frame :: struct {
 
 Animation :: struct {
     name    : string;
-    sheet   : sg_image;
+    sheet   : Texture;
     sheet_w : s32;
     sheet_h : s32;
     frames  : [..]Frame;   

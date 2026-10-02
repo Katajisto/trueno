@@ -5,10 +5,6 @@ zoom     : float = 3.0;
 
 brush_radius   : int = 5;
 
-roughness : u8 = 0;
-metallic  : u8 = 0;
-emittance : u8 = 0;
-
 hovered_trixel_x : int = -1;
 hovered_trixel_y : int = -1;
 hovered_trixel_z : int = -1;
@@ -39,7 +35,6 @@ current_tab  : Trile_Editor_Tab       = .TOOLSET;
 current_tool : Trile_Editor_Tool      = .PAINT;
 current_mode : Trile_Editor_Tool_Mode = .AREA;
 
-colorMuls : [16][16][16]Vector3;
 tiling_preview_active        : bool;
 tiling_axis                  : s32 = 0;  // 0=+X, 1=+Z, 2=-X, 3=-Z
 tiling_orientation           : s32 = 0;  // 0-23 = face(0..5)*4 + twist(0..3)
@@ -47,10 +42,10 @@ tiling_neighbor_trile_name   : string;
 tiling_neighbor_trile_input  : string;
 
 UNDO_MAX :: 32;
-undo_trixels : [UNDO_MAX][16][16][16] Trixel;
+undo_trixels : [UNDO_MAX][16][16][16]u8;
 undo_count   : int = 0;
 undo_head    : int = 0;
-redo_trixels : [UNDO_MAX][16][16][16] Trixel;
+redo_trixels : [UNDO_MAX][16][16][16]u8;
 redo_count   : int = 0;
 redo_head    : int = 0;
 
@@ -59,7 +54,7 @@ meta_name_input : string;
 #scope_export
 
 ntrile :: (name: string) {
-    set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
+    trile_changed(editor_current_trile);
     newt : Trile;
     newt.name = sprint("%", name);
     set_trile(newt.name, newt);
@@ -68,7 +63,7 @@ ntrile :: (name: string) {
 } @Command
 
 cpytrile :: (trile: string, destination: string) {
-    set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
+    trile_changed(editor_current_trile);
     newt : Trile;
     newt.name = sprint("%", destination);
     newt.trixels = get_trile(trile).trixels;
@@ -78,7 +73,7 @@ cpytrile :: (trile: string, destination: string) {
 } @Command
 
 ltrile :: (name: string) {
-    set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
+    trile_changed(editor_current_trile);
     nt := get_trile(name);
     if !nt {
         console_add_output_line("Failed to load a trile with that name...");
@@ -108,6 +103,7 @@ do_undo :: () {
     undo_count -= 1;
     editor_current_trile.trixels = undo_trixels[undo_head];
     trile_gen_heightmap(editor_current_trile);
+    trile_changed(editor_current_trile);
 }
 
 do_redo :: () {
@@ -119,20 +115,15 @@ do_redo :: () {
     redo_count -= 1;
     editor_current_trile.trixels = redo_trixels[redo_head];
     trile_gen_heightmap(editor_current_trile);
+    trile_changed(editor_current_trile);
 }
 
 apply_tool_to_trixel :: (x: s64, y: s64, z: s64) {
-    if current_tool == .PAINT {
-        editor_current_trile.trixels[x][y][z].material.color = current_color;
-        editor_current_trile.trixels[x][y][z].material.metallic = metallic;
-        editor_current_trile.trixels[x][y][z].material.roughness = roughness;
-        editor_current_trile.trixels[x][y][z].material.emittance = emittance;
-    }
-    if current_tool == .ADD {
-        editor_current_trile.trixels[x][y][z].empty = false;
-    }
-    if current_tool == .REMOVE {
-        editor_current_trile.trixels[x][y][z].empty = true;
+    trixel := *editor_current_trile.trixels[x][y][z];
+    if current_tool == {
+        case .PAINT;  if trixel.* != 0  trixel.* = current_swatch;
+        case .ADD;    if trixel.* == 0  trixel.* = current_swatch;
+        case .REMOVE; trixel.* = 0;
     }
 }
 
@@ -197,13 +188,13 @@ handle_tool_click :: () {
 
 #scope_export
 
-current_color : Vector3 = .{1.0, 0.0, 0.0};
+current_swatch : u8 = 1;
 
 reset_trile :: () {
     for x: 0..15 {
         for y: 0..15 {
             for z: 0..15 {
-                editor_current_trile.trixels[x][y][z].empty = false;
+                editor_current_trile.trixels[x][y][z] = current_swatch;
             }
         }
     }
@@ -229,6 +220,7 @@ tick_trile_editor :: () {
 
     if input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START {
         handle_tool_click();
+        trile_changed(editor_current_trile);
     }
 
     mindist : float = 999999;
@@ -239,8 +231,7 @@ tick_trile_editor :: () {
     for x: 0..15 {
         for y: 0..15 {
             for z: 0..15 {
-                t := editor_current_trile.trixels[x][y][z];
-                if t.empty then continue;
+                if editor_current_trile.trixels[x][y][z] == 0 then continue;
 
                 cube : Collision_Cube;
                 cube.position = Vector3.{cast(float) x, cast(float) y, cast(float) z} * TRIXEL_SIZE;
@@ -259,25 +250,18 @@ tick_trile_editor :: () {
         }
     }
 
-    for x: 0..15 {
-        for y: 0..15 {
-            for z: 0..15 {
-                highlighted := false;
-                if hovered_trixel_x >= 0 {
-                    if current_mode == .BRUSH {
-                        center : Vector3 = .{xx hovered_trixel_x, xx hovered_trixel_y, xx hovered_trixel_z};
-                        highlighted = length(Vector3.{xx x, xx y, xx z} - center) <= xx brush_radius;
-                    } else if current_mode == .AREA && area_active {
-                        highlighted = x >= min(area_start_x, hovered_trixel_x) && x <= max(area_start_x, hovered_trixel_x)
-                                   && y >= min(area_start_y, hovered_trixel_y) && y <= max(area_start_y, hovered_trixel_y)
-                                   && z >= min(area_start_z, hovered_trixel_z) && z <= max(area_start_z, hovered_trixel_z);
-                    } else {
-                        highlighted = x == hovered_trixel_x && y == hovered_trixel_y && z == hovered_trixel_z;
-                    }
-                }
-                colorMuls[x][y][z] = ifx highlighted then Vector3.{0.6, 0.0, 0.0} else .{1.0, 1.0, 1.0};
-            }
+    if hovered_trixel_x >= 0 {
+        lo := Vector3.{xx hovered_trixel_x, xx hovered_trixel_y, xx hovered_trixel_z};
+        hi := lo;
+        if current_mode == .BRUSH {
+            lo -= Vector3.{1, 1, 1} * cast(float) brush_radius;
+            hi += Vector3.{1, 1, 1} * cast(float) brush_radius;
+        } else if current_mode == .AREA && area_active {
+            corner := Vector3.{xx area_start_x, xx area_start_y, xx area_start_z};
+            lo = min(lo, corner);
+            hi = max(hi, corner);
         }
+        debug_aabb_3d_overlay(lo * TRIXEL_SIZE, (hi + Vector3.{1, 1, 1}) * TRIXEL_SIZE, .{0.9, 0.1, 0.1, 1});
     }
 
     if !input_button_states[Key_Code.CTRL] & .DOWN {
@@ -324,10 +308,7 @@ get_trile_editor_camera :: () -> Camera {
     return camera;
 }
 
-global_palette_scroll : float = 0.0;
-trile_palette_scroll  : float = 0.0;
-use_color_picker      : bool  = false;
-selected_palette      : s32   = 0;
+swatch_scroll : float = 0.0;
 
 draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r := area;
@@ -348,126 +329,34 @@ draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     GR.slider(r, *brush_radius, 0, 12, 1, *theme.slider_theme);
     r.y += r.h * 2;
     if keybind_button(r, "Save and gen", .SAVE, *theme.button_theme) {
-        set_trile_gfx(editor_current_trile.name, generate_trile_gfx_matias(editor_current_trile));
+        trile_changed(editor_current_trile);
         striles();
         update_trile_thumbnail(editor_current_trile.name);
     };
 }
 
-draw_swatches :: (entries: []Palette_Entry, inside: GR.Rect, block: float, scroll: *float, id_offset: s32, theme: *GR.Overall_Theme) -> (end_y: float) {
-    cols := max(1, cast(int)(inside.w / block));
-    for entry, idx: entries {
-        er : GR.Rect;
-        er.x = inside.x + (idx % cols) * block;
-        er.y = inside.y - scroll.* + (idx / cols) * block;
-        er.w = block; er.h = block;
-        btn := theme.button_theme;
-        btn.surface_color = .{entry.r, entry.g, entry.b, 1.0};
-        if GR.button(er, "", *btn, id_offset + cast(s32)idx) {
-            current_color = .{entry.r, entry.g, entry.b};
-            roughness = xx entry.roughness;
-            metallic  = xx entry.metallic;
-            emittance = xx entry.emittance;
-        }
-    }
-    rows := ifx entries.count > 0 then (entries.count + cols - 1) / cols else 0;
-    return inside.y + rows * block;
-}
-
 draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
-    r       := area;
-    row_h   := ui_h(4, 0);
-    block   := ui_h(3, 2);
-    bottom  := area.y + area.h;
-    sliders_h := ui_h(18, 0);
-
-    r.h = row_h;
-    half := r.w / 2;
-    r.w = half;
-    if GR.button(r, "Palette",      *t_button_selectable(theme, !use_color_picker)) then use_color_picker = false;
-    r.x += half;
-    if GR.button(r, "Color Picker", *t_button_selectable(theme, use_color_picker))  then use_color_picker = true;
-    r.x = area.x; r.w = area.w;
-    r.y += row_h;
-
-    available := bottom - r.y - sliders_h;
-    top_h := ifx use_color_picker then ui_h(42, 0) else available / 2;
-    bot_h := available - top_h;
-
-    r.h = top_h;
-    if use_color_picker {
-        GR.color_picker(r, *current_color, *theme.color_picker_theme);
-    } else {
-        if g_palettes.count > 1 {
-            r.h = row_h;
-            pal_w := r.w / cast(float)g_palettes.count;
-            for pal, idx: g_palettes {
-                pr := r;
-                pr.x = area.x + idx * pal_w;
-                pr.w = pal_w;
-                if GR.button(pr, pal.name, *t_button_selectable(theme, cast(s32)idx == selected_palette), cast(s32)idx + 20000) {
-                    selected_palette = cast(s32)idx;
-                    global_palette_scroll = 0;
-                }
-            }
-            r.y += row_h;
-            top_h -= row_h;
-            r.h = top_h;
-        }
-        entries : []Palette_Entry;
-        if g_palettes.count > 0 {
-            selected_palette = clamp(selected_palette, 0, cast(s32)g_palettes.count - 1);
-            entries = g_palettes[selected_palette].entries;
-        }
-        region, inside := GR.begin_scrollable_region(r, *theme.scrollable_region_theme);
-        end_y := draw_swatches(entries, inside, block, *global_palette_scroll, 0, theme);
-        GR.end_scrollable_region(region, inside.x + inside.w, end_y, *global_palette_scroll);
-    }
-    r.y += top_h;
-
-    unique_mats : [..]Material;
-    unique_mats.allocator = temp;
-    for x: 0..15  for y: 0..15  for z: 0..15 {
-        trix := editor_current_trile.trixels[x][y][z];
-        if trix.empty then continue;
-        mr, mg, mb, ma := material_to_rgba(trix.material);
-        key := (cast(u32)mr << 24) | (cast(u32)mg << 16) | (cast(u32)mb << 8) | cast(u32)ma;
-        already := false;
-        for um: unique_mats {
-            ur, ug, ub, ua := material_to_rgba(um);
-            if ((cast(u32)ur << 24) | (cast(u32)ug << 16) | (cast(u32)ub << 8) | cast(u32)ua) == key { already = true; break; }
-        }
-        if !already  array_add(*unique_mats, trix.material);
-    }
-    as_entries : [..]Palette_Entry;
-    as_entries.allocator = temp;
-    for mat: unique_mats {
-        e : Palette_Entry;
-        e.r = mat.color.x; e.g = mat.color.y; e.b = mat.color.z;
-        e.roughness = mat.roughness; e.metallic = mat.metallic; e.emittance = mat.emittance;
-        array_add(*as_entries, e);
-    }
-
-    r.h = bot_h * 0.75; 
-    region2, inside2 := GR.begin_scrollable_region(r, *theme.scrollable_region_theme);
-    end_y2 := draw_swatches(as_entries, inside2, block, *trile_palette_scroll, 10000, theme);
-    GR.end_scrollable_region(region2, inside2.x + inside2.w, end_y2, *trile_palette_scroll);
-    r.y += bot_h * 0.75;
-
-    r.h = ui_h(3, 2);
-    GR.label(r, "Roughness", *t_label_left(theme));
-    r.y += r.h;
-    GR.slider(r, *roughness, 0, 7, 1, *theme.slider_theme);
-    r.y += r.h;
-    GR.label(r, "Metallic", *t_label_left(theme));
-    r.y += r.h;
-    GR.slider(r, *metallic, 0, 3, 1, *theme.slider_theme);
-    r.y += r.h;
-    GR.label(r, "Emittance", *t_label_left(theme));
-    r.y += r.h;
-    GR.slider(r, *emittance, 0, 127, 1, *theme.slider_theme);
+    region, inside := GR.begin_scrollable_region(area, *theme.scrollable_region_theme);
+    end_y := draw_swatch_grid(inside, *swatch_scroll, *current_swatch, theme);
+    GR.end_scrollable_region(region, inside.x + inside.w, end_y, *swatch_scroll);
 }
 
+// Shared with the material studio. Returns the bottom of the grid.
+draw_swatch_grid :: (inside: GR.Rect, scroll: *float, selected: *u8, theme: *GR.Overall_Theme) -> float {
+    block := ui_h(3, 2);
+    cols  := max(1, cast(int)(inside.w / block));
+    n := 0;
+    for g_swatches {
+        if !it.used  continue;
+        r := GR.Rect.{inside.x + (n % cols) * block, inside.y - scroll.* + (n / cols) * block, block, block};
+        btn := t_button_selectable(theme, selected.* == it_index);
+        c := swatch_color(cast(u8) it_index);
+        btn.surface_color = .{c.x, c.y, c.z, 1};
+        if GR.button(r, "", *btn, cast(s32) it_index)  selected.* = cast(u8) it_index;
+        n += 1;
+    }
+    return inside.y + ((n + cols - 1) / cols) * block;
+}
 
 TILING_AXIS_NAMES :: string.["+ X", "+ Z", "- X", "- Z", "+ Y", "- Y"];
 
@@ -485,53 +374,6 @@ get_tiling_camera_target :: () -> Vector3 {
     return Vector3.{0.5, 0.5, 0.5} + off * 0.5;
 }
 
-// Build rotation matrices matching the same GLSL convention used in shader_trile.glsl.
-// In Jai row-major passed as GLSL column-major: GLSL out[i] = sum_j M_jai[j][i]*v[j].
-tiling_rot_x :: (a: float) -> Matrix4 {
-    c := cos(a); s := sin(a);
-    m : Matrix4;
-    m._11 = 1;
-    m._22 = c;  m._23 = s;
-    m._32 = -s; m._33 = c;
-    m._44 = 1;
-    return m;
-}
-tiling_rot_y :: (a: float) -> Matrix4 {
-    c := cos(a); s := sin(a);
-    m : Matrix4;
-    m._11 = c;  m._13 = s;
-    m._22 = 1;
-    m._31 = -s; m._33 = c;
-    m._44 = 1;
-    return m;
-}
-tiling_rot_z :: (a: float) -> Matrix4 {
-    c := cos(a); s := sin(a);
-    m : Matrix4;
-    m._11 = c;  m._21 = s;
-    m._12 = -s; m._22 = c;
-    m._33 = 1;
-    m._44 = 1;
-    return m;
-}
-// Matches get_orientation_matrix(ori) from shader_trile.glsl.
-// Jai A*B applies A_eff first in GLSL, so twist*base = twist applied second = same as GLSL base*rot_y(twist).
-make_orientation_matrix :: (ori: s32) -> Matrix4 {
-    face  := ori / 4;
-    twist := ori % 4;
-    twist_mat : Matrix4;
-    identity(*twist_mat);
-    if twist > 0  twist_mat = tiling_rot_y(cast(float)twist * PI / 2.0);
-    base_mat : Matrix4;
-    if      face == 0 { identity(*base_mat); }
-    else if face == 1 { base_mat = tiling_rot_x(PI); }
-    else if face == 2 { base_mat = tiling_rot_z(-PI * 0.5); }
-    else if face == 3 { base_mat = tiling_rot_z( PI * 0.5); }
-    else if face == 4 { base_mat = tiling_rot_x( PI * 0.5); }
-    else              { base_mat = tiling_rot_x(-PI * 0.5); }
-    return twist_mat * base_mat;
-}
-
 get_tiling_neighbor_trile :: () -> *Trile {
     if tiling_neighbor_trile_name.count > 0 {
         t := get_trile(tiling_neighbor_trile_name);
@@ -541,13 +383,17 @@ get_tiling_neighbor_trile :: () -> *Trile {
 }
 
 draw_trile_editor :: () {
-    create_set_cam_rendering_task(get_trile_editor_camera(), 0.0);
-    w :=  New(World,, temp);
-    create_sky_rendering_task(*w.conf);
-    create_trixel_rendering_task(editor_current_trile, *colorMuls);
+    // A trile is drawn in the light of the world it will sit in.
+    environment := New(Environment,, temp);
+    curworld := get_current_world();
+    if curworld.valid  environment = *curworld.world.environment;
+
+    view := add_view(.{camera = get_trile_editor_camera(), environment = environment, draw_world = false});
+    mesh, ok := get_trile_mesh(editor_current_trile.name);
+    if ok  draw_trile(view, mesh, .{}, 0);
     if tiling_preview_active {
-        neighbor_trile := get_tiling_neighbor_trile();
-        create_trixel_rendering_task(neighbor_trile, null, world_offset = get_tiling_world_offset(), brightness = 0.75, tile_rotation = make_orientation_matrix(tiling_orientation), is_secondary = true);
+        neighbor, neighbor_ok := get_trile_mesh(get_tiling_neighbor_trile().name);
+        if neighbor_ok  draw_trile(view, neighbor, get_tiling_world_offset(), xx tiling_orientation);
     }
 }
 
@@ -643,7 +489,7 @@ draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
     // View mode buttons — bottom center of the 3D viewport.
     btn_w  := 11.0 * vw;
     btn_h  := cast(float) ui_h(4, 0);
-    bar_w  := btn_w * 5.0;
+    bar_w  := btn_w * 3.0;
     bar_x  := 100.0 * vw / 2.0 - bar_w / 2.0;
     bar_y  := 100.0 * vh - btn_h - 1.5 * vh;
 
@@ -653,14 +499,6 @@ draw_trile_editor_ui :: (theme: *GR.Overall_Theme) {
 
     r2 : GR.Rect;
     r2.x = bar_x; r2.y = bar_y; r2.w = btn_w; r2.h = btn_h;
-    if keybind_button(r2, "Lit",     .TRIXEL_VIEW_LIT,     *t_button_selectable(theme, trixel_view_mode == 0)) then trixel_view_mode = 0;
-    r2.x += btn_w;
-    if keybind_button(r2, "Normals", .TRIXEL_VIEW_NORMALS, *t_button_selectable(theme, trixel_view_mode == 1)) then trixel_view_mode = 1;
-    r2.x += btn_w;
-    if keybind_button(r2, "Albedo",  .TRIXEL_VIEW_ALBEDO,  *t_button_selectable(theme, trixel_view_mode == 2)) then trixel_view_mode = 2;
-    r2.x += btn_w;
-    if keybind_button(r2, "Mixed",   .TRIXEL_VIEW_MIXED,   *t_button_selectable(theme, trixel_view_mode == 3)) then trixel_view_mode = 3;
-    r2.x += btn_w;
     if keybind_button(r2, "Tile", .TRIXEL_VIEW_TILE, *t_button_selectable(theme, tiling_preview_active)) {
         tiling_preview_active = !tiling_preview_active;
     }

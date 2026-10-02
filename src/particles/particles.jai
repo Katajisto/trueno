@@ -97,16 +97,14 @@ tick_emitter_instance :: (inst: *Particle_Emitter_Instance, dt: float) {
     }
 }
 
-add_particle_render_tasks :: () {
+// Live particles are global, so the game and each editor view draw them into
+// their own view.
+draw_live_particles :: (view: View_Id) {
     Batch :: struct {
         anim_name  : string;
         blend_mode : Particle_Blend_Mode;
         anim       : *Animation;
-        sheet      : sg_image;
-        count      : s32;
-        pos_size   : *[MAX_PARTICLES]Vector4;
-        uv_rects   : *[MAX_PARTICLES]Vector4;
-        colors     : *[MAX_PARTICLES]Vector4;
+        particles  : [..]Particle_Instance;
     }
 
     batches : [..] Batch;
@@ -133,67 +131,33 @@ add_particle_render_tasks :: () {
             anim := get_animation_from_string(def.animation_name);
             if anim == null then continue;
             if anim.frames.count == 0 then continue;
-            array_add(*batches, .{
-                anim_name  = def.animation_name,
-                blend_mode = def.blend_mode,
-                anim       = anim,
-                sheet      = anim.sheet,
-                pos_size   = New([MAX_PARTICLES]Vector4,, temp),
-                uv_rects   = New([MAX_PARTICLES]Vector4,, temp),
-                colors     = New([MAX_PARTICLES]Vector4,, temp),
-            });
-            batch = *batches[batches.count - 1];
+            batch = array_add(*batches);
+            batch.anim_name  = def.animation_name;
+            batch.blend_mode = def.blend_mode;
+            batch.anim       = anim;
+            batch.particles.allocator = temp;
         }
 
-        if batch.count >= MAX_PARTICLES then continue;
-
         t := p.age / p.lifetime;
-        size := def.size_start + (def.size_end - def.size_start) * t;
-        col := lerp_color(def.color_start, def.color_end, t);
-
-        idx := batch.count;
-        batch.pos_size.*[idx] = .{p.position.x, p.position.y, p.position.z, size};
-
         anim := batch.anim;
-        frame_count := anim.frames.count;
-        frame := cast(s32)(t * cast(float)frame_count);
-        if frame < 0 then frame = 0;
-        if frame >= frame_count then frame = cast(s32)(frame_count - 1);
+        frame := clamp(cast(s32)(t * cast(float)anim.frames.count), 0, cast(s32)(anim.frames.count - 1));
         f := anim.frames[frame];
-        batch.uv_rects.*[idx] = .{
-            cast(float)f.x / cast(float)anim.sheet_w,
-            cast(float)f.y / cast(float)anim.sheet_h,
-            cast(float)f.w / cast(float)anim.sheet_w,
-            cast(float)f.h / cast(float)anim.sheet_h,
-        };
-
-        batch.colors.*[idx] = col;
-        batch.count += 1;
+        array_add(*batch.particles, .{
+            position = p.position,
+            size     = def.size_start + (def.size_end - def.size_start) * t,
+            uv_rect  = .{
+                cast(float)f.x / cast(float)anim.sheet_w,
+                cast(float)f.y / cast(float)anim.sheet_h,
+                cast(float)f.w / cast(float)anim.sheet_w,
+                cast(float)f.h / cast(float)anim.sheet_h,
+            },
+            color    = lerp_color(def.color_start, def.color_end, t),
+        });
     }
 
-    buf_task := New(Rendering_Task_Particles_Buffer,, temp);
-    total_count : s32 = 0;
-
-    for *b: batches {
-        if b.count <= 0 then continue;
-
-        instance_offset := total_count;
-        memcpy(*buf_task.pos_size[instance_offset], cast(*void)b.pos_size, b.count * size_of(Vector4));
-        memcpy(*buf_task.uv_rects[instance_offset], cast(*void)b.uv_rects, b.count * size_of(Vector4));
-        memcpy(*buf_task.colors[instance_offset],   cast(*void)b.colors,   b.count * size_of(Vector4));
-        total_count += b.count;
-
-        draw_task : Rendering_Task_Particles;
-        draw_task.count           = b.count;
-        draw_task.instance_offset = instance_offset;
-        draw_task.blend_mode      = b.blend_mode;
-        draw_task.sheet           = b.sheet;
-        add_rendering_task(draw_task);
-    }
-
-    if total_count > 0 {
-        buf_task.total_count = total_count;
-        add_rendering_task(buf_task.*);
+    for batches {
+        blend := ifx it.blend_mode == .ADDITIVE then Blend_Mode.ADDITIVE else .ALPHA;
+        draw_particles(view, it.anim.sheet, blend, it.particles);
     }
 }
 
@@ -202,7 +166,7 @@ particle_water_height :: () -> (has_water: bool, height: float) {
         if in_editor_view && !editor_shows_water()  return false, 0;
     }
     curworld := get_current_world();
-    if !curworld.valid  return false, 0;
+    if !curworld.valid || curworld.world.conf.indoor  return false, 0;
     return true, effective_plane_height(*curworld.world.conf);
 }
 

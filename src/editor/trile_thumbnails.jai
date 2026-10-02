@@ -65,9 +65,9 @@ render_thumbnail :: (trile: *Trile, out: *[THUMB_SIZE * THUMB_SIZE * 4] u8) {
 
             for 0..199 {
                 if ix >= 0 && ix < 16 && iy >= 0 && iy < 16 && iz >= 0 && iz < 16 {
-                    if !trile.trixels[ix][iy][iz].empty {
+                    if trile.trixels[ix][iy][iz] != 0 {
                         hit = true;
-                        hc  = trile.trixels[ix][iy][iz].material.color;
+                        hc  = swatch_color(trile.trixels[ix][iy][iz]);
                         break;
                     }
                 }
@@ -106,9 +106,7 @@ render_thumbnail :: (trile: *Trile, out: *[THUMB_SIZE * THUMB_SIZE * 4] u8) {
 }
 
 upload_atlas :: () {
-    imgdata : sg_image_data;
-    imgdata.subimage[0][0] = .{ g_thumbnail_atlas_buf.data, cast(u64)(ATLAS_SIZE * ATLAS_SIZE * 4) };
-    sg_update_image(g_thumbnail_atlas.tex, *imgdata);
+    texture_update(g_thumbnail_atlas.tex, g_thumbnail_atlas_buf);
 }
 
 #scope_export
@@ -147,7 +145,7 @@ update_trile_thumbnail :: (name: string) {
     render_thumbnail(trile, *thumb);
     blit_slot(*thumb, slot);
 
-    if g_thumbnail_atlas.tex.id != INVALID_ID {
+    if g_thumbnail_atlas.tex.id != 0 {
         upload_atlas();
     }
 }
@@ -167,12 +165,5 @@ init_trile_thumbnails :: () {
         blit_slot(*thumb, slot);
     }
 
-    desc := sg_image_desc.{
-        width        = xx ATLAS_SIZE,
-        height       = xx ATLAS_SIZE,
-        pixel_format = .RGBA8,
-        usage        = .DYNAMIC,
-    };
-    g_thumbnail_atlas.tex = sg_make_image(*desc);
-    upload_atlas();
+    g_thumbnail_atlas.tex = texture_create(xx ATLAS_SIZE, xx ATLAS_SIZE, g_thumbnail_atlas_buf);
 }

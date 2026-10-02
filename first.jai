@@ -8,7 +8,6 @@ Trueno_Build_Options :: struct {
     release_build   : bool;
     tacoma_enabled  : bool;
     iprof_enabled   : bool;
-    demo_build      : bool;
     test_engine     : bool;
     test_game       : bool;
     test_exe_engine : bool;
@@ -35,8 +34,6 @@ build_options_from_args :: (args: []string) -> Trueno_Build_Options {
                 opts.release_build = true;
             case "iprof";
                 opts.iprof_enabled = true;
-            case "demo";
-                opts.demo_build = true;
             case "test";
                 opts.test_game = true;
                 opts.test_engine = true;
@@ -77,20 +74,16 @@ add_asset_buffer_sizes_to_compiler_strings :: (trueno_opts: Trueno_Build_Options
     pack_dir           := ifx use_test_game then "./test_packs" else "./packs";
     game_resources_dir := ifx use_test_game then "./test_game/resources" else "./game/resources";
 
-    sizes: [6]s64;
+    sizes: [3]s64;
     sizes[0] = max_asset_file_size(pack_dir,           ".pack",       1 * 1024 * 1024);
     sizes[1] = max(
         max_asset_file_size(game_resources_dir, "world.json",  64 * 1024),
         max_asset_file_size(game_resources_dir, "index.world", 64 * 1024)
     );
     sizes[2] = max_asset_file_size(game_resources_dir, "chunks.bin",       1 * 1024 * 1024);
-    sizes[3] = max_asset_file_size(game_resources_dir, ".shgrid",          1 * 1024 * 1024);
-    sizes[4] = max_asset_file_size(game_resources_dir, "rdm_atlas.rdm",    16 * 1024 * 1024);
-    sizes[5] = max_asset_file_size(game_resources_dir, "rdm_manifest.json", 256 * 1024);
 
-    names :: string.["MAX_PACK_SIZE", "MAX_WORLD_SIZE", "MAX_CHUNKS_SIZE",
-                      "MAX_SHGRID_SIZE", "MAX_RDM_ATLAS_SIZE", "MAX_RDM_MANIFEST_SIZE"];
-    for i: 0..5 {
+    names :: string.["MAX_PACK_SIZE", "MAX_WORLD_SIZE", "MAX_CHUNKS_SIZE"];
+    for i: 0..2 {
         add_build_string(tprint("% :: %;\n", names[i], sizes[i]), w);
     }
 }
@@ -107,17 +100,6 @@ add_trueno_opts_to_compiler_strings :: (trueno_opts : Trueno_Build_Options, w: W
         name := tprint("%", it.name);
         to_upper_in_place(name);
         add_build_string(tprint("FLAG_% :: %;\n", name, bool_to_string(optPtr.*)), w);
-    }
-}
-
-compile_shaders :: () {
-    process_result, output, error := run_command("bash", ifx OS == .MACOS then "./compile_shaders_mac.sh" else "./compile_shaders.sh", working_directory=tprint("%/src/shaders", #filepath));
-    if process_result.exit_code != 0 {
-        log_error("Shader compilation failed.");
-        if output {
-            log_error(output,, logger = runtime_support_default_logger);
-        }
-        exit(1);
     }
 }
 
@@ -178,7 +160,6 @@ native_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
     add_trueno_opts_to_compiler_strings(trueno_opts, w);
     add_asset_buffer_sizes_to_compiler_strings(trueno_opts, w);
     add_build_file("src/platform_specific/main_native.jai", w);
-    add_shaders_to_workspace(w);
 
     metaprogramming_loop(trueno_opts, *w, iprof_plugin);
 
@@ -230,13 +211,12 @@ wasm_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
     add_trueno_opts_to_compiler_strings(trueno_opts, w);
     add_asset_buffer_sizes_to_compiler_strings(trueno_opts, w);
     add_build_file("src/platform_specific/main_web.jai", w);
-    add_shaders_to_workspace(w);
 
     metaprogramming_loop(trueno_opts, *w);
 
     args := string.[
         "emcc",
-        "src/platform_specific/main.c", "dist/main.o", "modules/sokol-jai/sokol/gfx/sokol_gfx_wasm_gl_release.a", "modules/sokol-jai/sokol/log/sokol_log_wasm_gl_release.a", "modules/sokol-jai/sokol/audio/sokol_audio_wasm_gl_release.a", "modules/sokol-jai/sokol/time/sokol_time_wasm_gl_release.a", "modules/sokol-jai/sokol/app/sokol_app_wasm_gl_release.a", "modules/sokol-jai/sokol/glue/sokol_glue_wasm_gl_release.a", "modules/sokol-jai/sokol/fetch/sokol_fetch_wasm_gl_release.a", "modules/sokol-jai/sokol/gl/sokol_gl_wasm_gl_release.a", "modules/sokol-jai/sokol/fontstash/sokol_fontstash_wasm_gl_release.a",
+        "src/platform_specific/main.c", "dist/main.o", "modules/sokol-jai/sokol/gfx/sokol_gfx_wasm_gl_release.a", "modules/sokol-jai/sokol/log/sokol_log_wasm_gl_release.a", "modules/sokol-jai/sokol/audio/sokol_audio_wasm_gl_release.a", "modules/sokol-jai/sokol/time/sokol_time_wasm_gl_release.a", "modules/sokol-jai/sokol/app/sokol_app_wasm_gl_release.a", "modules/sokol-jai/sokol/glue/sokol_glue_wasm_gl_release.a", "modules/sokol-jai/sokol/fetch/sokol_fetch_wasm_gl_release.a", "modules/Fontstash/wasm/fontstash.a",
         "modules/sokol-jai/sokol/stbi/stb_image.a",
         "modules/sokol-jai/sokol/stbv/stb_vorbis.a",
         "-o", "dist/index.html",
@@ -262,7 +242,6 @@ wasm_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
 #run {
     opt := get_build_options();
     trueno_opts := build_options_from_args(opt.compile_time_command_line);  
-    compile_shaders();
     use_test_game := uses_test_game(trueno_opts);
     create_pack(use_test_game, ifx use_test_game then "./test_packs" else "./packs");
 

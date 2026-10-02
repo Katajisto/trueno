@@ -56,7 +56,6 @@ inspector_x             : s32;
 inspector_y             : s32;
 inspector_z             : s32;
 inspector_emitter_def   : s32 = -1;
-inspector_rdm_roughness : int = 0;
 inspector_note_deactivate    : bool;
 inspector_note_activate_next : bool;
 
@@ -131,11 +130,7 @@ get_level_editor_camera :: () -> Camera {
 	camera.position  = camera.target;
 	camera.position += cameraDir * cameraDist;
 
-	if is_in_reflection_pass {
-		camera.position.y *= -1;
-		camera.target.y *= -1;
-	}
-	
+
     return camera;
 }
 
@@ -487,7 +482,6 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 	for *group: chunk.groups {
 		if group.trile_name == name {
 			array_add(*group.instances, inst);
-			recompute_group_bounds(group);
 			added = true;
 			break;
 		}
@@ -496,10 +490,9 @@ add_trile :: (name: string, x: s32, y: s32, z: s32, orientation: u8 = 0) {
 		group: Chunk_Trile_Group;
 		group.trile_name = sprint("%", name);
 		array_add(*group.instances, inst);
-		recompute_group_bounds(*group);
 		array_add(*chunk.groups, group);
 	}
-	invalidate_buried_around(*curworld.world, x, y, z);
+	upload_chunk(chunk);
 	trile, ok := get_trile(name);
 	if !ok || trile.skip_collision then return;
 	chunk_set_occupancy_mask_at(chunk, lx, ly, lz, occupancy_state_for(trile, orientation));
@@ -519,17 +512,13 @@ remove_trile :: (x: s32, y: s32, z: s32) {
 		for inst, idx: group.instances {
 			if inst.x == lx && inst.y == ly && inst.z == lz {
 				array_unordered_remove_by_index(*group.instances, idx);
-				if group.is_buried.count > idx {
-					array_unordered_remove_by_index(*group.is_buried, idx);
-				}
-				recompute_group_bounds(group);
 				removed = true;
 				break;
 			}
 		}
 		if removed  break;
 	}
-	if removed  invalidate_buried_around(*curworld.world, x, y, z);
+	if removed  upload_chunk(chunk);
 	chunk_set_occupancy_mask_at(chunk, lx, ly, lz, .FREE);
 } @Command
 
@@ -790,7 +779,7 @@ tick_level_editor :: () {
 	}
 }
 
-create_level_editor_preview_tasks :: () {
+draw_level_editor_preview :: (view: View_Id) {
 	curworld := get_current_world();
 	if !curworld.valid then return;
 
@@ -802,20 +791,8 @@ create_level_editor_preview_tasks :: () {
 	if current_tool_mode == .INSPECTOR {
 		name, orientation, found := get_trile_at(*curworld.world, xx px, xx py, xx pz);
 		cursor_trile := ifx found then name else (ifx editor_current_trile then editor_current_trile.name else "");
-		if cursor_trile != "" {
-			ck := world_to_chunk_coord(xx px, xx py, xx pz);
-			lx, ly, lz := world_to_local(xx px, xx py, xx pz);
-			positions: [..]Trile_Instance;
-			positions.allocator = temp;
-			array_add(*positions, Trile_Instance.{lx, ly, lz, xx orientation});
-			task: Rendering_Task_Trile;
-			task.trile        = cursor_trile;
-			task.positions    = positions;
-			task.worldConf    = *curworld.world.conf;
-			task.preview_mode = 1;
-			task.chunk_key    = ck;
-			add_rendering_task(task);
-		}
+		mesh, ok := get_trile_mesh(cursor_trile);
+		if ok  draw_trile(view, mesh, .{xx px, xx py, xx pz}, orientation, .ADD_PREVIEW);
 		return;
 	}
 
@@ -880,37 +857,10 @@ create_level_editor_preview_tasks :: () {
 	is_delete := (current_tool_mode == .AREA && area_active && area_delete)
 	          || (current_tool_mode == .LINE && line_active && line_delete);
 
-	chunk_groups: [..] struct { key: Chunk_Key; instances: [..]Trile_Instance; };
-	chunk_groups.allocator = temp;
-	for pos : positions {
-		wx := cast(s32) pos.x; wy := cast(s32) pos.y; wz := cast(s32) pos.z;
-		ck := world_to_chunk_coord(wx, wy, wz);
-		lx, ly, lz := world_to_local(wx, wy, wz);
-		found := false;
-		for *grp : chunk_groups {
-			if grp.key == ck {
-				array_add(*grp.instances, Trile_Instance.{lx, ly, lz, ori_u8});
-				found = true;
-				break;
-			}
-		}
-		if !found {
-			instances: [..]Trile_Instance;
-			instances.allocator = temp;
-			array_add(*instances, Trile_Instance.{lx, ly, lz, ori_u8});
-			array_add(*chunk_groups, .{ck, instances});
-		}
-	}
-
-	for grp : chunk_groups {
-		task: Rendering_Task_Trile;
-		task.trile        = editor_current_trile.name;
-		task.positions    = grp.instances;
-		task.worldConf    = *curworld.world.conf;
-		task.chunk_key    = grp.key;
-		task.preview_mode = ifx is_delete then cast(s32)2 else cast(s32)1;
-		add_rendering_task(task);
-	}
+	mesh, ok := get_trile_mesh(editor_current_trile.name);
+	if !ok then return;
+	tint := ifx is_delete then Trile_Tint.DELETE_PREVIEW else .ADD_PREVIEW;
+	for positions  draw_trile(view, mesh, it.xyz, ori_u8, tint);
 }
 
 get_trile_at :: (world: *World, wx: s32, wy: s32, wz: s32) -> (name: string, orientation: u8, found: bool) {
@@ -958,36 +908,6 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 	if has_trile {
 		GR.label(r.*, tprint("Trile: %  orient: %", trile_name, orientation), *t_label_left(theme));
 		r.y += r.h;
-		r.h = ui_h(3, 2);
-		GR.label(r.*, "-- RDM --", *t_label_left(theme));
-		r.y += r.h;
-		r.h = ui_h(4, 0);
-		rdm_on := is_rdm_instance_enabled(world, inspector_x, inspector_y, inspector_z);
-		label := ifx rdm_on then "RDM: ON  (sharp specular)" else "RDM: OFF (sky reflection)";
-		if GR.button(r.*, label, *theme.button_theme, 300) {
-			set_rdm_instance_enabled(world, inspector_x, inspector_y, inspector_z, !rdm_on);
-		}
-		r.y += r.h;
-
-		if rdm_on {
-			cur_size := get_rdm_instance_size(world, inspector_x, inspector_y, inspector_z);
-			tile_w := 2 * cur_size;
-			tile_h := 3 * cur_size;
-			size_label := tprint("Size: % (% x % px)", cur_size, tile_w, tile_h);
-			GR.label(r.*, size_label, *t_label_left(theme));
-			r.y += r.h;
-
-			r2 := r.*;
-			r2.w = r.w / 2;
-			if GR.button(r2, "- size", *theme.button_theme, 304) {
-				set_rdm_instance_size(world, inspector_x, inspector_y, inspector_z, rdm_cycle_size(cur_size, -1));
-			}
-			r2.x += r2.w;
-			if GR.button(r2, "+ size", *theme.button_theme, 305) {
-				set_rdm_instance_size(world, inspector_x, inspector_y, inspector_z, rdm_cycle_size(cur_size, +1));
-			}
-			r.y += r.h;
-		}
 	} else {
 		GR.label(r.*, "Trile: (empty)", *t_label_left(theme));
 		r.y += r.h;
@@ -1081,60 +1001,6 @@ draw_inspector_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
 		r.y += r.h;
 	}
 
-	r.h = ui_h(3, 2);
-	r.y += r.h * 0.5;
-	GR.label(r.*, "-- RDM --", *t_label_left(theme));
-	r.y += r.h;
-
-	rdm_flagged := is_rdm_instance_enabled(world, inspector_x, inspector_y, inspector_z);
-	if rdm_flagged {
-		GR.label(r.*, "RDM: flagged", *t_label_left(theme));
-		r.y += r.h;
-
-		rect, has_rect := rdm_get_atlas_rect(world, inspector_x, inspector_y, inspector_z);
-		if has_rect {
-			GR.label(r.*, tprint("Rect: %.2,%.2  %.2x%.2", rect.x, rect.y, rect.z, rect.w), *t_label_left(theme));
-			r.y += r.h;
-
-			r.y += r.h * 0.5;
-			tex_size := r.w * 0.9;
-			tex_r : GR.Rect;
-			tex_r.x = r.x + (r.w - tex_size) * 0.5;
-			tex_r.y = r.y;
-			tex_r.w = tex_size;
-			tex_r.h = tex_size * 1.5;
-
-			fy0 := 1.0 - rect.y;
-			fy1 := 1.0 - (rect.y + rect.w);
-			uv0 := Vector2.{rect.x, fy0};
-			uv1 := Vector2.{rect.x + rect.z, fy0};
-			uv2 := Vector2.{rect.x + rect.z, fy1};
-			uv3 := Vector2.{rect.x, fy1};
-
-			uiTex := New(Ui_Texture,, temp);
-			uiTex.tex = g_rdm_atlas;
-			if uiTex.tex.id != INVALID_ID {
-				set_shader_for_images(uiTex);
-				immediate_quad(
-					.{tex_r.x, tex_r.y},
-					.{tex_r.x + tex_r.w, tex_r.y},
-					.{tex_r.x + tex_r.w, tex_r.y + tex_r.h},
-					.{tex_r.x, tex_r.y + tex_r.h},
-					.{1,1,1,1},
-					uv0, uv1, uv2, uv3
-				);
-				set_shader_for_color();
-				immediate_flush();
-			}
-			r.y += tex_r.h + r.h * 0.5;
-		} else {
-			GR.label(r.*, "RDM: not yet baked", *t_label_left(theme));
-			r.y += r.h;
-		}
-	} else {
-		GR.label(r.*, "RDM: not flagged", *t_label_left(theme));
-		r.y += r.h;
-	}
 }
 
 draw_entity_tool_panel :: (r: *GR.Rect, theme: *GR.Overall_Theme) {
@@ -1245,7 +1111,7 @@ entity_autoedit :: (rect: GR.Rect, e: *Entity, theme: *GR.Overall_Theme) {
 	#insert #run,stallable gen_entity_dispatch("autoedit(rect, cast(*%)e, theme, 400)");
 }
 
-add_editor_billboards :: () {
+draw_editor_billboards :: (view: View_Id) {
 	if !editor_billboards_visible then return;
 	curworld := get_current_world();
 	if !curworld.valid then return;
@@ -1255,45 +1121,31 @@ add_editor_billboards :: () {
 	for e: curworld.world.entities {
 		marker := entity_marker_animation(e);
 		if marker == null then continue;
-		task : Rendering_Task_Billboard;
-		task.position  = e.position + ENTITY_PIVOT;
-		task.animation = marker;
-		task.frame     = 0;
-		add_rendering_task(task);
+		draw_animation_frame(view, marker, 0, e.position + ENTITY_PIVOT);
 	}
 
 	anim := get_animation_from_string("game_core.ball");
 	if anim == null then return;
 
 	for inst: curworld.world.emitter_instances {
-		task : Rendering_Task_Billboard;
-		task.position = inst.position;
-		task.animation = anim;
-		task.frame = 0;
-		add_rendering_task(task);
+		draw_animation_frame(view, anim, 0, inst.position);
 	}
 
 	for note: curworld.world.notes {
-		task : Rendering_Task_Billboard;
-		task.position = .{cast(float)note.position.x + 0.5, cast(float)note.position.y + 0.5, cast(float)note.position.z + 0.5};
-		task.animation = anim;
-		task.frame = 0;
-		add_rendering_task(task);
+		draw_animation_frame(view, anim, 0, .{cast(float)note.position.x + 0.5, cast(float)note.position.y + 0.5, cast(float)note.position.z + 0.5});
 	}
 }
 
 draw_level_editor :: () {
 	curworld := get_current_world();
 	if !curworld.valid then return;
-	cam := get_level_editor_camera();
-	ph := effective_plane_height(*curworld.world.conf);
-	create_set_cam_rendering_task(cam, ph);
-	create_world_rendering_tasks(*curworld.world, cam, ph);
-	add_entity_render_tasks(*curworld.world);
+	view := add_view(.{camera = get_level_editor_camera(), environment = *curworld.world.environment});
+	draw_entities(view, *curworld.world);
+	draw_live_particles(view);
 	if show_trile_preview && !trile_preview_disabled {
-		create_level_editor_preview_tasks();
+		draw_level_editor_preview(view);
 	}
-	add_editor_billboards();
+	draw_editor_billboards(view);
 	debug_grid(floor(cameraCenter.x), editor_edit_y(), floor(cameraCenter.y), 20, .{0.3, 0.3, 0.35, 0.7});
 }
 

@@ -11,13 +11,13 @@
 //       EDITOR_MARKER :: "pack.animation";   // optional, editor-only billboard
 //   } @Entity
 //   entity_tick :: (using foo: *Foo, dt: float) {}   // optional
-//   entity_draw :: (foo: *Foo) {}                    // optional
+//   entity_draw :: (foo: *Foo, view: View_Id) {}     // optional
 //
 // Fields of type float, s32, bool, string or Vector3 are editable and saved;
 // @Slider / @Color notes pick the editor widget.
 //
 // Each frame the game calls tick_entities, then tick_entity_emitters, then
-// add_entity_render_tasks. The level editor calls the last two only: it shows
+// draw_entities. The level editor calls the last two only: it shows
 // entities and their particles without running their game logic.
 
 #scope_export
@@ -131,7 +131,7 @@ free_all_entities :: (world: *World) {
 
 // Concrete per-type overloads in game code take precedence over these.
 entity_tick :: (e: *$T/Entity, dt: float) {}
-entity_draw :: (e: *$T/Entity) { draw_entity_parts(e); }
+entity_draw :: (e: *$T/Entity, view: View_Id) { draw_entity_parts(e, view); }
 
 tick_entities :: (world: *World, dt: float) {
     for e: world.entities  entity_dispatch_tick(e, dt);
@@ -141,8 +141,8 @@ entity_dispatch_tick :: (e: *Entity, dt: float) {
     #insert #run,stallable gen_entity_dispatch("entity_tick(cast(*%)e, dt)");
 }
 
-entity_dispatch_draw :: (e: *Entity) {
-    #insert #run,stallable gen_entity_dispatch("entity_draw(cast(*%)e)");
+entity_dispatch_draw :: (e: *Entity, view: View_Id) {
+    #insert #run,stallable gen_entity_dispatch("entity_draw(cast(*%)e, view)");
 }
 
 // Dispatches a call on the entity's concrete type. '%' in 'call' becomes the type
@@ -182,56 +182,28 @@ tick_entity_emitters :: (world: *World, dt: float) {
     }
 }
 
-// Once per frame, from the game and from the editor. Trile draws are batched per
-// (trile, chunk) and flushed as TRILE_DYNAMIC tasks at the end.
-add_entity_render_tasks :: (world: *World) {
-    array_reset_keeping_memory(*entity_trile_batches);
-    for e: world.entities  entity_dispatch_draw(e);
-    for *batch: entity_trile_batches {
-        task : Rendering_Task_Trile_Dynamic;
-        task.trile     = batch.trile;
-        task.positions = batch.positions;
-        task.chunk_key = batch.chunk_key;
-        task.worldConf = *world.conf;
-        add_rendering_task(task);
-    }
+// Once per frame, from the game and from the editor.
+draw_entities :: (view: View_Id, world: *World) {
+    for e: world.entities  entity_dispatch_draw(e, view);
 }
 
-entity_draw_trile :: (e: *Entity, trile: string, offset: Vector3, orientation: u8 = 0) {
-    pos := entity_trile_point(e, offset);
-    ori := compose_orientations(e.orientation, orientation);
-    key := world_to_chunk_coord(cast(s32) floor(pos.x), cast(s32) floor(pos.y), cast(s32) floor(pos.z));
-    instance := Vector4.{pos.x, pos.y, pos.z, cast(float) ori};
-
-    for *batch: entity_trile_batches {
-        if batch.trile == trile && batch.chunk_key == key {
-            array_add(*batch.positions, instance);
-            return;
-        }
-    }
-    batch : Entity_Trile_Batch;
-    batch.trile     = trile;
-    batch.chunk_key = key;
-    batch.positions.allocator = temp;
-    array_add(*batch.positions, instance);
-    array_add(*entity_trile_batches, batch);
+entity_draw_trile :: (e: *Entity, view: View_Id, trile: string, offset: Vector3, orientation: u8 = 0) {
+    mesh, ok := get_trile_mesh(trile);
+    if !ok  return;
+    draw_trile(view, mesh, entity_trile_point(e, offset), compose_orientations(e.orientation, orientation));
 }
 
-entity_draw_billboard :: (e: *Entity, animation: string, offset: Vector3, frame: s32 = 0) {
+entity_draw_billboard :: (e: *Entity, view: View_Id, animation: string, offset: Vector3, frame: s32 = 0) {
     anim := get_animation_from_string(animation);
     if anim == null  return;
-    task : Rendering_Task_Billboard;
-    task.position  = entity_point(e, offset);
-    task.animation = anim;
-    task.frame     = frame;
-    add_rendering_task(task);
+    draw_animation_frame(view, anim, frame, entity_point(e, offset));
 }
 
-draw_entity_parts :: (e: *Entity) {
+draw_entity_parts :: (e: *Entity, view: View_Id) {
     for part: get_entity_parts(e.type) {
         if part.kind == {
-            case .TRILE;     entity_draw_trile(e, part.trile, part.offset, part.orientation);
-            case .BILLBOARD; entity_draw_billboard(e, part.animation, part.offset);
+            case .TRILE;     entity_draw_trile(e, view, part.trile, part.offset, part.orientation);
+            case .BILLBOARD; entity_draw_billboard(e, view, part.animation, part.offset);
             case .EMITTER;   // tick_entity_emitters handles these
         }
     }
@@ -307,14 +279,6 @@ entity_saved_members :: (type: Type) -> []Type_Info_Struct_Member {
     }
     return result;
 }
-
-Entity_Trile_Batch :: struct {
-    trile     : string;
-    chunk_key : Chunk_Key;
-    positions : [..]Vector4;
-}
-
-entity_trile_batches : [..]Entity_Trile_Batch;
 
 #if FLAG_TEST_ENGINE {
     // The two placement helpers use different pivots, and getting them the wrong

@@ -4,8 +4,6 @@
  "saturation": 1.123811,
  "gamma": 1.739475,
  "tonemap": 1,
- "ssao": 3.628121,
- "ssao_size": 2,
  "dilate_separation": 1.56422,
  "dilate_size": 2,
  "dilate_min": 1,

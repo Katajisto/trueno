@@ -35,7 +35,6 @@ FLAG_USE_TEST_GAME :: FLAG_TEST_ENGINE || FLAG_TEST_EXE_ENGINE;
 #load "rendering/rendering.jai";
 #load "input/hotkeys.jai";
 #load "ui/ui.jai";
-#load "editor/rdm_disk.jai";
 #if !FLAG_RELEASE_BUILD { #load "editor/editor.jai"; }
 #load "time.jai";
 #load "events.jai";
@@ -51,7 +50,6 @@ FLAG_USE_TEST_GAME :: FLAG_TEST_ENGINE || FLAG_TEST_EXE_ENGINE;
 #load "assets/asset_manager.jai";
 #load "settings_menu.jai";
 #load "loading_screen.jai";
-#load "ui/demo.jai";
     
 #if FLAG_USE_TEST_GAME {
     #load "../test_game/game.jai";
@@ -68,11 +66,7 @@ V_MAJOR :: 0;
 V_MINOR :: 7;
 
 state: struct {
-    pass_action_clear : sg_pass_action;
-    pass_action_clear_gbuf : sg_pass_action;
-    pass_action       : sg_pass_action;
     dpi_scale         : float;
-    fons              : *FONScontext;
     font_default      : Ui_Font;
 };
 
@@ -102,15 +96,6 @@ round_pow2 :: (v: float) -> s32 {
 debug_font : *Font;
 
 init :: () {
-    sg_setup(*(sg_desc.{
-        environment      = cast,force(sg_environment) sglue_environment(),
-        logger           = .{ func = slog_func },
-        attachments_pool_size = 64,
-        buffer_pool_size      = 1024,
-    }));
-    sgl_setup(*(sgl_desc_t.{
-        logger = .{ func = slog_func },
-    }));
     sfetch_setup(*(sfetch_desc_t.{
         max_requests = 128,
         num_channels = 2,
@@ -128,18 +113,7 @@ init :: () {
     stm_setup();
     state.dpi_scale = sapp_dpi_scale();
     atlas_dim := round_pow2(1024.0 * state.dpi_scale);
-    fons_context := sfons_create(*(sfons_desc_t.{
-        width = atlas_dim,
-        height = atlas_dim,
-    }));
-    state.fons = fons_context;
-    state.font_default.fons_font = FONS_INVALID;
-    create_pipelines();
-
-    state.pass_action_clear.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 0, a = 0 } };
-    state.pass_action_clear_gbuf.colors[0] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 1000, a = 0 } };
-    state.pass_action_clear_gbuf.colors[2] = .{ load_action = .CLEAR, clear_value = .{ r = 0, g = 0, b = 0,    a = 0 } };
-    state.pass_action.colors[0] = .{ load_action = .LOAD };
+    text_init(atlas_dim);
 
     g_mixer.paused = true;
 
@@ -159,9 +133,6 @@ init :: () {
 }
 
 init_after_core :: () {
-    init_plane_textures();
-    init_brdf_lut();
-
     add_font_from_pack("boot", "DroidSerif-Regular.ttf");
     ui_init_font_fields(*state.font_default);
     init_ui();
@@ -182,8 +153,6 @@ init_after_core :: () {
         init_keybinds();
         init_settings_menu();
     }
-    init_rendering();
-    load_post_process_from_pack();
 
     audio_init();
 
@@ -197,7 +166,6 @@ init_after_core :: () {
     // #if UNCAPPED_FRAMES then sapp_glx_swapinterval(0);
 }
 
-is_in_reflection_pass : bool = false;
 
 delta_time_accumulator : float64 = 0;
 
@@ -219,7 +187,6 @@ frame :: () {
     if show_loading_screen() {
         input_per_frame_event_and_flag_update();
         if init_after_core_done {
-            fonsClearState(state.fons);
             draw_loading_screen();
             tick_ui();
             ui_pass();
@@ -238,7 +205,6 @@ frame :: () {
         g_mixer.paused = false;
     }
 
-    fonsClearState(state.fons);
     
     add_frame_profiling_point("After loading logic");
     
@@ -266,7 +232,6 @@ frame :: () {
             delta_time_accumulator -= (1.0/480.0);
         }
     }
-    fonsClearState(state.fons);
     for event: Input.events_this_frame {
         GR.getrect_handle_event(event);
     }
@@ -289,7 +254,6 @@ frame :: () {
         draw_editor();
     }
 
-    add_particle_render_tasks();
     add_frame_profiling_point("After editor draw");
     render();
     add_frame_profiling_point("After rendering");
@@ -308,7 +272,6 @@ frame :: () {
 cleanup :: () {
     log_info("Cleanup called....");
     audio_cleanup(); 
-    sg_shutdown();
 }
 
 get_window_size :: () -> (s32, s32) {
