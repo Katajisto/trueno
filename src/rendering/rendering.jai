@@ -7,9 +7,16 @@
 #load "debug_draw.jai";
 #load "animation.jai";
 
+#if RENDERER == "sokol" {
+    #load "../renderer_sokol/renderer.jai";
+} else {
+    #assert false "Unknown renderer; build with renderer=sokol.";
+}
+
 render :: () {
     text_end_frame();
-    scene_end_frame();
+    w, h := get_window_size();
+    scene_end_frame(w, h);
     g_debug_line_count   = 0;
     g_overlay_line_count = 0;
 }

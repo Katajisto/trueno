@@ -1,14 +1,13 @@
-// The Scene API. Game, editor and UI code say what to draw through this file;
-// how it gets drawn is the renderer's business. The world is persistent: chunks
-// are uploaded when loaded or edited. Everything else is submitted every frame
-// and dropped by render().
+// The new scene API. The idea is that what to draw is defined trough this,
+// and the renderer can be nicely separated and tested.
+//
+// I'm also planning to maybe add a WGPU backend at some point or something.
 
 Trile_Mesh :: struct { id: u32; }
 Texture    :: struct { id: u32; }
 Font_Face  :: struct { id: s32; }
 View_Id    :: struct { index: s32; }
 
-// Grows as each part of the renderer comes back: sky, sun, fog, water, post.
 Environment :: struct {
 }
 
@@ -24,7 +23,7 @@ Trile_Tint :: enum u8 {
     DELETE_PREVIEW;
 }
 
-// A billboard with this face direction turns to face the camera.
+// This direction means that the billboard should face the camera.
 BILLBOARD_FACE_CAMERA :: Vector3.{-100, -100, -100};
 
 Blend_Mode :: enum u8 {
@@ -35,18 +34,16 @@ Blend_Mode :: enum u8 {
 Particle_Instance :: struct {
     position : Vector3;
     size     : float;
-    uv_rect  : Vector4;   // x, y, w, h in the sheet, normalized
+    uv_rect  : Vector4;   // x, y, w, h, 0..1
     color    : Vector4;
 }
 
-// Screen-space, in pixels from the top left.
+// Pixels from top left.
 Ui_Vertex :: struct {
     position : Vector2;
     uv       : Vector2;
     color    : Vector4;
 }
-
-// --- Persistent resources -------------------------------------------------
 
 trile_mesh_create :: (trile: *Trile) -> Trile_Mesh {
     scene.trile_mesh_count += 1;
@@ -61,24 +58,22 @@ trile_mesh_destroy :: (mesh: Trile_Mesh) {
 
 // Pixels are RGBA8.
 texture_create :: (width: s32, height: s32, pixels: []u8) -> Texture {
-    scene.texture_count += 1;
-    return .{scene.texture_count};
+    return .{renderer_texture_create(width, height, pixels)};
 }
 
 texture_update :: (texture: Texture, pixels: []u8) {
+    renderer_texture_update(texture.id, pixels);
 }
 
 texture_destroy :: (texture: Texture) {
+    renderer_texture_destroy(texture.id);
 }
-
-// --- Persistent world -----------------------------------------------------
 
 World_Group :: struct {
     mesh      : Trile_Mesh;
     instances : []Trile_Instance;
 }
 
-// Replaces whatever the chunk held before. The groups are copied.
 world_set_chunk :: (key: Chunk_Key, groups: []World_Group) {
     chunk := find_or_add(*scene.chunks, key);
     for chunk.groups  array_free(it.instances);
@@ -105,8 +100,6 @@ world_clear :: () {
     }
     table_reset(*scene.chunks);
 }
-
-// --- Per frame ------------------------------------------------------------
 
 add_view :: (view: View) -> View_Id {
     array_add(*scene.views, view);
@@ -139,8 +132,6 @@ ui_scissor_clear :: () {
     array_add(*scene.ui, .{clear_scissor = true});
 }
 
-// --- Renderer side: only src/rendering reads these -------------------------
-
 Scene_Chunk :: struct {
     groups : [..]World_Group;
 }
@@ -169,7 +160,6 @@ Scene_Particles :: struct {
     particles : []Particle_Instance;
 }
 
-// One entry of the UI stream: either a batch of triangles or a scissor change.
 Scene_Ui :: struct {
     texture       : Texture;
     vertices      : []Ui_Vertex;
@@ -178,9 +168,8 @@ Scene_Ui :: struct {
     clear_scissor : bool;
 }
 
-scene : struct {
+Scene :: struct {
     trile_mesh_count : u32;
-    texture_count    : u32;
 
     chunks : Table(Chunk_Key, Scene_Chunk, chunk_key_hash, chunk_key_compare);
 
@@ -191,10 +180,23 @@ scene : struct {
     ui         : [..]Scene_Ui;
 }
 
-scene_end_frame :: () {
+scene_init :: () {
+    renderer_init();
+}
+
+scene_shutdown :: () {
+    renderer_shutdown();
+}
+
+scene_end_frame :: (width: s32, height: s32) {
+    renderer_render(*scene, width, height);
     array_reset_keeping_memory(*scene.views);
     array_reset_keeping_memory(*scene.triles);
     array_reset_keeping_memory(*scene.billboards);
     array_reset_keeping_memory(*scene.particles);
     array_reset_keeping_memory(*scene.ui);
 }
+
+#scope_file
+
+scene : Scene;

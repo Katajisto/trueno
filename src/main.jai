@@ -96,6 +96,7 @@ round_pow2 :: (v: float) -> s32 {
 debug_font : *Font;
 
 init :: () {
+    scene_init();
     sfetch_setup(*(sfetch_desc_t.{
         max_requests = 128,
         num_channels = 2,
@@ -272,6 +273,7 @@ frame :: () {
 cleanup :: () {
     log_info("Cleanup called....");
     audio_cleanup(); 
+    scene_shutdown();
 }
 
 get_window_size :: () -> (s32, s32) {

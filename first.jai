@@ -1,4 +1,5 @@
 #load "./src/meta/meta.jai";
+#load "./src/renderer_sokol/shaders/build.jai";
 
 Iprof :: #import "Iprof"(IMPORT_MODE = .METAPROGRAM);
 #import "File_Utilities";
@@ -12,6 +13,7 @@ Trueno_Build_Options :: struct {
     test_game       : bool;
     test_exe_engine : bool;
     test_exe_game   : bool;
+    renderer        : string = "sokol";
 }
 
 // Engine tests build against test_game/ so they work without the game/ directory;
@@ -25,6 +27,10 @@ build_options_from_args :: (args: []string) -> Trueno_Build_Options {
     opts : Trueno_Build_Options;
 
     for arg : args {
+        if begins_with(arg, "renderer=") {
+            opts.renderer = slice(arg, 9, arg.count - 9);
+            continue;
+        }
         if arg == {
             case "wasm";
                 opts.wasm_build = true;
@@ -96,11 +102,13 @@ add_trueno_opts_to_compiler_strings :: (trueno_opts : Trueno_Build_Options, w: W
 
     trueno_opts_info := type_info(Trueno_Build_Options);
     for trueno_opts_info.members {
+        if it.type.type != .BOOL  continue;
         optPtr := (cast(*bool)(*trueno_opts)) + it.offset_in_bytes;
         name := tprint("%", it.name);
         to_upper_in_place(name);
         add_build_string(tprint("FLAG_% :: %;\n", name, bool_to_string(optPtr.*)), w);
     }
+    add_build_string(tprint("RENDERER :: \"%\";\n", trueno_opts.renderer), w);
 }
 
 wasm_copy_assets :: () {
@@ -244,6 +252,8 @@ wasm_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
     trueno_opts := build_options_from_args(opt.compile_time_command_line);  
     use_test_game := uses_test_game(trueno_opts);
     create_pack(use_test_game, ifx use_test_game then "./test_packs" else "./packs");
+
+    if trueno_opts.renderer == "sokol" && !compile_sokol_shaders()  exit(1);
 
     if trueno_opts.wasm_build {
         wasm_build(opt, trueno_opts);
