@@ -1,6 +1,8 @@
 @include common.glsl
 @include ui.glsl
-@include composite.glsl
+@include post.glsl
 @include trile.glsl
 @include water.glsl
-@include billboard.glsl
+@include sprite.glsl
+@include sky.glsl
+@include line.glsl

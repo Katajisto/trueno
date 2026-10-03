@@ -80,16 +80,17 @@ add_asset_buffer_sizes_to_compiler_strings :: (trueno_opts: Trueno_Build_Options
     pack_dir           := ifx use_test_game then "./test_packs" else "./packs";
     game_resources_dir := ifx use_test_game then "./test_game/resources" else "./game/resources";
 
-    sizes: [3]s64;
+    sizes: [4]s64;
     sizes[0] = max_asset_file_size(pack_dir,           ".pack",       1 * 1024 * 1024);
     sizes[1] = max(
         max_asset_file_size(game_resources_dir, "world.json",  64 * 1024),
         max_asset_file_size(game_resources_dir, "index.world", 64 * 1024)
     );
     sizes[2] = max_asset_file_size(game_resources_dir, "chunks.bin",       1 * 1024 * 1024);
+    sizes[3] = max_asset_file_size(game_resources_dir, "probes.bin",       4 * 1024 * 1024);
 
-    names :: string.["MAX_PACK_SIZE", "MAX_WORLD_SIZE", "MAX_CHUNKS_SIZE"];
-    for i: 0..2 {
+    names :: string.["MAX_PACK_SIZE", "MAX_WORLD_SIZE", "MAX_CHUNKS_SIZE", "MAX_PROBES_SIZE"];
+    for i: 0..3 {
         add_build_string(tprint("% :: %;\n", names[i], sizes[i]), w);
     }
 }
@@ -145,7 +146,8 @@ native_build :: (opts: Build_Options, trueno_opts: Trueno_Build_Options) {
         
     opts.cpu_target = root_opts.cpu_target;
     opts.os_target  = root_opts.os_target;
-    opts.backend    = ifx (trueno_opts.release_build || OS == .MACOS) then .LLVM else .X64;
+    // opts.backend    = ifx (trueno_opts.release_build || OS == .MACOS) then .LLVM else .X64;
+    opts.backend    = .LLVM; // rad debugger doesn't currently work with the x64 backend.
     opts.output_executable_name = root_opts.output_executable_name;
 
     set_build_options(opts, w);

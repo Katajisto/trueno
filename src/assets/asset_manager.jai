@@ -24,6 +24,7 @@ Fetch_Type :: enum {
     PACK;
     WORLD;
     WORLD_CHUNKS;
+    WORLD_PROBES;
 }
 
 Fetch_Request :: struct {
@@ -66,6 +67,7 @@ fetch_type_buffer_size :: (type: Fetch_Type) -> s64 {
         case .PACK;         return MAX_PACK_SIZE;
         case .WORLD;        return MAX_WORLD_SIZE;
         case .WORLD_CHUNKS; return MAX_CHUNKS_SIZE;
+        case .WORLD_PROBES; return MAX_PROBES_SIZE;
     }
 }
 
@@ -125,6 +127,9 @@ handle_fetch_failed :: (req: *Fetch_Request) {
         free(req.world_json_data.data);
         log_error("Failed to load chunks.bin for world '%'", req.world_name);
 
+    case .WORLD_PROBES;
+        log_info("No baked probes for world '%'", req.world_name);
+
     }
 }
 
@@ -170,9 +175,21 @@ process_completed_fetch :: (req: *Fetch_Request, data: []u8) {
         if ok {
             set_loaded_world(world);
             log_info("Loaded world: %", req.world_name);
+            probes_req: Fetch_Request;
+            probes_req.type       = .WORLD_PROBES;
+            probes_req.priority   = .BACKGROUND;
+            probes_req.world_name = req.world_name;
+            probes_req.path       = sprint("%/worlds/%/probes.bin", GAME_RESOURCES_DIR, req.world_name);
+            array_add(*g_asset_manager.queue, probes_req);
         } else {
             log_error("Failed to parse world '%'", req.world_name);
         }
+
+    case .WORLD_PROBES;
+        // Another world may have been loaded while these were on the way.
+        curworld := get_current_world();
+        if !curworld.valid || curworld.world.name != req.world_name  return;
+        if !load_probes(data)  log_error("Broken probes.bin for world '%'", req.world_name);
 
     }
 }
@@ -255,7 +272,10 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
                 pal : Loaded_Palette;
                 pal.name = sprint("%", name);
                 pal.entries = load_hex_palette_from_memory(v.data);
-                array_add(*g_palettes, pal);
+                // Pack hot reload brings the same palettes in again.
+                replaced := false;
+                for *g_palettes  if it.name == pal.name { it.* = pal; replaced = true; }
+                if !replaced  array_add(*g_palettes, pal);
                 log_info("Loaded % colors from hex palette(%)", pal.entries.count, v.name);
             case "ttf";
             case;

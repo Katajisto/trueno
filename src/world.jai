@@ -2,8 +2,6 @@
 
 Pool :: #import "Pool";
 
-CHUNK_SIZE :: 32;
-
 Current_World :: struct {
     world : World;
     pool  : Pool.Pool; // A memory pool to allocate stuff for the lifetime of this level being active.
@@ -13,6 +11,8 @@ Current_World :: struct {
 current_world : Current_World;
 
 #scope_export
+
+CHUNK_SIZE :: 32;
 
 Chunk_Key :: struct {
     x: s32;
@@ -346,6 +346,11 @@ World_Json_Config :: struct {
     waterReflectivity    : float = 0.0;
     waterDistortion      : float = 0.007;
     indoor               : s32;
+    shadeColor           : [3]float = .[0.45, 0.45, 0.75];
+    exposure             : float = 0;
+    contrast             : float = 1;
+    saturation           : float = 1;
+    bloomAmount          : float = 0.4;
 }
 
 World_Json_Chunk :: struct {
@@ -502,6 +507,11 @@ world_config_to_json :: (conf: *World_Config) -> World_Json_Config {
     jc.waterReflectivity  = conf.waterReflectivity;
     jc.waterDistortion    = conf.waterDistortion;
     jc.indoor             = conf.indoor;
+    jc.shadeColor         = conf.shadeColor.component;
+    jc.exposure           = conf.exposure;
+    jc.contrast           = conf.contrast;
+    jc.saturation         = conf.saturation;
+    jc.bloomAmount        = conf.bloomAmount;
     return jc;
 }
 
@@ -525,6 +535,11 @@ world_config_from_json :: (jc: *World_Json_Config) -> World_Config {
     conf.waterReflectivity       = jc.waterReflectivity;
     conf.waterDistortion         = jc.waterDistortion;
     conf.indoor                  = jc.indoor;
+    conf.shadeColor.component    = jc.shadeColor;
+    conf.exposure                = jc.exposure;
+    conf.contrast                = jc.contrast;
+    conf.saturation              = jc.saturation;
+    conf.bloomAmount             = jc.bloomAmount;
     return conf;
 }
 
@@ -687,6 +702,49 @@ load_world_from_json :: (json_str: string, chunk_bin: []u8) -> (World, bool) {
     return world, true;
 }
 
+// --- Baked light probes (probes.bin) ---
+
+PROBES_MAGIC   :: u32.[0x42505254][0]; // "TRPB" as little-endian u32
+PROBES_VERSION :: cast(u32) 1;
+
+Probes_File_Header :: struct {
+    magic       : u32;
+    version     : u32;
+    chunk_count : u32;
+}
+
+Probe_Chunk :: struct {
+    key    : Chunk_Key;
+    probes : []Probe;
+}
+
+save_probes :: (chunks: []Probe_Chunk) -> string {
+    builder: String_Builder;
+    write_value(*builder, Probes_File_Header.{PROBES_MAGIC, PROBES_VERSION, xx chunks.count});
+    for chunks {
+        assert(it.probes.count == PROBES_PER_CHUNK);
+        write_value(*builder, it.key);
+        write_bytes(*builder, it.probes.data, PROBES_PER_CHUNK * size_of(Probe));
+    }
+    return builder_to_string(*builder);
+}
+
+// Hands the probes in a probes.bin to the renderer.
+load_probes :: (data: []u8) -> bool {
+    cursor : s64;
+    if data.count < size_of(Probes_File_Header)  return false;
+    header := read_value(data, *cursor, Probes_File_Header);
+    if header.magic != PROBES_MAGIC || header.version != PROBES_VERSION  return false;
+    chunk_bytes := size_of(Chunk_Key) + PROBES_PER_CHUNK * size_of(Probe);
+    if cursor + header.chunk_count * chunk_bytes > data.count  return false;
+    for 1..header.chunk_count {
+        key := read_value(data, *cursor, Chunk_Key);
+        world_set_chunk_probes(key, .{PROBES_PER_CHUNK, xx (data.data + cursor)});
+        cursor += PROBES_PER_CHUNK * size_of(Probe);
+    }
+    return true;
+}
+
 World_Config :: struct {
     // All of the @Notes are for the autoedit functionality.
     skyBase       : Vector3 = .{0.38, 0.81, 0.95}; @Color
@@ -695,6 +753,12 @@ World_Config :: struct {
     horizonHalo   : Vector3 = .{1.0, 1.0, 1.0}; @Color
     sunHalo       : Vector3 = .{1.0, 1.0, 1.0}; @Color
     sunLightColor : Vector3 = .{1.0, 1.0, 1.0}; @Color
+    shadeColor    : Vector3 = .{0.45, 0.45, 0.75}; @Color
+
+    exposure       : float = 0;   @Slider,-3,3,0.1
+    contrast       : float = 1;   @Slider,0,3,0.05
+    saturation     : float = 1;   @Slider,0,3,0.05
+    bloomAmount    : float = 0.4; @Slider,0,3,0.05
     sunPosition   : Vector3 = #run normalize(Vector3.{0.2, 0.3, 0.4});
     sunIntensity  : float = 1.0; @Slider,0,4,0.1
     skyIntensity  : float = 0.3; @Slider,0,5,0.1
@@ -709,9 +773,9 @@ World_Config :: struct {
     waterReflectivity   : float = 0.0;  @Slider,0,1,0.05
     waterDistortion     : float = 0.007; @Slider,0,0.05,0.001
     hsv_lighting        : s32   = 1;    @Slider,0,1,1
-    // Indoor levels: no sun shadows (faces toward the sun still light up), a
-    // flat skyBase instead of the sky, and no water. The reflection plane moves
-    // to the top of the floor layer (y = 1) for floor reflections.
+    // Indoor levels float in black: no sky and no water. Sunlight gets in through
+    // glass. The reflection plane moves to the top of the floor layer (y = 1) for
+    // floor reflections.
     indoor              : s32   = 0;    @Slider,0,1,1
 
     // ambientColor     : Vector3 = .{1.0, 1.0, 1.0}; @Color
@@ -726,11 +790,26 @@ world_environment :: (world: *World) -> *Environment {
     conf := *world.conf;
     env.reflection_height  = effective_plane_height(conf);
     env.water              = !conf.indoor;
+    env.sky                = !conf.indoor;
     env.water_color        = conf.waterColor;
     env.deep_color         = conf.deepColor;
     env.water_reflectivity = conf.waterReflectivity;
     env.water_distortion   = conf.waterDistortion;
+    env.water_shininess    = conf.waterShininess;
     env.water_normals      = get_texture_from_pack("core", "utiltex/water_small.png");
+    env.sun_direction      = normalize(conf.sunPosition);
+    env.sun_color          = conf.sunLightColor;
+    env.shade_color        = conf.shadeColor;
+    env.sky_base           = conf.skyBase;
+    env.sky_top            = conf.skyTop;
+    env.sun_disk           = conf.sunDisk;
+    env.sun_halo           = conf.sunHalo;
+    env.horizon_halo       = conf.horizonHalo;
+    env.sky_intensity      = conf.skyIntensity;
+    env.exposure           = conf.exposure;
+    env.contrast           = conf.contrast;
+    env.saturation         = conf.saturation;
+    env.bloom_amount       = conf.bloomAmount;
     return env;
 }
 

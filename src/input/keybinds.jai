@@ -48,6 +48,7 @@ Editor_Action :: enum {
     // Trile editor — undo/redo
     TRIXEL_UNDO;
     TRIXEL_REDO;
+    TRIXEL_TOOL_PICK;
 }
 
 #scope_file;
@@ -217,4 +218,5 @@ set_default_bindings :: () {
     set(.TRIXEL_TILING_ROTATE, cast(Key_Code) #char "R");
     set(.TRIXEL_UNDO,          cast(Key_Code) #char "Z", ctrl = true);
     set(.TRIXEL_REDO,          cast(Key_Code) #char "Y", ctrl = true);
+    set(.TRIXEL_TOOL_PICK,     cast(Key_Code) #char "K");
 }

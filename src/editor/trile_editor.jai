@@ -23,6 +23,7 @@ Trile_Editor_Tool :: enum {
     PAINT;
     ADD;
     REMOVE;
+    PICK;     // takes the clicked trixel's material
 }
 
 Trile_Editor_Tool_Mode :: enum {
@@ -57,6 +58,9 @@ ntrile :: (name: string) {
     trile_changed(editor_current_trile);
     newt : Trile;
     newt.name = sprint("%", name);
+    swatch := current_swatch;
+    if !g_swatches[swatch].used  swatch = first_used_swatch();
+    trile_fill(*newt, swatch);
     set_trile(newt.name, newt);
     editor_current_trile = get_trile(newt.name);
     trile_gen_heightmap(editor_current_trile);
@@ -134,6 +138,10 @@ area_active  : bool;
 
 handle_tool_click :: () {
     if hovered_trixel_x < 0 && hovered_trixel_y < 0 && hovered_trixel_z < 0 then return;
+    if current_tool == .PICK {
+        current_swatch = editor_current_trile.trixels[hovered_trixel_x][hovered_trixel_y][hovered_trixel_z];
+        return;
+    }
     if current_mode == .POINT {
         push_undo();
         if current_tool == .ADD {
@@ -318,7 +326,9 @@ draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     if keybind_button(r, "Add",    .TRIXEL_TOOL_ADD,    *t_button_selectable(theme, current_tool == .ADD))    then current_tool = .ADD;
     r.y += r.h;
     if keybind_button(r, "Remove", .TRIXEL_TOOL_REMOVE, *t_button_selectable(theme, current_tool == .REMOVE)) then current_tool = .REMOVE;
-    r.y += r.h * 3;
+    r.y += r.h;
+    if keybind_button(r, "Pick material", .TRIXEL_TOOL_PICK, *t_button_selectable(theme, current_tool == .PICK)) then current_tool = .PICK;
+    r.y += r.h * 2;
     if keybind_button(r, "Point",  .TRIXEL_MODE_POINT,  *t_button_selectable(theme, current_mode == .POINT))  then current_mode = .POINT;
     r.y += r.h;
     if keybind_button(r, "Area",   .TRIXEL_MODE_AREA,   *t_button_selectable(theme, current_mode == .AREA))   then current_mode = .AREA;
@@ -336,9 +346,35 @@ draw_tool_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
 }
 
 draw_material_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
-    region, inside := GR.begin_scrollable_region(area, *theme.scrollable_region_theme);
+    row_h := ui_h(3, 2);
+    r := area;
+    r.h = row_h;
+    GR.label(r, tprint("Selected  %", swatch_label(current_swatch)), *t_label_left(theme));
+    r.y += row_h;
+    hovered := "-";
+    if editor_current_trile && hovered_trixel_x >= 0 {
+        hovered = swatch_label(editor_current_trile.trixels[hovered_trixel_x][hovered_trixel_y][hovered_trixel_z]);
+    }
+    GR.label(r, tprint("Hovered   %", hovered), *t_label_left(theme));
+    r.y += row_h * 1.5;
+
+    grid := r;
+    grid.h = ui_h(30, 0);
+    region, inside := GR.begin_scrollable_region(grid, *theme.scrollable_region_theme);
     end_y := draw_swatch_grid(inside, *swatch_scroll, *current_swatch, theme);
     GR.end_scrollable_region(region, inside.x + inside.w, end_y, *swatch_scroll);
+    r.y += grid.h + row_h * 0.5;
+
+    if !editor_current_trile  return;
+    GR.label(r, "In this trile (click to select)", *t_label_left(theme));
+    r.y += row_h;
+    counts := trile_swatch_counts(editor_current_trile);
+    for count, id: counts {
+        if count == 0  continue;
+        btn := t_button_selectable(theme, current_swatch == id);
+        if GR.button(r, tprint("%  (%)", swatch_label(xx id), count), *btn, 1000 + id)  current_swatch = xx id;
+        r.y += row_h;
+    }
 }
 
 // Shared with the material studio. Returns the bottom of the grid.
@@ -436,6 +472,16 @@ draw_meta_tab :: (theme: *GR.Overall_Theme, area: GR.Rect) {
     r.y += row_h;
     changed = GR.base_checkbox(r, "Is stairs", editor_current_trile.is_stairs, *theme.checkbox_theme);
     if changed  editor_current_trile.is_stairs = !editor_current_trile.is_stairs;
+    r.y += row_h;
+    for cut: Trile_Cut.[.ROOF, .WALL] {
+        label := ifx cut == .ROOF then "Roof (hidden from below)" else "Wall (cut away toward camera)";
+        if GR.base_checkbox(r, label, editor_current_trile.cut == cut, *theme.checkbox_theme, xx cut) {
+            editor_current_trile.cut = ifx editor_current_trile.cut == cut then .NONE else cut;
+            trile_changed(editor_current_trile);
+        }
+        r.y += row_h;
+    }
+    r.y -= row_h;
     r.y += row_h * 2;
 
     r.h = row_h;

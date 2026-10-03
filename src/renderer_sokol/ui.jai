@@ -1,5 +1,5 @@
 ui_init :: () {
-    desc := pipeline_desc(ui_shader_desc(sg_query_backend()), .SCREEN, blend = true);
+    desc := pipeline_desc(ui_shader_desc(sg_query_backend()), .SCREEN, blend = ALPHA_BLEND);
     desc.layout.attrs[ATTR_ui_position] = .{ format = .FLOAT2 };
     desc.layout.attrs[ATTR_ui_uv]       = .{ format = .FLOAT2 };
     desc.layout.attrs[ATTR_ui_color0]   = .{ format = .FLOAT4 };

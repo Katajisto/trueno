@@ -253,37 +253,24 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 		r.h = ui_h(3,0);
 		if GR.button(r, "Render with Tacoma", *theme.button_theme) {
 			cam := get_level_editor_camera();
-			gen_reference(tacomaResolution, tacomaResolution, cam.position, cam.target, tacomaSamples, true, curworld.world);
+			if curworld.valid  gen_reference(tacomaResolution, tacomaResolution, cam.position, cam.target, tacomaSamples, *curworld.world);
 		}
 		r.y += r.h;
-		if GR.button(r, "Bake all chunk RDMs", *theme.button_theme) {
-			if curworld.valid then rdm_bake_all_chunks(curworld.world, tacomaSamples, true);
+		if GR.button(r, "Bake probes", *t_button_selectable(theme, !probe_bake.active)) {
+			if curworld.valid && !probe_bake.active  bake_probes(tacomaSamples);
 		}
 		r.y += r.h;
-		if GR.button(r, "Bake all chunk SH grids", *t_button_selectable(theme, !sh_bake.active)) {
-			if curworld.valid && !sh_bake.active  sh_bake_start(tacomaSamples);
-		}
-		r.y += r.h;
-		if rdm_bake.active {
-			total := cast(s32) rdm_bake.jobs.count;
-			done  := rdm_bake.current_job;
-			pct   := ifx total > 0 then done * 100 / total else 0;
-			GR.label(r, tprint("Baking RDMs: %/% (\%%)", done, total, pct), *t_label_left(theme));
+		if probe_bake.active {
+			total := probe_bake.keys.count;
+			done  := probe_bake.results.count;
+			GR.label(r, tprint("Baking probes: %/% chunks", done, total), *t_label_left(theme));
 			r.y += r.h;
 		}
-		if sh_bake.active {
-			total := cast(s32) sh_bake.chunk_keys.count;
-			done  := sh_bake.current_chunk;
-			pct   := ifx total > 0 then done * 100 / total else 0;
-			GR.label(r, tprint("Baking SH grids: %/% (\%%)", done, total, pct), *t_label_left(theme));
-			r.y += r.h;
-		}
-		if current_screenshot.valid {
-			aspect := cast(float)current_screenshot.width / cast(float)current_screenshot.height;
-			
+		if tacoma_preview.texture.id {
+			aspect := cast(float) tacoma_preview.width / cast(float) tacoma_preview.height;
 			r.h = r.w / aspect;
 			uiTex := New(Ui_Texture,, temp);
-			uiTex.tex = current_screenshot.image;
+			uiTex.tex = tacoma_preview.texture;
 			set_shader_for_images(uiTex);
 		    immediate_quad(.{r.x, r.y}, .{r.x + r.w, r.y}, .{r.x + r.w, r.y + r.h}, .{r.x, r.y + r.h});
 			set_shader_for_color();
@@ -299,13 +286,9 @@ draw_tacoma_tab :: (theme: *GR.Overall_Theme, total_r: GR.Rect) {
 	    r.y += r.h;
 	    GR.slider(r, *tacomaResolution, 10, 5000, 10, *theme.slider_theme);
 		r.y += r.h;
-		GR.label(r, tprint("Sky Scale (bake): %", formatFloat(bake_sky_scale, trailing_width=2)), *t_label_left(theme));
+		GR.label(r, "Emissive light (bake)", *t_label_left(theme));
 		r.y += r.h;
-		GR.slider(r, *bake_sky_scale, 0.0, 5.0, 0.05, *theme.slider_theme);
-		r.y += r.h;
-		GR.label(r, tprint("Sky Desaturation (bake): %", formatFloat(bake_sky_desaturation, trailing_width=2)), *t_label_left(theme));
-		r.y += r.h;
-		GR.slider(r, *bake_sky_desaturation, 0.0, 1.0, 0.05, *theme.slider_theme);
+		GR.slider(r, *bake_emissive_light, 0.0, 50.0, 0.5, *theme.slider_theme);
 		r.y += r.h;
 
 		GR.end_scrollable_region(region, r.x + r.w, r.y, *tacoma_tab_scroll);
@@ -650,7 +633,7 @@ editor_edit_y :: () -> float {
 }
 
 tick_level_editor :: () {
-	#if FLAG_TACOMA_ENABLED { rdm_bake_tick(); sh_bake_tick(); }
+	#if FLAG_TACOMA_ENABLED { probe_bake_tick(); }
 	tick_level_editor_camera();
 	tick_particles(cast(float)delta_time);
 
@@ -1139,7 +1122,8 @@ draw_editor_billboards :: (view: View_Id) {
 draw_level_editor :: () {
 	curworld := get_current_world();
 	if !curworld.valid then return;
-	view := add_view(.{camera = get_level_editor_camera(), environment = world_environment(*curworld.world)});
+	camera := get_level_editor_camera();
+	view := add_view(.{camera = camera, environment = world_environment(*curworld.world), cut = true, focus = camera.target});
 	draw_entities(view, *curworld.world);
 	draw_live_particles(view);
 	if show_trile_preview && !trile_preview_disabled {

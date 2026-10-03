@@ -41,12 +41,13 @@ mesh_trile :: (trile: *Trile) -> vertices: []Trile_Vertex, indices: []u16 {
                 for u: u0..u1-1  for v: v0..v1-1  mask[u][v] = .{};
 
                 plane := cast(float)(depth + ifx sign > 0 then 1 else 0);
+                normal := cast(u8)(axis * 2 + ifx sign < 0 then 1 else 0);
                 corner :: (u: int, v: int, ao: u8) -> Trile_Vertex #expand {
                     p : Vector3;
                     p.component[`axis]   = `plane * TRIXEL_SIZE;
                     p.component[`u_axis] = u * TRIXEL_SIZE;
                     p.component[`v_axis] = v * TRIXEL_SIZE;
-                    return .{p, xx `face.swatch, ao / 3.0};
+                    return .{p, `face.swatch, ao, `normal, 0};
                 }
                 q := Trile_Vertex.[
                     corner(u0, v0, face.ao[0]),

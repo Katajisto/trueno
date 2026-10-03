@@ -16,6 +16,8 @@
 
 render :: () {
     text_end_frame();
+    draw_debug_lines(.{g_debug_line_count, g_debug_lines.data}, overlay = false);
+    draw_debug_lines(.{g_overlay_line_count, g_overlay_lines.data}, overlay = true);
     w, h := get_window_size();
     scene_end_frame(w, h, xx get_time());
     g_debug_line_count   = 0;

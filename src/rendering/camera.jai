@@ -41,3 +41,26 @@ create_lookat :: (camera: *Camera) -> Matrix4 {
 create_viewproj :: (camera: *Camera) -> Matrix4 {
 	return create_lookat(camera) * create_perspective(camera);
 }
+
+// An orthographic box around focus, seen from the sun. Depth goes 0..1 away from
+// the sun. The box moves in whole shadow texels so shadows don't shimmer.
+create_sun_viewproj :: (focus: Vector3, sun_direction: Vector3, radius: float, depth: float, map_size: int) -> Matrix4 {
+	A := normalize(sun_direction);
+	up := ifx abs(A.y) > 0.99 then Vector3.{0, 0, 1} else Vector3.{0, 1, 0};
+	B := normalize(cross(up, A));
+	C := cross(A, B);
+
+	texel := 2 * radius / map_size;
+	cx := floor(dot(B, focus) / texel) * texel;
+	cy := floor(dot(C, focus) / texel) * texel;
+	cz := dot(A, focus);
+
+	// Rows of the transform; stored transposed like create_lookat.
+	m := Matrix4.{
+		B.x / radius, B.y / radius, B.z / radius, -cx / radius,
+		C.x / radius, C.y / radius, C.z / radius, -cy / radius,
+		-A.x / (2 * depth), -A.y / (2 * depth), -A.z / (2 * depth), (cz + depth) / (2 * depth),
+		0, 0, 0, 1,
+	};
+	return transpose(m);
+}

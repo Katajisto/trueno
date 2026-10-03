@@ -140,7 +140,9 @@ init_after_core :: () {
     ltriles();
     tt := get_trile_table_ptr();
     if tt.count == 0 {
-        set_trile("test", Trile.{});
+        test : Trile;
+        trile_fill(*test, first_used_swatch());
+        set_trile("test", test);
     } else {
         name : string;
         for v : tt {

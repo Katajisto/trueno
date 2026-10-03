@@ -19,6 +19,7 @@ Particle_Emitter_Config :: struct {
     color_start      : Vector4 = .{1, 1, 1, 1};
     color_end        : Vector4 = .{1, 1, 1, 0};
     gravity          : float = 2.0;
+    glow             : float;   // 0..1, like swatch emittance
     blend_mode       : Particle_Blend_Mode = .ADDITIVE;
 }
 
@@ -152,6 +153,7 @@ draw_live_particles :: (view: View_Id) {
                 cast(float)f.h / cast(float)anim.sheet_h,
             },
             color    = lerp_color(def.color_start, def.color_end, t),
+            glow     = def.glow,
         });
     }
 

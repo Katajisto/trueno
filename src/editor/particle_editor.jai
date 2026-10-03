@@ -151,6 +151,7 @@ draw_particle_editor_ui :: (theme: *GR.Overall_Theme) {
     pe_vec4(*er, "Color Start", *def.color_start, 0, 1, theme);
     pe_vec4(*er, "Color End", *def.color_end, 0, 1, theme);
     pe_float(*er, tprint("Gravity: %", def.gravity), *def.gravity, -20, 20, 0.1, theme);
+    pe_float(*er, tprint("Glow: %", def.glow), *def.glow, 0, 1, 0.05, theme);
 
     pe_label(*er, tprint("Blend Mode: %", def.blend_mode), theme);
     orig_w2 := er.w;
