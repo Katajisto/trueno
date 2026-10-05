@@ -216,7 +216,7 @@ void main() {
     if (texelFetch(sampler2D(palette, palette_smp), ivec2(id, 1), 0).r < 0.5) discard;
     vec3 c = texelFetch(sampler2D(palette, palette_smp), ivec2(id, 0), 0).rgb;
     // Tinted rather than darkened: the glass's brightest channel passes fully.
-    frag_color = vec4(c / max(max(c.r, max(c.g, c.b)), 0.001), 1.0);
+    frag_color = vec4(c / max(max(c.r, max(c.g, c.b)), 0.001), gl_FragCoord.z);
 }
 @end
 

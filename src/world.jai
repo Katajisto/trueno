@@ -59,6 +59,9 @@ Chunk :: struct {
     occupancy_mask : [32][32]u32;
     // We want to be easily able to identify stairs from the chunk.
     stairs_mask    : [32][32]u32;
+
+    // Foliage grid
+    foliage : [32][32]Foliage_Cell;
 }
 
 Occupancy_State :: enum {
@@ -351,6 +354,8 @@ World_Json_Config :: struct {
     contrast             : float = 1;
     saturation           : float = 1;
     bloomAmount          : float = 0.4;
+    shaftDensity         : float = 0.1;
+    shaftAmount          : float = 1;
 }
 
 World_Json_Chunk :: struct {
@@ -512,6 +517,8 @@ world_config_to_json :: (conf: *World_Config) -> World_Json_Config {
     jc.contrast           = conf.contrast;
     jc.saturation         = conf.saturation;
     jc.bloomAmount        = conf.bloomAmount;
+    jc.shaftDensity       = conf.shaftDensity;
+    jc.shaftAmount        = conf.shaftAmount;
     return jc;
 }
 
@@ -540,6 +547,8 @@ world_config_from_json :: (jc: *World_Json_Config) -> World_Config {
     conf.contrast                = jc.contrast;
     conf.saturation              = jc.saturation;
     conf.bloomAmount             = jc.bloomAmount;
+    conf.shaftDensity            = jc.shaftDensity;
+    conf.shaftAmount             = jc.shaftAmount;
     return conf;
 }
 
@@ -759,6 +768,8 @@ World_Config :: struct {
     contrast       : float = 1;   @Slider,0,3,0.05
     saturation     : float = 1;   @Slider,0,3,0.05
     bloomAmount    : float = 0.4; @Slider,0,3,0.05
+    shaftDensity   : float = 0.1; @Slider,0,1,0.01
+    shaftAmount    : float = 1;   @Slider,0,5,0.1
     sunPosition   : Vector3 = #run normalize(Vector3.{0.2, 0.3, 0.4});
     sunIntensity  : float = 1.0; @Slider,0,4,0.1
     skyIntensity  : float = 0.3; @Slider,0,5,0.1
@@ -810,6 +821,8 @@ world_environment :: (world: *World) -> *Environment {
     env.contrast           = conf.contrast;
     env.saturation         = conf.saturation;
     env.bloom_amount       = conf.bloomAmount;
+    env.shaft_density      = conf.shaftDensity;
+    env.shaft_amount       = conf.shaftAmount;
     return env;
 }
 

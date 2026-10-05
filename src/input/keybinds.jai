@@ -40,6 +40,7 @@ Editor_Action :: enum {
     STUDIO_LEVEL;
     STUDIO_MATERIAL;
     STUDIO_SWATCHES;
+    STUDIO_FOLIAGE;
     // Trile editor — view modes
     TRIXEL_VIEW_TILE;
     // Trile editor — tiling controls
@@ -213,6 +214,7 @@ set_default_bindings :: () {
     set(.STUDIO_LEVEL,        cast(Key_Code) #char "2", ctrl = true);
     set(.STUDIO_MATERIAL,     cast(Key_Code) #char "3", ctrl = true);
     set(.STUDIO_SWATCHES,     cast(Key_Code) #char "4", ctrl = true);
+    set(.STUDIO_FOLIAGE,      cast(Key_Code) #char "5", ctrl = true);
     set(.TRIXEL_VIEW_TILE,    cast(Key_Code) #char "9");
     set(.TRIXEL_TILING_AXIS,   cast(Key_Code) #char "Q");
     set(.TRIXEL_TILING_ROTATE, cast(Key_Code) #char "R");

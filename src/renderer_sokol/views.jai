@@ -1,10 +1,14 @@
 BLOOM_LEVELS  :: 5;
 BLOOM_SCATTER :: 0.7;
+SHAFT_STEPS   :: 48;
+SHAFT_MAX_DISTANCE :: 100.0;
 
 views_init :: () {
     backend := sg_query_backend();
     post_desc := pipeline_desc(post_shader_desc(backend), .SCREEN);
     views.post = sg_make_pipeline(*post_desc);
+    shafts_desc := pipeline_desc(shafts_shader_desc(backend), .POST);
+    views.shafts = sg_make_pipeline(*shafts_desc);
     glow_desc := pipeline_desc(bloom_glow_shader_desc(backend), .POST);
     views.bloom_glow = sg_make_pipeline(*glow_desc);
     down_desc := pipeline_desc(bloom_down_shader_desc(backend), .POST);
@@ -25,6 +29,8 @@ view_begin_pass :: (index: int, width: s32, height: s32, kind: Pass_Kind, opaque
                 sg_destroy_attachments(level.attachments);
                 sg_destroy_image(level.image);
             }
+            sg_destroy_attachments(it.shafts.attachments);
+            sg_destroy_image(it.shafts.image);
         }
         array_reset_keeping_memory(*views.targets);
         views.width  = width;
@@ -42,6 +48,10 @@ view_begin_pass :: (index: int, width: s32, height: s32, kind: Pass_Kind, opaque
             desc.colors[0].image = level.image;
             level.attachments = sg_make_attachments(*desc);
         }
+        targets.shafts.image = sg_make_image(*(sg_image_desc.{ render_target = true, width = max(width / 2, 1), height = max(height / 2, 1), pixel_format = VIEW_COLOR_FORMAT, sample_count = 1 }));
+        desc : sg_attachments_desc;
+        desc.colors[0].image = targets.shafts.image;
+        targets.shafts.attachments = sg_make_attachments(*desc);
     }
     targets := views.targets[index];
 
@@ -120,6 +130,34 @@ view_bloom :: (index: int) {
     for < 1..BLOOM_LEVELS-1  run(views.bloom_up, targets.bloom[it].image, targets.bloom[it - 1].attachments, true);
 }
 
+// Marches each view ray through the coloured shadow map, after the main pass has
+// written how far it reaches.
+view_shafts :: (pass: *Pass) {
+    env := view_environment(pass.view);
+    action : sg_pass_action;
+    action.colors[0] = .{ load_action = .CLEAR, clear_value = .{0, 0, 0, 1} };
+    sg_begin_pass(*(sg_pass.{ action = action, attachments = views.targets[pass.view_index].shafts.attachments }));
+    if env.shaft_amount > 0 {
+        sg_apply_pipeline(views.shafts);
+        params := Shaft_Params.{
+            density      = env.shaft_density,
+            amount       = env.shaft_amount,
+            max_distance = SHAFT_MAX_DISTANCE,
+            steps        = SHAFT_STEPS,
+        };
+        apply_uniforms(UB_view_params, *pass.params);
+        apply_uniforms(UB_shadow_params, *pass.shadow);
+        apply_uniforms(UB_shaft_params, *params);
+        bind : sg_bindings;
+        bind.images[IMG_shaft_scene]       = views.targets[pass.view_index].main.scene;
+        bind.samplers[SMP_shaft_scene_smp] = samplers.nearest_clamp;
+        bind_shadow(pass, *bind);
+        sg_apply_bindings(*bind);
+        sg_draw(0, 3, 1);
+    }
+    sg_end_pass();
+}
+
 view_composite :: (index: int, env: Environment) {
     sg_apply_pipeline(views.post);
     params := Post_Params.{
@@ -133,6 +171,7 @@ view_composite :: (index: int, env: Environment) {
     bind : sg_bindings;
     bind.images[IMG_view_color]       = views.targets[index].main.color;
     bind.images[IMG_bloom]            = views.targets[index].bloom[0].image;
+    bind.images[IMG_shafts]           = views.targets[index].shafts.image;
     bind.samplers[SMP_view_smp]       = samplers.nearest_clamp;
     bind.samplers[SMP_bloom_view_smp] = samplers.linear_clamp;
     sg_apply_bindings(*bind);
@@ -152,10 +191,11 @@ View_Target :: struct {
 
 views : struct {
     post       : sg_pipeline;
+    shafts     : sg_pipeline;
     bloom_glow : sg_pipeline;
     bloom_down : sg_pipeline;
     bloom_up   : sg_pipeline;
-    targets    : [..]struct { main, reflection: View_Target; bloom: [BLOOM_LEVELS]struct { image: sg_image; attachments: sg_attachments; }; };
+    targets    : [..]struct { main, reflection: View_Target; bloom: [BLOOM_LEVELS]struct { image: sg_image; attachments: sg_attachments; }; shafts: struct { image: sg_image; attachments: sg_attachments; }; };
     shadows   : [..]struct { depth, tint: sg_image; attachments: sg_attachments; };
     width     : s32;
     height    : s32;

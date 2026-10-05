@@ -7,6 +7,7 @@
     #load "level_editor.jai";
     #load "particle_editor.jai";
     #load "material_studio.jai";
+    #load "foliage_studio.jai";
 }
 #if FLAG_TACOMA_ENABLED { #load "tacoma.jai"; }
 #load "console.jai";
@@ -19,6 +20,7 @@ Editor_View :: enum {
     Level_Editor;
     Particle_Editor;
     Material_Editor;
+    Foliage_Editor;
 };
 
 current_editor_view : Editor_View = .Trile_Editor;
@@ -65,6 +67,8 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
             if keybind_button(r, "Particle studio", .STUDIO_MATERIAL, *t_button_selectable(theme, current_editor_view == .Particle_Editor)) { clear_particles(); current_editor_view = .Particle_Editor; }
             r.x -= r.w;
             if keybind_button(r, "Material studio", .STUDIO_SWATCHES, *t_button_selectable(theme, current_editor_view == .Material_Editor)) { clear_particles(); current_editor_view = .Material_Editor; }
+            r.x -= r.w;
+            if keybind_button(r, "Foliage studio",  .STUDIO_FOLIAGE,  *t_button_selectable(theme, current_editor_view == .Foliage_Editor))  { clear_particles(); current_editor_view = .Foliage_Editor; }
 
             if current_editor_view == {
                 case .Trile_Editor;
@@ -75,6 +79,8 @@ draw_editor_ui :: (theme: *GR.Overall_Theme) {
                     draw_particle_editor_ui(theme);
                 case .Material_Editor;
                     draw_material_studio_ui(theme);
+                case .Foliage_Editor;
+                    draw_foliage_studio_ui(theme);
             }
         }
         draw_profiler();

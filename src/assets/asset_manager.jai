@@ -267,6 +267,8 @@ add_resources_from_pack :: (pack: *Loaded_Pack) {
                         }
                         log_info("Loaded % particle definitions from pack", g_emitter_defs.count);
                     }
+                } else if name == "foliage" {
+                    load_foliage_defs_from_json(create_string_from_memory(v.data));
                 }
             case "hex";
                 pal : Loaded_Palette;

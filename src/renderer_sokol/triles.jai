@@ -19,8 +19,13 @@ triles_init :: (orientations: [ORIENTATION_COUNT]Matrix3) {
     shadow_desc.face_winding = .CCW;
     triles.shadow_pipeline = sg_make_pipeline(*shadow_desc);
 
-    glass_desc := pipeline_desc(trile_glass_shadow_shader_desc(sg_query_backend()), .SHADOW, MULTIPLY_BLEND);
-    glass_desc.colors[0].write_mask = .RGB;
+    // Alpha keeps the nearest glass depth, so light shafts start at the window.
+    glass_blend := MULTIPLY_BLEND;
+    glass_blend.src_factor_alpha = .ONE;
+    glass_blend.dst_factor_alpha = .ONE;
+    glass_blend.op_alpha         = .MIN;
+    glass_desc := pipeline_desc(trile_glass_shadow_shader_desc(sg_query_backend()), .SHADOW, glass_blend);
+    glass_desc.colors[0].write_mask = .RGBA;
     glass_desc.layout       = desc.layout;
     glass_desc.index_type   = .UINT16;
     glass_desc.cull_mode    = .FRONT;

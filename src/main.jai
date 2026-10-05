@@ -42,6 +42,7 @@ FLAG_USE_TEST_GAME :: FLAG_TEST_ENGINE || FLAG_TEST_EXE_ENGINE;
 #load "ray.jai";
 #load "profiling.jai";
 #load "particles/particles.jai";
+#load "foliage.jai";
 #load "orientation.jai";
 #load "entities.jai";
 #load "world.jai";

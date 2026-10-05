@@ -31,6 +31,8 @@ Environment :: struct {
     contrast           : float = 1;
     saturation         : float = 1;
     bloom_amount       : float = 0.4;
+    shaft_density      : float = 0.1;   // light shafts through glass
+    shaft_amount       : float = 1;
 }
 
 // With cut on, triles marked ROOF or WALL are hidden from the camera around the

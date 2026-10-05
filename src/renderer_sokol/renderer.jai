@@ -92,6 +92,8 @@ renderer_render :: (scene: *Scene, width: s32, height: s32) {
             sprites_draw(*pass, transparent = true);
             lines_draw(*pass, width, height);
             sg_end_pass();
+
+            if kind == .MAIN  view_shafts(*pass);
         }
         view_bloom(view_index);
     }

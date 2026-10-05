@@ -3,7 +3,7 @@ VIEW_COLOR_FORMAT :: sg_pixel_format.RGBA16F;
 VIEW_DEPTH_FORMAT :: sg_pixel_format.DEPTH;
 VIEW_SCENE_FORMAT :: sg_pixel_format.R32F;
 VIEW_GLOW_FORMAT  :: sg_pixel_format.R16F;
-SHADOW_TINT_FORMAT :: sg_pixel_format.RGBA8;   // how strongly each pixel blooms, can exceed 1
+SHADOW_TINT_FORMAT :: sg_pixel_format.RGBA16F;   // glass colour, and the nearest glass depth in alpha
 
 ALPHA_BLEND :: sg_blend_state.{
     enabled        = true,
