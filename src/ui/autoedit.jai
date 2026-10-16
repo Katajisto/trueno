@@ -73,17 +73,8 @@ autoedit_widget_id :: (identifier: s32, field_index: int) -> s32 {
 	return identifier * 1000 + cast(s32) field_index;
 }
 
-// A text input hands back a view into the widget's own buffer, so the value has
-// to be copied out on every keystroke. The previous copy is freed only when this
-// same helper allocated it and the field still points at it: a field's starting
-// value is usually a literal from the struct definition, which must not be freed.
-autoedit_owned_text : Table(*string, string);
-
 autoedit_set_text :: (field: *string, text: string) -> string {
-	found, previous := table_find(*autoedit_owned_text, field);
-	if found && previous.data == field.data  free(previous);
 	result := copy_string(text);
-	table_set(*autoedit_owned_text, field, result);
 	return result;
 }
 
@@ -110,7 +101,7 @@ input_code_from_type_and_notes :: (name: string, type: *Type_Info, notes: []stri
 		print_to_builder(*builder, "r.h = ui_h(7,0);\n");
 		print_to_builder(*builder, "{\n");
 		print_to_builder(*builder, "action, _, text_state := GR.text_input(r, value.%, *theme.text_input_theme, autoedit_widget_id(identifier, %));\n", name, index);
-		print_to_builder(*builder, "if (action & .TEXT_MODIFIED) || (action & .ENTERED)  value.% = autoedit_set_text(*value.%, text_state.text);\n", name, name);
+		print_to_builder(*builder, "if (action & .TEXT_MODIFIED) || (action & .ENTERED) value.% = autoedit_set_text(*value.%, text_state.text); \n", name, name);
 		print_to_builder(*builder, "}\n");
 	} else if type == type_info(Vector3) {
 		if autoconf.kind == .DEFAULT {

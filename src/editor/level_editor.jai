@@ -1091,7 +1091,7 @@ add_entity_at :: (x: s32, y: s32, z: s32) {
 // Runs autoedit on the entity's concrete type, so each type gets an editor
 // generated from its own fields.
 entity_autoedit :: (rect: GR.Rect, e: *Entity, theme: *GR.Overall_Theme) {
-	#insert #run,stallable gen_entity_dispatch("autoedit(rect, cast(*%)e, theme, 400)");
+	#insert #run,stallable gen_entity_dispatch("autoedit(rect, cast(*%)e, theme, cast(s32)e.id)");
 }
 
 draw_editor_billboards :: (view: View_Id) {
