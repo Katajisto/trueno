@@ -164,7 +164,7 @@ handle_sokol_event :: (event: *sapp_event) {
             input_mouse_y = event.mouse_y;
 
             mouse_delta_x = cast(s32)event.mouse_dx;
-            mouse_delta_x = cast(s32)event.mouse_dy;
+            mouse_delta_y = cast(s32)event.mouse_dy;
                         
             return;
         case .MOUSE_SCROLL;
