@@ -419,10 +419,7 @@ get_tiling_neighbor_trile :: () -> *Trile {
 }
 
 draw_trile_editor :: () {
-    // A trile is drawn in the light of the world it will sit in.
     environment := New(Environment,, temp);
-    curworld := get_current_world();
-    if curworld.valid  environment = world_environment(*curworld.world);
 
     view := add_view(.{camera = get_trile_editor_camera(), environment = environment, draw_world = false});
     mesh, ok := get_trile_mesh(editor_current_trile.name);

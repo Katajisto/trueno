@@ -108,6 +108,7 @@ init :: () {
     #if OS != .WASM { Thread.init(*g_mixer.mutex); }
     audio_init_thread_context();
     saudio_setup(*(saudio_desc.{
+
         logger = .{ func = slog_func },
         stream_cb = sokol_audio_callback,
         num_channels = 2,
@@ -230,21 +231,28 @@ frame :: () {
         if delta_time_accumulator > (4.0/60.0) then delta_time_accumulator = 4.0/60.0;
     }
 
-    if should_tick_game && !settings_menu_blocks_game() {
-        game_tick_per_frame(delta_time);
-        while delta_time_accumulator > (1.0/480.0) {
-            game_tick(1.0/480.0);
-            tick_particles(1.0/480.0);
-            delta_time_accumulator -= (1.0/480.0);
-        }
-    }
     for event: Input.events_this_frame {
         GR.getrect_handle_event(event);
     }
 
+    tick_ui();
+    if should_tick_game && !settings_menu_blocks_game () {
+        firstTick := true;
+        while delta_time_accumulator > (1.0/480.0) {
+            game_tick(1.0/480.0);
+            if firstTick {
+                input_per_frame_event_and_flag_update();
+                firstTick = false;
+            }
+            tick_particles(1.0/480.0);
+            delta_time_accumulator -= (1.0/480.0);
+        }
+    } else {
+        input_per_frame_event_and_flag_update();
+    }
+
 
     add_frame_profiling_point("After game ticks");
-    tick_ui();
     add_frame_profiling_point("After UI tick");
 
     if should_tick_game then game_draw();
@@ -272,7 +280,6 @@ frame :: () {
     #if OS != .WASM { profiler_update(); }
     reset_temporary_storage();
     frame_end_time := get_time();
-    input_per_frame_event_and_flag_update();
 }
 
 cleanup :: () {
