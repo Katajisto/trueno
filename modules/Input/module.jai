@@ -6,6 +6,7 @@
 
 #scope_file
 shouldLockMouseCursor : bool = false;
+cursorCurrentlyLocked : bool = false;
 #scope_export;
 
 set_should_lock_cursor :: (shouldLock: bool) {
@@ -17,12 +18,16 @@ is_cursor_locked :: () -> bool {
 }
 
 unlock_cursor :: () {
+    cursorCurrentlyLocked = false;
     plat_set_cursor_lock(false);
 }
 
 // We use this so menu and editor is unlocked and game is locked if the game sets the should lock.
 lock_cursor_if_should :: () {
-    if shouldLockMouseCursor then plat_set_cursor_lock(true);
+    if shouldLockMouseCursor {
+        plat_set_cursor_lock(true);
+        cursorCurrentlyLocked = true;
+    }
 }
 
 
@@ -248,6 +253,9 @@ input_per_frame_event_and_flag_update :: () {
     // Called once per frame, probably.
 
     for events_this_frame {
+        if it.key_code == .MOUSE_BUTTON_LEFT && it.key_pressed == 1 && cursorCurrentlyLocked {
+            plat_set_cursor_lock(true);    
+        }
         allocator := it.files.allocator;  // Same allocator for filenames and the array itself.
         
         for file: it.files {
