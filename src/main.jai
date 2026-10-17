@@ -230,6 +230,7 @@ frame :: () {
     }
 
     if should_tick_game && !settings_menu_blocks_game() {
+        game_tick_per_frame(delta_time);
         while delta_time_accumulator > (1.0/480.0) {
             game_tick(1.0/480.0);
             tick_particles(1.0/480.0);
