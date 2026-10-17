@@ -15,6 +15,8 @@ Play_Mode :: enum {
 
 Mixer_Play_Task :: struct {
     audio     : *Audio_Data;
+    audio_proc : (n_samples: s32, audio: *Audio_Data, buffer_out: *float,channel_count: s32,volume: float, state: *void) -> (n_out: s32);
+    audio_state : *void;
     bus       : Mixer_Bus;
     mode      : Play_Mode;
     unique    : bool = true;
@@ -65,11 +67,12 @@ mixer_add_task :: (task: Mixer_Play_Task) {
     array_add(*g_mixer.tasks, task);
 }
 
-mixer_add_task :: (audio: *Audio_Data, bus: Mixer_Bus, mode: Play_Mode) {
+mixer_add_task :: (audio: *Audio_Data, bus: Mixer_Bus, mode: Play_Mode, state: *void) {
     mixer_add_task(.{
         audio = audio,
         bus = bus,
-        mode = mode
+        mode = mode,
+        audio_state = state
     });
 }
 
@@ -103,6 +106,7 @@ mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
         task := *g_mixer.tasks[i];
 
         if !task.audio {
+            free(task.audio_state);
             array_unordered_remove_by_index(*g_mixer.tasks, i);
             continue;
         }
@@ -124,43 +128,52 @@ mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
 
         task_finished := false;
 
-        for f : 0..frame_count-1 {
-            src_pos    := cast(float64)(task.curSample + f) * cast(float64)src_rate / cast(float64)out_rate;
-            src_frame0 := cast(s64) src_pos;
-            src_frame1 := src_frame0 + 1;
-            t          := cast(float)(src_pos - cast(float64)src_frame0);
+        assert(src_rate == out_rate); // TODO for now
 
-            if src_frame0 >= num_src_frames {
-                if task.mode == .ONESHOT {
-                    task_finished = true;
-                    break;
-                } else {
-                    src_frame0 = src_frame0 % num_src_frames;
-                    src_frame1 = src_frame1 % num_src_frames;
-                }
-            } else if src_frame1 >= num_src_frames {
-                // At the very last source frame: clamp for ONESHOT, wrap for REPEAT.
-                src_frame1 = ifx task.mode == .ONESHOT then src_frame0 else 0;
-            }
-
-            for ch : 0..channel_count-1 {
-                out_index := (f * channel_count) + ch;
-                src_ch    := ifx source_channels == 1 then 0 else ch;
-
-                s0 := source_data[src_frame0 * source_channels + src_ch];
-                s1 := source_data[src_frame1 * source_channels + src_ch];
-
-                buffer[out_index] += (s0 + (s1 - s0) * t) * vol;
-            }
+        n_received_samples := task.audio_proc(frame_count,task.audio,buffer,channel_count,vol,task.audio_state);
+        if(n_received_samples < frame_count){
+            task_finished = true;
         }
 
-        task.curSample += frame_count;
 
-        // Keep curSample bounded for REPEAT tracks so it never overflows.
-        if task.mode == .REPEAT && out_rate > 0 && src_rate > 0 {
-            loop_period := num_src_frames * out_rate / src_rate;
-            if loop_period > 0 then task.curSample = task.curSample % loop_period;
-        }
+
+        // for f : 0..frame_count-1 {
+        //     src_pos    := cast(float64)(task.curSample + f) * cast(float64)src_rate / cast(float64)out_rate;
+        //     src_frame0 := cast(s64) src_pos;
+        //     src_frame1 := src_frame0 + 1;
+        //     t          := cast(float)(src_pos - cast(float64)src_frame0);
+
+        //     if src_frame0 >= num_src_frames {
+        //         if task.mode == .ONESHOT {
+        //             task_finished = true;
+        //             break;
+        //         } else {
+        //             src_frame0 = src_frame0 % num_src_frames;
+        //             src_frame1 = src_frame1 % num_src_frames;
+        //         }
+        //     } else if src_frame1 >= num_src_frames {
+        //         // At the very last source frame: clamp for ONESHOT, wrap for REPEAT.
+        //         src_frame1 = ifx task.mode == .ONESHOT then src_frame0 else 0;
+        //     }
+
+        //     for ch : 0..channel_count-1 {
+        //         out_index := (f * channel_count) + ch;
+        //         src_ch    := ifx source_channels == 1 then 0 else ch;
+
+        //         s0 := source_data[src_frame0 * source_channels + src_ch];
+        //         s1 := source_data[src_frame1 * source_channels + src_ch];
+
+        //         buffer[out_index] += (s0 + (s1 - s0) * t) * vol;
+        //     }
+        // }
+
+        // task.curSample += frame_count;
+
+        // // Keep curSample bounded for REPEAT tracks so it never overflows.
+        // if task.mode == .REPEAT && out_rate > 0 && src_rate > 0 {
+        //     loop_period := num_src_frames * out_rate / src_rate;
+        //     if loop_period > 0 then task.curSample = task.curSample % loop_period;
+        // }
 
         if task_finished {
             if task.queued_next {
@@ -168,6 +181,7 @@ mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
                 free(task.queued_next);
                 g_mixer.tasks[i] = next;
             } else {
+                free(task.audio_state);
                 array_unordered_remove_by_index(*g_mixer.tasks, i);
             }
         }
@@ -189,4 +203,44 @@ mixer_unlock :: (mixer: *Mixer) {
         return; // On WASM this is a no-op. See :NoMutexForWasm
     }
     
+}
+
+
+
+Simple_State :: struct {
+    cur_sample : s64 = 0;
+}
+
+trivial_data_proc_norepeat::(n_samples: s32, audio: *Audio_Data, buffer_out: *float,channel_count: s32,volume: float, state: *void) -> (n_out: s32){
+    return trivial_data_proc(n_samples,audio,buffer_out,channel_count,volume,state,false);
+}
+
+trivial_data_proc_repeat::(n_samples: s32, audio: *Audio_Data, buffer_out: *float,channel_count: s32,volume: float, state: *void) -> (n_out: s32){
+    return trivial_data_proc(n_samples,audio,buffer_out,channel_count,volume,state,true);
+}
+
+trivial_data_proc::(n_samples: s32, audio: *Audio_Data, buffer_out: *float,channel_count: s32,volume: float, state: *void, repeat:bool) -> (n_out: s32){
+    state_cast : *Simple_State = cast(*Simple_State)state;
+    
+    source_channels := cast(s64) audio.channels;
+    source_samples :=  cast(s64) audio.data.count / source_channels;
+
+    samples_read := 0;
+    for block_sample : 0..n_samples-1{
+        sample : s64 = block_sample + state_cast.cur_sample;
+        if(!repeat && sample >= source_samples) {
+            break;
+        }
+        sample %= source_samples;
+        for ch : 0..channel_count-1{
+            out_index := (block_sample * channel_count) + ch;
+            src_ch    := ifx source_channels == 1 then 0 else ch;
+
+            buffer_out[out_index] += audio.data[sample*source_channels + ch] * volume;
+        }
+        samples_read += 1;
+    }
+    state_cast.cur_sample += samples_read;
+    state_cast.cur_sample %= source_samples;
+    return cast(s32)samples_read;
 }

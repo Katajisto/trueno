@@ -265,8 +265,6 @@ STBVorbisError :: enum u32 {
     } else #if CPU == .ARM64 {
         lib_stb_vorbis :: #library "switch2/stb_vorbis";
     }
-} else #if OS == .WASM {
-    lib_stb_vorbis :: #library "wasm/stb_vorbis";
 } else {
     #assert false;
 }

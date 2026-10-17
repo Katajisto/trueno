@@ -110,6 +110,7 @@ init :: () {
     saudio_setup(*(saudio_desc.{
         logger = .{ func = slog_func },
         stream_cb = sokol_audio_callback,
+        num_channels = 2,
     }));
     g_audio_sample_rate = saudio_sample_rate();
     stm_setup();
