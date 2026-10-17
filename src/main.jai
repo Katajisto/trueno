@@ -167,7 +167,7 @@ init_after_core :: () {
     // We want to do this last.
     game_init();
 
-    // #if UNCAPPED_FRAMES then sapp_glx_swapinterval(0);
+    lock_cursor_if_should();
 }
 
 

@@ -7,6 +7,10 @@ input_mouse_y : float;
 set_custom_cursor_handling :: (is_custom: bool) {
 }
 
+plat_set_cursor_lock :: (locked: bool) {
+    sapp_lock_mouse(locked);
+}
+
 get_key_code :: (key: sapp_keycode) -> Key_Code {
     using Key_Code;
     // non-ascii ordered as in ./module.jai/Key_Code

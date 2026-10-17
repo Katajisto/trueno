@@ -220,10 +220,15 @@ navigate_to :: (page: Settings_Page) {
     g_settings.cursor = 0;
 }
 
+close_settings_menu :: () {
+    save_settings();
+    lock_cursor_if_should();
+    g_settings.open = false;
+}
+
 go_back :: () {
     if g_settings.page == .MAIN {
-        save_settings();
-        g_settings.open = false;
+        close_settings_menu();
     } else {
         navigate_to(page_parent());
     }
@@ -234,10 +239,9 @@ handle_enter :: (index: s32 = -1) {
     if g_settings.page == {
         case .MAIN;
             game_items := cast(s32) g_settings_config.main_items.count;
-            if i == 0 { save_settings(); g_settings.open = false; }
+            if i == 0 then close_settings_menu();
             else if i <= game_items {
-                save_settings();
-                g_settings.open = false;
+                close_settings_menu();
                 g_settings_config.main_items[i - 1].on_select();
             } else {
                 i -= game_items;
@@ -306,6 +310,7 @@ tick_settings_menu :: () {
     if is_action_start(Editor_Action.TOGGLE_SETTINGS) {
         if !g_settings.open {
             g_settings.open = true;
+            unlock_cursor();
             navigate_to(.MAIN);
             generate_blobs();
         } else {

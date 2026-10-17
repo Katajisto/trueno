@@ -4,6 +4,28 @@
 
 #load "sokol.jai";
 
+#scope_file
+shouldLockMouseCursor : bool = false;
+#scope_export;
+
+set_should_lock_cursor :: (shouldLock: bool) {
+    shouldLockMouseCursor = shouldLock;
+}
+
+is_cursor_locked :: () -> bool {
+    return shouldLockMouseCursor;
+}
+
+unlock_cursor :: () {
+    plat_set_cursor_lock(false);
+}
+
+// We use this so menu and editor is unlocked and game is locked if the game sets the should lock.
+lock_cursor_if_should :: () {
+    if shouldLockMouseCursor then plat_set_cursor_lock(true);
+}
+
+
 Event_Type :: enum u32 {  // If we set this to u8, our packing will stop matching C's.
     UNINITIALIZED :: 0;
     KEYBOARD    :: 1;

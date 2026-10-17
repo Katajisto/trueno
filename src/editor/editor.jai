@@ -109,6 +109,11 @@ tick_editor_ui :: () {
         in_editor_view = !in_editor_view;
         g_mixer.paused = in_editor_view;
         clear_particles();
+        if in_editor_view {
+            unlock_cursor();
+        } else {
+            lock_cursor_if_should();
+        }
     }
 
     #if !FLAG_RELEASE_BUILD && OS != .WASM {
