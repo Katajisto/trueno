@@ -94,19 +94,19 @@ Ui_Vertex :: struct {
 trile_mesh_create :: (trile: *Trile) -> Trile_Mesh {
     vertices, indices := mesh_trile(trile);
     mesh := Trile_Mesh.{renderer_trile_mesh_create(vertices, indices)};
-    set_mesh_cut(mesh, trile.cut);
+    set_mesh_info(mesh, trile.cut, trile_fills_cell(trile));
     return mesh;
 }
 
 trile_mesh_update :: (mesh: Trile_Mesh, trile: *Trile) {
     vertices, indices := mesh_trile(trile);
     renderer_trile_mesh_update(mesh.id, vertices, indices);
-    set_mesh_cut(mesh, trile.cut);
+    set_mesh_info(mesh, trile.cut, trile_fills_cell(trile));
 }
 
 trile_mesh_destroy :: (mesh: Trile_Mesh) {
     renderer_trile_mesh_destroy(mesh.id);
-    set_mesh_cut(mesh, .NONE);
+    set_mesh_info(mesh, .NONE, false);
 }
 
 swatch_set :: (id: u8, color: [3]u8, reflectivity: u8, gloss: u8, emittance: u8, glass: bool) {
@@ -142,6 +142,7 @@ Probe :: struct {
 PROBES_PER_CHUNK :: CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
 world_set_chunk :: (key: Chunk_Key, origin: Vector3, groups: []World_Group) {
+    scene.world_version += 1;
     chunk := find_or_add(*scene.chunks, key);
     chunk.origin = origin;
     for chunk.groups  array_free(it.instances);
@@ -156,12 +157,14 @@ world_set_chunk :: (key: Chunk_Key, origin: Vector3, groups: []World_Group) {
 world_remove_chunk :: (key: Chunk_Key) {
     chunk := table_find_pointer(*scene.chunks, key);
     if !chunk  return;
+    scene.world_version += 1;
     for chunk.groups  array_free(it.instances);
     array_free(chunk.groups);
     table_remove(*scene.chunks, key);
 }
 
 world_clear :: () {
+    scene.world_version += 1;
     for chunk: scene.chunks {
         for chunk.groups  array_free(it.instances);
         array_free(chunk.groups);
@@ -219,6 +222,65 @@ trile_cut :: (view: View_Id, mesh: Trile_Mesh, position: Vector3) -> float {
     result := fade.*;
     if result == 0  table_remove(*scene.cut_fades, key);
     return result;
+}
+
+view_cut_chunks :: (view: View_Id) -> []Chunk_Key {
+    keys : [..]Chunk_Key;
+    keys.allocator = temp;
+    cut := scene.view_cuts[view.index];
+    if !cut.enabled  return keys;
+
+    for scene.chunks {
+        if chunk_column_distance(it.origin, cut.focus) <= CUT_RADIUS  array_add(*keys, it_index);
+    }
+    unpack :: (bits: s64) -> s32 { return xx (((bits & 0xFFFFF) ^ 0x80000) - 0x80000); }
+    for scene.cut_fades {
+        if (it_index >> 60) != view.index  continue;
+        array_add_if_unique(*keys, world_to_chunk_coord(unpack(it_index >> 40), unpack(it_index >> 20), unpack(it_index)), chunk_key_compare);
+    }
+    return keys;
+}
+
+trile_mesh_cuttable :: (mesh: Trile_Mesh) -> bool {
+    return mesh_cut(mesh) != .NONE;
+}
+
+OCCLUDER_WORDS :: CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE / 64;
+World_Occluders :: Table(Chunk_Key, *[OCCLUDER_WORDS]u64, chunk_key_hash, chunk_key_compare);
+
+world_occluders :: () -> World_Occluders {
+    occluders : World_Occluders;
+    occluders.allocator = temp;
+    for chunk: scene.chunks {
+        bits := New([OCCLUDER_WORDS]u64,, temp);
+        for group: chunk.groups {
+            if !mesh_occludes(group.mesh)  continue;
+            for group.instances {
+                cell := cast(s64) it.x + cast(s64) it.y * CHUNK_SIZE + cast(s64) it.z * CHUNK_SIZE * CHUNK_SIZE;
+                bits.*[cell >> 6] |= (cast(u64) 1) << cast(u64) (cell & 63);
+            }
+        }
+        table_set(*occluders, it_index, bits);
+    }
+    return occluders;
+}
+
+trile_buried :: (occluders: *World_Occluders, key: Chunk_Key, x: s32, y: s32, z: s32) -> bool {
+    occluded :: (occluders: *World_Occluders, key: Chunk_Key, x: s32, y: s32, z: s32) -> bool {
+        c := s32.[x, y, z];
+        k := s32.[key.x, key.y, key.z];
+        for 0..2 {
+            if c[it] < 0           { c[it] += CHUNK_SIZE; k[it] -= 1; }
+            if c[it] >= CHUNK_SIZE { c[it] -= CHUNK_SIZE; k[it] += 1; }
+        }
+        bits := table_find_pointer(occluders, .{k[0], k[1], k[2]});
+        if !bits  return false;
+        cell := cast(s64) c[0] + c[1] * CHUNK_SIZE + c[2] * CHUNK_SIZE * CHUNK_SIZE;
+        return ((bits.*.*[cell >> 6] >> cast(u64) (cell & 63)) & 1) != 0;
+    }
+    return occluded(occluders, key, x - 1, y, z) && occluded(occluders, key, x + 1, y, z)
+        && occluded(occluders, key, x, y - 1, z) && occluded(occluders, key, x, y + 1, z)
+        && occluded(occluders, key, x, y, z - 1) && occluded(occluders, key, x, y, z + 1);
 }
 
 draw_trile :: (view: View_Id, mesh: Trile_Mesh, position: Vector3, orientation: u8, tint := Trile_Tint.NONE) {
@@ -309,7 +371,9 @@ Trile_Vertex :: struct {
 
 Scene :: struct {
     chunks : Table(Chunk_Key, Scene_Chunk, chunk_key_hash, chunk_key_compare);
-    mesh_cuts : [..]Trile_Cut;   // by mesh id
+    world_version  : u64;
+    mesh_cuts      : [..]Trile_Cut;   // by mesh id
+    mesh_occluders : [..]bool;
 
     views      : [..]View;
     view_proj  : [..]Matrix4;
@@ -362,9 +426,34 @@ scene_end_frame :: (width: s32, height: s32, time: float) {
 
 scene : Scene;
 
-set_mesh_cut :: (mesh: Trile_Mesh, cut: Trile_Cut) {
-    if scene.mesh_cuts.count <= mesh.id  array_resize(*scene.mesh_cuts, mesh.id + 1);
+set_mesh_info :: (mesh: Trile_Mesh, cut: Trile_Cut, fills_cell: bool) {
+    if scene.mesh_cuts.count <= mesh.id {
+        array_resize(*scene.mesh_cuts, mesh.id + 1);
+        array_resize(*scene.mesh_occluders, mesh.id + 1);
+    }
     scene.mesh_cuts[mesh.id] = cut;
+    scene.mesh_occluders[mesh.id] = fills_cell && cut == .NONE;
+    scene.world_version += 1;
+}
+
+mesh_occludes :: (mesh: Trile_Mesh) -> bool {
+    if mesh.id >= scene.mesh_occluders.count  return false;
+    return scene.mesh_occluders[mesh.id];
+}
+
+trile_fills_cell :: (trile: *Trile) -> bool {
+    if !trile.is_opaque  return false;
+    for x: 0..15  for y: 0..15  for z: 0..15 {
+        id := trile.trixels[x][y][z];
+        if !id || g_swatches[id].glass  return false;
+    }
+    return true;
+}
+
+chunk_column_distance :: (origin: Vector3, point: Vector3) -> float {
+    dx := max(max(origin.x - point.x, point.x - origin.x - CHUNK_SIZE), 0);
+    dz := max(max(origin.z - point.z, point.z - origin.z - CHUNK_SIZE), 0);
+    return sqrt(dx * dx + dz * dz);
 }
 
 mesh_cut :: (mesh: Trile_Mesh) -> Trile_Cut {
@@ -382,13 +471,16 @@ make_view_cut :: (view: View) -> View_Cut {
     to_camera := Vector2.{view.camera.position.x - view.focus.x, view.camera.position.z - view.focus.z};
     if length(to_camera) > 0.0001  cut.toward_camera = normalize(to_camera);
 
-    for chunk: scene.chunks  for group: chunk.groups {
-        if mesh_cut(group.mesh) != .ROOF  continue;
-        for group.instances {
-            p := chunk.origin + Vector3.{xx it.x, xx it.y, xx it.z};
-            if p.y <= cut.floor  continue;
-            if length(Vector2.{p.x + 0.5 - view.focus.x, p.z + 0.5 - view.focus.z}) > CUT_RADIUS  continue;
-            cut.height = min(cut.height, p.y);
+    for chunk: scene.chunks {
+        if chunk.origin.y + CHUNK_SIZE <= cut.floor || chunk_column_distance(chunk.origin, view.focus) > CUT_RADIUS  continue;
+        for group: chunk.groups {
+            if mesh_cut(group.mesh) != .ROOF  continue;
+            for group.instances {
+                p := chunk.origin + Vector3.{xx it.x, xx it.y, xx it.z};
+                if p.y <= cut.floor  continue;
+                if length(Vector2.{p.x + 0.5 - view.focus.x, p.z + 0.5 - view.focus.z}) > CUT_RADIUS  continue;
+                cut.height = min(cut.height, p.y);
+            }
         }
     }
     return cut;

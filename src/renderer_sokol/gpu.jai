@@ -90,6 +90,7 @@ Pass :: struct {
     kind       : Pass_Kind;
     params     : View_Params;
     shadow     : Shadow_Params;
+    frustum    : [6]Vector4;
 }
 
 make_pass :: (scene: *Scene, view_index: int, kind: Pass_Kind) -> Pass {
@@ -110,6 +111,7 @@ make_pass :: (scene: *Scene, view_index: int, kind: Pass_Kind) -> Pass {
         camera    = pass.view.camera.target + env.sun_direction * 1000;
         view_proj = scene.shadow_view_proj[view_index];
     }
+    pass.frustum = frustum_planes(view_proj);
     _, inv_view_proj := inverse(view_proj);
     pass.params.view_proj     = view_proj.floats;
     pass.params.inv_view_proj = inv_view_proj.floats;
@@ -129,6 +131,22 @@ make_pass :: (scene: *Scene, view_index: int, kind: Pass_Kind) -> Pass {
     };
     pass.shadow.shadow_uv = (scene.shadow_view_proj[view_index] * transpose(to_uv)).floats;
     return pass;
+}
+
+frustum_planes :: (m: Matrix4) -> [6]Vector4 {
+    column :: (m: Matrix4, j: int) -> Vector4 { return .{m.coef[0][j], m.coef[1][j], m.coef[2][j], m.coef[3][j]}; }
+    x, y, z, w := column(m, 0), column(m, 1), column(m, 2), column(m, 3);
+    return .[w + x, w - x, w + y, w - y, w + z, w - z];
+}
+
+box_in_frustum :: (planes: [6]Vector4, lo: Vector3, hi: Vector3) -> bool {
+    for planes {
+        x := ifx it.x > 0 then hi.x else lo.x;
+        y := ifx it.y > 0 then hi.y else lo.y;
+        z := ifx it.z > 0 then hi.z else lo.z;
+        if it.x * x + it.y * y + it.z * z + it.w < 0  return false;
+    }
+    return true;
 }
 
 apply_uniforms :: (slot: s32, params: *$T) {

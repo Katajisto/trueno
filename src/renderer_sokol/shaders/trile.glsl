@@ -92,8 +92,8 @@ layout(binding=4) uniform texture3D probe_atlas;   // per brick 32^3 probes, 3 t
 layout(binding=2) uniform sampler probe_smp;
 
 const float GLOSS_GLOW           = 4.0;   // how much a full gloss highlight blooms
+const float SUN_GLOW             = 1.5;
 const float REFLECTED_GLOW_CURVE = 0.4;   // below 1, reflected glow fades slower than reflected colour
-const float GLASS_PROJECTION     = 2.0;   // how strongly coloured sunlight paints its colour on
 
 const int PROBE_BRICKS_PER_COLUMN = 16;
 
@@ -160,20 +160,17 @@ void main() {
     if (v_tint > 1.5)      albedo = mix(albedo, vec3(1.0, 0.2, 0.2), 0.5);
     else if (v_tint > 0.5) albedo = mix(albedo, vec3(0.2, 1.0, 0.2), 0.5);
     vec3 sun = v_facing * sun_shadow(v_world, v_normal);
-    vec3 lit = sun * mix(0.25, 1.0, v_ao);
     vec4 probe = probe_min.w > 0.5 ? probe_light(v_world, v_normal) : vec4(0.0);
-    vec3 shade = v_shade + probe.rgb;
-    vec3 light = mix(shade * mix(0.6, 1.0, v_ao), v_sun, lit);
-    vec3 color = albedo * light;
+    vec3 shade = (v_shade + probe.rgb) * mix(0.6, 1.0, v_ao);
+    vec3 incoming = v_sun * sun * mix(0.25, 1.0, v_ao);
+    vec3 color = albedo * (shade + incoming);
 
-    // Light through glass paints the glass colour onto what it hits, so the pattern
-    // shows on dark surfaces too, not only where the albedo can reflect it.
     float bright = brightest(sun);
     if (bright > 0.001) {
         float tinted = (bright - min(sun.r, min(sun.g, sun.b))) / bright;
-        color = mix(color, sun * v_sun, min(1.0, tinted * GLASS_PROJECTION));
+        color += incoming * (1.0 - albedo) * tinted;
     }
-    float glow = swatch.a * EMISSIVE_GLOW;
+    float glow = swatch.a * EMISSIVE_GLOW + brightest(incoming) * SUN_GLOW;
 
     // Glossier is both stronger and sharper.
     if (material.b > 0.0) {

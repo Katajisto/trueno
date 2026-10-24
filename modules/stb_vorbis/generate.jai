@@ -149,6 +149,8 @@ FOOTER_TEMPLATE :: #string END
     } else #if CPU == .ARM64 {
         %2 :: #library "switch2/%1";
     }
+} else #if OS == .WASM {
+    %2 :: #library,no_dll "wasm/%1";
 } else {
     #assert false;
 }

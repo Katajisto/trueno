@@ -92,6 +92,17 @@ mixer_queue_next :: (current_audio: *Audio_Data, next_task: Mixer_Play_Task) {
     array_add(*g_mixer.tasks, next_task);
 }
 
+mixer_stop :: (audio: *Audio_Data) {
+    mixer_lock(*g_mixer);
+    defer mixer_unlock(*g_mixer);
+    for g_mixer.tasks {
+        if it.audio != audio  continue;
+        if it.queued_next then free(it.queued_next);
+        free(it.audio_state);
+        remove it;
+    }
+}
+
 mixer_get_samples :: (buffer: *float, frame_count: s32, channel_count: s32) {
     mixer_lock(*g_mixer);
     defer mixer_unlock(*g_mixer);

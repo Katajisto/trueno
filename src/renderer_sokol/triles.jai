@@ -73,23 +73,36 @@ triles_upload :: (scene: *Scene) {
         triles.palette_image = sg_make_image(*desc);
     }
 
+    if triles.world_version != scene.world_version  world_rebuild(scene);
+
     array_reset_keeping_memory(*triles.instances);
     array_reset_keeping_memory(*triles.batches);
+    chunk_count := triles.world_chunks.count;
+    array_resize(*triles.cut_chunks, scene.views.count * chunk_count, initialize = false);
+    memset(triles.cut_chunks.data, 0, triles.cut_chunks.count);
 
     draws : [..]Keyed(Instance);
     draws.allocator = temp;
     for view, view_index: scene.views {
         array_reset_keeping_memory(*draws);
         if view.draw_world {
-            for chunk: scene.chunks  for group: chunk.groups  for group.instances {
-                position := chunk.origin + Vector3.{xx it.x, xx it.y, xx it.z};
-                cut := trile_cut(.{xx view_index}, group.mesh, position);
-                array_add(*draws, .{group.mesh.id, .{position, xx it.orientation, 0, cut}});
+            cut_chunks := array_view(triles.cut_chunks, view_index * chunk_count, chunk_count);
+            for view_cut_chunks(.{xx view_index}) {
+                index := table_find_pointer(*triles.chunk_index, it);
+                if index  cut_chunks[index.*] = true;
+            }
+            for batch: triles.world_batches {
+                if !batch.cuttable || !cut_chunks[batch.chunk]  continue;
+                for batch.first..batch.first + batch.count - 1 {
+                    instance := triles.world_instances[it];
+                    instance.cut = trile_cut(.{xx view_index}, .{batch.mesh}, instance.position);
+                    array_add(*draws, .{MAIN_ONLY_KEY | cast(s64) batch.mesh, instance});
+                }
             }
         }
         for scene.triles {
             if it.view.index != view_index  continue;
-            preview : s64 = ifx it.tint != .NONE then PREVIEW_KEY else 0;
+            preview : s64 = ifx it.tint != .NONE then MAIN_ONLY_KEY else 0;
             cut := ifx preview then 0.0 else trile_cut(it.view, it.mesh, it.position);
             array_add(*draws, .{preview | it.mesh.id, .{it.position, xx it.orientation, xx it.tint, cut}});
         }
@@ -104,14 +117,13 @@ triles_draw_glass_shadow :: (pass: *Pass) {
     apply_uniforms(UB_view_params, *pass.params);
     triles.params.show_hidden = 1;
     apply_uniforms(UB_trile_params, *triles.params);
-    for triles.batches {
-        if it.view_index != pass.view_index || it.key & PREVIEW_KEY  continue;
-        mesh := slot_get(*triles.meshes, xx it.key);
+    for pass_draws(pass) {
+        mesh := slot_get(*triles.meshes, it.mesh);
         if !mesh || mesh.index_count == 0  continue;
         bind : sg_bindings;
         bind.vertex_buffers[0]         = mesh.vertices;
         bind.index_buffer              = mesh.indices;
-        bind.vertex_buffers[1]         = triles.stream.buffer;
+        bind.vertex_buffers[1]         = it.buffer;
         bind.vertex_buffer_offsets[1]  = it.first * size_of(Instance);
         bind.images[IMG_palette]       = triles.palette_image;
         bind.samplers[SMP_palette_smp] = samplers.nearest_clamp;
@@ -137,15 +149,14 @@ triles_draw :: (pass: *Pass) {
         apply_uniforms(UB_trile_fs_params, *fs_params);
     }
 
-    for triles.batches {
-        if it.view_index != pass.view_index || (pass.kind != .MAIN && it.key & PREVIEW_KEY)  continue;
-        mesh := slot_get(*triles.meshes, xx (it.key & ~PREVIEW_KEY));
+    for pass_draws(pass) {
+        mesh := slot_get(*triles.meshes, it.mesh);
         if !mesh || mesh.index_count == 0  continue;
 
         bind : sg_bindings;
         bind.vertex_buffers[0]         = mesh.vertices;
         bind.index_buffer              = mesh.indices;
-        bind.vertex_buffers[1]         = triles.stream.buffer;
+        bind.vertex_buffers[1]         = it.buffer;
         bind.vertex_buffer_offsets[1]  = it.first * size_of(Instance);
         bind.images[IMG_palette]       = triles.palette_image;
         bind.samplers[SMP_palette_smp] = samplers.nearest_clamp;
@@ -176,7 +187,27 @@ Instance :: struct {
     cut         : float;   // 0..1 dissolved away from the camera, still casts shadows
 }
 
-PREVIEW_KEY :: 1 << 32;
+MAIN_ONLY_KEY :: 1 << 32;
+
+World_Chunk :: struct {
+    key    : Chunk_Key;
+    origin : Vector3;
+}
+
+World_Batch :: struct {
+    mesh     : u32;
+    chunk    : s32;
+    cuttable : bool;
+    first    : s32;
+    count    : s32;
+}
+
+Trile_Draw :: struct {
+    mesh   : u32;
+    buffer : sg_buffer;
+    first  : s32;
+    count  : s32;
+}
 
 triles : struct {
     pipeline        : sg_pipeline;
@@ -192,6 +223,94 @@ triles : struct {
     instances     : [..]Instance;
     batches       : [..]Batch;
     stream        : Stream_Buffer;
+
+    world_version   : u64;
+    world_chunks    : [..]World_Chunk;
+    chunk_index     : Table(Chunk_Key, s32, chunk_key_hash, chunk_key_compare);
+    world_batches   : [..]World_Batch;
+    world_instances : [..]Instance;
+    world_buffer    : sg_buffer;
+    cut_chunks      : [..]bool;
+}
+
+world_rebuild :: (scene: *Scene) {
+    triles.world_version = scene.world_version;
+    array_reset_keeping_memory(*triles.world_chunks);
+    array_reset_keeping_memory(*triles.world_batches);
+    array_reset_keeping_memory(*triles.world_instances);
+    table_reset(*triles.chunk_index);
+
+    for scene.chunks  array_add(*triles.world_chunks, .{it_index, it.origin});
+    quick_sort(triles.world_chunks, (a: World_Chunk, b: World_Chunk) -> s64 {
+        if a.key.x != b.key.x  return a.key.x - b.key.x;
+        if a.key.z != b.key.z  return a.key.z - b.key.z;
+        return a.key.y - b.key.y;
+    });
+
+    Piece :: struct {
+        key   : s64;
+        chunk : s32;
+        group : *World_Group;
+    }
+    pieces : [..]Piece;
+    pieces.allocator = temp;
+    for chunk, index: triles.world_chunks {
+        table_set(*triles.chunk_index, chunk.key, xx index);
+        scene_chunk := table_find_pointer(*scene.chunks, chunk.key);
+        for * scene_chunk.groups  array_add(*pieces, .{(cast(s64) it.mesh.id << 32) | index, xx index, it});
+    }
+    quick_sort(pieces, (a: Piece, b: Piece) -> s64 { return a.key - b.key; });
+
+    occluders := world_occluders();
+    for pieces {
+        chunk := triles.world_chunks[it.chunk];
+        batch := World_Batch.{mesh = it.group.mesh.id, chunk = it.chunk, cuttable = trile_mesh_cuttable(it.group.mesh), first = xx triles.world_instances.count};
+        for instance: it.group.instances {
+            if trile_buried(*occluders, chunk.key, instance.x, instance.y, instance.z)  continue;
+            position := chunk.origin + Vector3.{xx instance.x, xx instance.y, xx instance.z};
+            array_add(*triles.world_instances, .{position, xx instance.orientation, 0, 0});
+        }
+        batch.count = xx (triles.world_instances.count - batch.first);
+        if batch.count  array_add(*triles.world_batches, batch);
+    }
+
+    if triles.world_buffer.id  sg_destroy_buffer(triles.world_buffer);
+    triles.world_buffer = .{};
+    if triles.world_instances.count {
+        size := triles.world_instances.count * size_of(Instance);
+        triles.world_buffer = sg_make_buffer(*(sg_buffer_desc.{ data = .{ triles.world_instances.data, xx size } }));
+    }
+}
+
+pass_draws :: (pass: *Pass) -> []Trile_Draw {
+    draws : [..]Trile_Draw;
+    draws.allocator = temp;
+    main := pass.kind == .MAIN;
+
+    if pass.view.draw_world && triles.world_batches.count {
+        chunk_count := triles.world_chunks.count;
+        visible := NewArray(chunk_count, bool,, temp);
+        for triles.world_chunks  visible[it_index] = box_in_frustum(pass.frustum, it.origin, it.origin + Vector3.{CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE});
+        cut_chunks := array_view(triles.cut_chunks, pass.view_index * chunk_count, chunk_count);
+
+        run : Trile_Draw;
+        for triles.world_batches {
+            if !visible[it.chunk] || (main && it.cuttable && cut_chunks[it.chunk])  continue;
+            if run.count && run.mesh == it.mesh && run.first + run.count == it.first {
+                run.count += it.count;
+                continue;
+            }
+            if run.count  array_add(*draws, run);
+            run = .{it.mesh, triles.world_buffer, it.first, it.count};
+        }
+        if run.count  array_add(*draws, run);
+    }
+
+    for triles.batches {
+        if it.view_index != pass.view_index || (!main && it.key & MAIN_ONLY_KEY)  continue;
+        array_add(*draws, .{xx (it.key & ~MAIN_ONLY_KEY), triles.stream.buffer, it.first, it.count});
+    }
+    return draws;
 }
 
 make_mesh :: (mesh: *Mesh, vertices: []Trile_Vertex, indices: []u16) {
